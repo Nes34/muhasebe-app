@@ -1,4 +1,7 @@
--- Mevcut tüm kasaları sil
+-- opening_balance sütunu yoksa ekle
+ALTER TABLE cash_registers ADD COLUMN IF NOT EXISTS opening_balance NUMERIC DEFAULT 0;
+
+-- Mevcut kasaları sil
 DELETE FROM cash_transactions;
 DELETE FROM cash_registers;
 

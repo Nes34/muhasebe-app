@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import type { CashRegister, CashTransaction, Firm, Project } from '../types';
-import { Plus, ArrowUpCircle, ArrowDownCircle, AlertTriangle } from 'lucide-react';
+import { Plus, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 
 export default function CashManagement() {
   const { selectedFirm } = useFirm();

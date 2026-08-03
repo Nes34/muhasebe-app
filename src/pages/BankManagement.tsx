@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import type { BankAccount, BankTransaction, Firm, Project } from '../types';
-import { Plus, ArrowUpCircle, ArrowDownCircle, Building2, AlertTriangle } from 'lucide-react';
+import { Plus, ArrowUpCircle, ArrowDownCircle, Building2 } from 'lucide-react';
 
 export default function BankManagement() {
   const { selectedFirm } = useFirm();
