@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { importFromExcel, exportCarilerToCSV } from '../lib/excel';
 import { generateNextCode, findSimilar, formatCurrency } from '../lib/utils';
@@ -35,9 +35,21 @@ export default function Cariler() {
   const [similarWarning, setSimilarWarning] = useState<CariWithBalance[]>([]);
   const [autoCode, setAutoCode] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { fetchMeta(); }, []);
   useEffect(() => { fetchCariler(); }, [selectedFirm, filterFirmId, filterProjectId]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (formData.name && !editingCari) {
@@ -313,9 +325,40 @@ export default function Cariler() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs text-slate-500 mb-1">Cari Ara</label>
-            <div className="relative">
+            <div className="relative" ref={searchRef}>
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" placeholder="Kod, isim veya vergi no..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
+              <input
+                type="text"
+                placeholder="Kod, isim veya vergi no..."
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setSearchOpen(true); }}
+                onFocus={() => setSearchOpen(true)}
+                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              />
+              {searchOpen && searchTerm && filtered.length > 0 && (
+                <div className="absolute z-[70] w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+                  {filtered.slice(0, 15).map((cari) => (
+                    <div
+                      key={cari.id}
+                      className="px-4 py-2 cursor-pointer hover:bg-blue-50 flex items-center gap-2"
+                      onClick={() => { setSearchTerm(cari.code || cari.name); setSearchOpen(false); }}
+                    >
+                      {cari.code && (
+                        <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-mono font-bold">{cari.code}</span>
+                      )}
+                      <span className="font-medium text-sm">{cari.name}</span>
+                      {cari.tax_number && (
+                        <span className="text-xs text-slate-400 ml-auto">Vergi: {cari.tax_number}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {searchOpen && searchTerm && filtered.length === 0 && (
+                <div className="absolute z-[70] w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-4 text-center text-slate-500 text-sm">
+                  Sonuç bulunamadı
+                </div>
+              )}
             </div>
           </div>
           <div>

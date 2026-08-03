@@ -3,25 +3,25 @@ import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { exportAccountStatementToExcel } from '../lib/excel';
 import SearchableSelect from '../components/SearchableSelect';
-import type { Transaction, Firm, Project } from '../types';
+import type { Transaction, Cari, Project } from '../types';
 import { Search, Download, FileText } from 'lucide-react';
 
 export default function AccountStatement() {
-  const [firms, setFirms] = useState<Firm[]>([]);
+  const [cariler, setCariler] = useState<Cari[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedFirmId, setSelectedFirmId] = useState('');
+  const [selectedCariId, setSelectedCariId] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [includeException, setIncludeException] = useState(true);
 
-  useEffect(() => { fetchFirms(); fetchProjects(); }, []);
+  useEffect(() => { fetchCariler(); fetchProjects(); }, []);
 
-  const fetchFirms = async () => {
-    const { data } = await supabase.from('firms').select('*').eq('is_active', true).in('type', ['customer', 'supplier']).order('code');
-    if (data) setFirms(data);
+  const fetchCariler = async () => {
+    const { data } = await supabase.from('cariler').select('*').eq('is_active', true).order('code');
+    if (data) setCariler(data);
   };
 
   const fetchProjects = async () => {
@@ -30,9 +30,9 @@ export default function AccountStatement() {
   };
 
   const fetchStatement = async () => {
-    if (!selectedFirmId) return;
+    if (!selectedCariId) return;
     setLoading(true);
-    let query = supabase.from('transactions').select('*, firm:firms(*), project:projects(*)').eq('firm_id', selectedFirmId).order('transaction_date', { ascending: true });
+    let query = supabase.from('transactions').select('*, firm:firms(*), project:projects(*)').eq('cari_id', selectedCariId).order('transaction_date', { ascending: true });
     if (selectedProjectId) query = query.eq('project_id', selectedProjectId);
     if (startDate) query = query.gte('transaction_date', startDate);
     if (endDate) query = query.lte('transaction_date', endDate);
@@ -60,9 +60,9 @@ export default function AccountStatement() {
       <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <SearchableSelect
-            options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
-            value={selectedFirmId}
-            onChange={(id) => setSelectedFirmId(id)}
+            options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name, tax_number: c.tax_number }))}
+            value={selectedCariId}
+            onChange={(id) => setSelectedCariId(id)}
             placeholder="Kod veya isim ile cari ara..."
             required
           />
@@ -72,7 +72,7 @@ export default function AccountStatement() {
         </div>
         <div className="mt-4 flex items-center justify-between">
           <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={includeException} onChange={(e) => setIncludeException(e.target.checked)} className="w-4 h-4 text-blue-600 rounded" /><span className="text-sm text-slate-700">İstisna işlemleri dahil et</span></label>
-          <button onClick={fetchStatement} disabled={!selectedFirmId || loading} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"><Search size={16} />{loading ? 'Aranıyor...' : 'Filtrele'}</button>
+          <button onClick={fetchStatement} disabled={!selectedCariId || loading} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"><Search size={16} />{loading ? 'Aranıyor...' : 'Filtrele'}</button>
         </div>
       </div>
 
@@ -84,7 +84,7 @@ export default function AccountStatement() {
             <div className={`rounded-xl p-4 border ${totals.balance >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}><p className={`text-sm ${totals.balance >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>Net Bakiye</p><p className={`text-2xl font-bold ${totals.balance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>{formatCurrency(Math.abs(totals.balance))}{totals.balance >= 0 ? ' (Alacaklı)' : ' (Borçlu)'}</p></div>
           </div>
           <div className="flex gap-2 mb-4">
-            <button onClick={() => { const firm = firms.find(f => f.id === selectedFirmId); exportAccountStatementToExcel(transactions, firm?.name || 'firm'); }} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"><Download size={16} />Excel İndir</button>
+            <button onClick={() => { const cari = cariler.find(c => c.id === selectedCariId); exportAccountStatementToExcel(transactions, cari?.name || 'cari'); }} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"><Download size={16} />Excel İndir</button>
           </div>
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="overflow-x-auto">
@@ -113,8 +113,8 @@ export default function AccountStatement() {
         </>
       )}
 
-      {transactions.length === 0 && !loading && selectedFirmId && <div className="text-center py-12 bg-white rounded-xl border border-slate-200"><FileText size={48} className="mx-auto text-slate-300 mb-4" /><p className="text-slate-500">Bu firma için işlem bulunamadı.</p></div>}
-      {!selectedFirmId && <div className="text-center py-12 bg-white rounded-xl border border-slate-200"><Search size={48} className="mx-auto text-slate-300 mb-4" /><p className="text-slate-500">Ekstre görmek için firma seçiniz.</p></div>}
+      {transactions.length === 0 && !loading && selectedCariId && <div className="text-center py-12 bg-white rounded-xl border border-slate-200"><FileText size={48} className="mx-auto text-slate-300 mb-4" /><p className="text-slate-500">Bu cari için işlem bulunamadı.</p></div>}
+      {!selectedCariId && <div className="text-center py-12 bg-white rounded-xl border border-slate-200"><Search size={48} className="mx-auto text-slate-300 mb-4" /><p className="text-slate-500">Ekstre görmek için cari seçiniz.</p></div>}
     </div>
   );
 }
