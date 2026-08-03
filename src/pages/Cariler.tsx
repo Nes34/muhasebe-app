@@ -251,10 +251,6 @@ export default function Cariler() {
 
   const filteredProjects = allProjects.filter(p => !filterFirmId || p.firm_id === filterFirmId);
 
-  const totalDebt = filtered.reduce((s, c) => s + (c.debt || 0), 0);
-  const totalCredit = filtered.reduce((s, c) => s + (c.credit || 0), 0);
-  const totalBalance = filtered.reduce((s, c) => s + (c.balance || 0), 0);
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -305,22 +301,6 @@ export default function Cariler() {
               {filteredProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-        </div>
-      </div>
-
-      {/* Özet Kartları */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div className="bg-red-50 rounded-xl p-4 border border-red-200">
-          <p className="text-sm text-red-700">Toplam Borç</p>
-          <p className="text-2xl font-bold text-red-600">{formatCurrency(totalDebt)}</p>
-        </div>
-        <div className="bg-green-50 rounded-xl p-4 border border-green-200">
-          <p className="text-sm text-green-700">Toplam Alacak</p>
-          <p className="text-2xl font-bold text-green-600">{formatCurrency(totalCredit)}</p>
-        </div>
-        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-          <p className="text-sm text-blue-700">Net Bakiye</p>
-          <p className={`text-2xl font-bold ${totalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(totalBalance)}</p>
         </div>
       </div>
       
