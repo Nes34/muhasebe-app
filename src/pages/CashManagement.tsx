@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import type { CashRegister, CashTransaction, Firm, Project } from '../types';
-import { Plus, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { Plus, ArrowUpCircle, ArrowDownCircle, Wallet } from 'lucide-react';
 
 export default function CashManagement() {
   const { selectedFirm } = useFirm();
@@ -31,11 +31,13 @@ export default function CashManagement() {
 
   useEffect(() => {
     fetchRegisters();
+    setSelectedRegister('');
+    setTransactions([]);
   }, [selectedFirm]);
 
   const fetchData = async () => {
     const [firmsRes, projectsRes] = await Promise.all([
-      supabase.from('firms').select('*').eq('is_active', true).in('type', ['customer', 'supplier']).order('code'),
+      supabase.from('firms').select('*').eq('is_active', true).order('code'),
       supabase.from('projects').select('*').eq('status', 'active').order('name'),
     ]);
     if (firmsRes.data) setFirms(firmsRes.data);
@@ -44,9 +46,7 @@ export default function CashManagement() {
   };
 
   const fetchRegisters = async () => {
-    let query = supabase.from('cash_registers').select('*').eq('is_active', true).order('name');
-    if (selectedFirm) query = query.eq('firm_id', selectedFirm.id);
-    const { data } = await query;
+    const { data } = await supabase.from('cash_registers').select('*').eq('is_active', true).order('name');
     if (data) setRegisters(data);
   };
 
@@ -93,6 +93,34 @@ export default function CashManagement() {
 
   const filteredProjects = projects.filter(p => !transactionData.firm_id || p.firm_id === transactionData.firm_id);
 
+  // Seçili firmaya ait kasalar
+  const filteredRegisters = selectedFirm
+    ? registers.filter(r => r.firm_id === selectedFirm.id)
+    : [];
+
+  // Tüm kasaların toplam bakiyesi (firma seçilmediğinde)
+  const totalBalance = registers.reduce((sum, r) => sum + (r.current_balance || 0), 0);
+  const totalOpening = registers.reduce((sum, r) => sum + (r.opening_balance || 0), 0);
+
+  // Seçili kasanın firmadaki hareketleri (firma seçilmediğinde tüm firmaların hareketleri)
+  const fetchAllTransactions = async () => {
+    if (selectedFirm) {
+      // Firma seçiliyse sadece o firmadaki kasaların hareketlerini çek
+      const regIds = filteredRegisters.map(r => r.id);
+      if (regIds.length === 0) { setTransactions([]); return; }
+      const { data } = await supabase.from('cash_transactions').select('*').in('cash_register_id', regIds).order('created_at', { ascending: false }).limit(50);
+      if (data) setTransactions(data);
+    } else {
+      // Firma seçilmediyse tüm hareketleri çek
+      const { data } = await supabase.from('cash_transactions').select('*').order('created_at', { ascending: false }).limit(50);
+      if (data) setTransactions(data);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllTransactions();
+  }, [selectedFirm, registers]);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -100,65 +128,79 @@ export default function CashManagement() {
         <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><Plus size={16} />Yeni Kasa</button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        {registers.map(register => (
-          <div key={register.id} onClick={() => { setSelectedRegister(register.id); fetchTransactions(register.id); }} className={`bg-white rounded-xl p-6 border-2 cursor-pointer transition-all ${selectedRegister === register.id ? 'border-blue-500 shadow-lg' : 'border-slate-200 hover:border-slate-300'}`}>
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-slate-800">{register.name}</h3>
-              <button onClick={(e) => { e.stopPropagation(); setEditModal(register); setEditBalance(register.opening_balance || 0); }} className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50">Düzenle</button>
+      {/* Kasa Kartları */}
+      {!selectedFirm ? (
+        // Tüm firmalar seçiliyse → tek toplam kart
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <div onClick={() => { setSelectedRegister('all'); }} className="bg-white rounded-xl p-6 border-2 cursor-pointer transition-all border-blue-500 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Wallet size={24} className="text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-800">Tüm Kasalar</h3>
+                <p className="text-xs text-slate-500">{registers.length} kasa</p>
+              </div>
             </div>
-            <p className="text-2xl font-bold text-blue-600 mt-2">{formatCurrency(register.current_balance, register.currency)}</p>
-            <p className="text-sm text-slate-500 mt-1">{register.currency}</p>
-            <p className="text-xs text-slate-400 mt-1">Açılış: {formatCurrency(register.opening_balance || 0)}</p>
+            <p className="text-2xl font-bold text-blue-600 mt-3">{formatCurrency(totalBalance)}</p>
+            <p className="text-sm text-slate-500 mt-1">Toplam Bakiye</p>
+            <p className="text-xs text-slate-400 mt-1">Açılış: {formatCurrency(totalOpening)}</p>
           </div>
-        ))}
-      </div>
-
-      {selectedRegister && (
-        <div className="bg-white rounded-xl border border-slate-200">
-          <div className="flex items-center justify-between p-4 border-b border-slate-200">
-            <h2 className="font-semibold text-slate-800">Son Hareketler</h2>
-            <button onClick={() => setShowTransactionForm(true)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"><Plus size={16} />Hareket Ekle</button>
-          </div>
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Tarih</th><th className="text-left py-3 px-4">Tür</th><th className="text-left py-3 px-4">Cari</th><th className="text-left py-3 px-4">Proje</th><th className="text-right py-3 px-4">Tutar</th><th className="text-left py-3 px-4">Açıklama</th></tr></thead>
-            <tbody>
-              {(() => {
-                const register = registers.find(r => r.id === selectedRegister);
-                const openingBalance = register?.opening_balance || 0;
-                return (
-                  <>
-                    <tr className="border-t border-slate-100 bg-blue-50">
-                      <td className="py-3 px-4 text-blue-600 font-medium">-</td>
-                      <td className="py-3 px-4"><span className="text-blue-600 font-medium">Açılış</span></td>
-                      <td className="py-3 px-4">-</td>
-                      <td className="py-3 px-4">-</td>
-                      <td className="py-3 px-4 text-right font-medium text-blue-600">{formatCurrency(openingBalance)}</td>
-                      <td className="py-3 px-4 text-blue-500 italic">Açılış Bakiyesi</td>
-                    </tr>
-                    {transactions.map(t => (
-                      <tr key={t.id} className="border-t border-slate-100">
-                        <td className="py-3 px-4">{formatDateTR(t.created_at)}</td>
-                        <td className="py-3 px-4"><span className={`flex items-center gap-1 ${t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}`}>{t.transaction_type === 'in' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}{t.transaction_type === 'in' ? 'Giriş' : 'Çıkış'}</span></td>
-                        <td className="py-3 px-4 text-slate-600">{firms.find(f => f.id === t.firm_id)?.name || '-'}</td>
-                        <td className="py-3 px-4 text-slate-600">{projects.find(p => p.id === t.project_id)?.name || '-'}</td>
-                        <td className="py-3 px-4 text-right font-medium"><span className={t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}>{t.transaction_type === 'in' ? '+' : '-'}{formatCurrency(t.amount)}</span></td>
-                        <td className="py-3 px-4 text-slate-600">{t.description || '-'}</td>
-                      </tr>
-                    ))}
-                  </>
-                );
-              })()}
-            </tbody>
-          </table>
-          {transactions.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-slate-500">Henüz hareket yok.</p>
-              <p className="text-sm text-blue-500 mt-2">Açılış Bakiyesi: {formatCurrency(registers.find(r => r.id === selectedRegister)?.opening_balance || 0)}</p>
+        </div>
+      ) : (
+        // Firma seçiliyse → o firmaya ait kasalar
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          {filteredRegisters.map(register => (
+            <div key={register.id} onClick={() => { setSelectedRegister(register.id); fetchTransactions(register.id); }} className={`bg-white rounded-xl p-6 border-2 cursor-pointer transition-all ${selectedRegister === register.id ? 'border-blue-500 shadow-lg' : 'border-slate-200 hover:border-slate-300'}`}>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-slate-800">{register.name}</h3>
+                <button onClick={(e) => { e.stopPropagation(); setEditModal(register); setEditBalance(register.opening_balance || 0); }} className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50">Düzenle</button>
+              </div>
+              <p className="text-2xl font-bold text-blue-600 mt-2">{formatCurrency(register.current_balance, register.currency)}</p>
+              <p className="text-sm text-slate-500 mt-1">{register.currency}</p>
+              <p className="text-xs text-slate-400 mt-1">Açılış: {formatCurrency(register.opening_balance || 0)}</p>
+            </div>
+          ))}
+          {filteredRegisters.length === 0 && (
+            <div className="bg-white rounded-xl p-6 border border-slate-200 text-center">
+              <p className="text-slate-500">Bu firmaya ait kasa bulunamadı.</p>
             </div>
           )}
         </div>
       )}
+
+      {/* Hareketler Tablosu */}
+      <div className="bg-white rounded-xl border border-slate-200">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+          <h2 className="font-semibold text-slate-800">
+            {selectedFirm ? `${selectedFirm.name} - Kasa Hareketleri` : 'Tüm Kasa Hareketleri'}
+          </h2>
+          {selectedFirm && selectedRegister && selectedRegister !== 'all' && (
+            <button onClick={() => setShowTransactionForm(true)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"><Plus size={16} />Hareket Ekle</button>
+          )}
+        </div>
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Tarih</th><th className="text-left py-3 px-4">Tür</th><th className="text-left py-3 px-4">Kasa</th><th className="text-left py-3 px-4">Cari</th><th className="text-left py-3 px-4">Proje</th><th className="text-right py-3 px-4">Tutar</th><th className="text-left py-3 px-4">Açıklama</th></tr></thead>
+          <tbody>
+            {transactions.map(t => (
+              <tr key={t.id} className="border-t border-slate-100">
+                <td className="py-3 px-4">{formatDateTR(t.created_at)}</td>
+                <td className="py-3 px-4"><span className={`flex items-center gap-1 ${t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}`}>{t.transaction_type === 'in' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}{t.transaction_type === 'in' ? 'Giriş' : 'Çıkış'}</span></td>
+                <td className="py-3 px-4 text-slate-600">{registers.find(r => r.id === t.cash_register_id)?.name || '-'}</td>
+                <td className="py-3 px-4 text-slate-600">{firms.find(f => f.id === t.firm_id)?.name || '-'}</td>
+                <td className="py-3 px-4 text-slate-600">{projects.find(p => p.id === t.project_id)?.name || '-'}</td>
+                <td className="py-3 px-4 text-right font-medium"><span className={t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}>{t.transaction_type === 'in' ? '+' : '-'}{formatCurrency(t.amount)}</span></td>
+                <td className="py-3 px-4 text-slate-600">{t.description || '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {transactions.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-slate-500">Henüz hareket yok.</p>
+          </div>
+        )}
+      </div>
 
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
