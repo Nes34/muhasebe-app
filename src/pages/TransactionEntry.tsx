@@ -110,6 +110,13 @@ export default function TransactionEntry() {
     }
   }, [selectedFirm]);
 
+  // Tek firma varsa otomatik seç
+  useEffect(() => {
+    if (firms.length === 1 && !firmId) {
+      setFirmId(firms[0].id);
+    }
+  }, [firms]);
+
   const fetchData = async () => {
     const [firmsRes, projectsRes, categoriesRes, typesRes, cashRes, bankRes, productsRes, unitsRes, descriptionsRes] = await Promise.all([
       supabase.from('firms').select('*').eq('is_active', true),
@@ -452,6 +459,13 @@ export default function TransactionEntry() {
       // Validasyon: Proje zorunlu
       if (!projectId) {
         setMessage({ type: 'error', text: 'Proje seçimi zorunludur!' });
+        setLoading(false);
+        return;
+      }
+
+      // Validasyon: Firma zorunlu
+      if (!firmId) {
+        setMessage({ type: 'error', text: 'Firma seçimi zorunludur! Lütfen üstten bir firma seçin.' });
         setLoading(false);
         return;
       }
