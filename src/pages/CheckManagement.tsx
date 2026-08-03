@@ -3,13 +3,14 @@ import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
-import type { Check, Firm } from '../types';
+import type { Check, Firm, BankAccount } from '../types';
 import { Plus, Edit2, Trash2, Search, AlertTriangle, Send } from 'lucide-react';
 
 export default function CheckManagement() {
   const { selectedFirm } = useFirm();
   const [checks, setChecks] = useState<Check[]>([]);
   const [firms, setFirms] = useState<Firm[]>([]);
+  const [firmBankAccounts, setFirmBankAccounts] = useState<BankAccount[]>([]);
   const [_loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'received' | 'given'>('all');
@@ -50,6 +51,12 @@ export default function CheckManagement() {
     if (data) setFirms(data);
   };
 
+  const fetchFirmBankAccounts = async (firmId: string) => {
+    if (!firmId) { setFirmBankAccounts([]); return; }
+    const { data } = await supabase.from('bank_accounts').select('*').eq('is_active', true).eq('firm_id', firmId).order('bank_name');
+    if (data) setFirmBankAccounts(data);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingCheck) {
@@ -65,6 +72,7 @@ export default function CheckManagement() {
   const handleEdit = (check: Check) => {
     setEditingCheck(check);
     setFormData({ check_number: check.check_number, check_type: check.check_type, firm_id: check.firm_id, bank_name: check.bank_name || '', bank_branch: check.bank_branch || '', amount: check.amount, issue_date: check.issue_date, due_date: check.due_date, notes: check.notes || '' });
+    if (check.firm_id) fetchFirmBankAccounts(check.firm_id);
     setShowForm(true);
   };
 
@@ -222,16 +230,33 @@ export default function CheckManagement() {
             <h2 className="text-lg font-semibold mb-4">{editingCheck ? 'Çek Düzenle' : 'Yeni Çek'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Çek Numarası</label><input type="text" value={formData.check_number} onChange={(e) => setFormData({ ...formData, check_number: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Çek Türü</label><select value={formData.check_type} onChange={(e) => setFormData({ ...formData, check_type: e.target.value as 'received' | 'given' })} className="w-full px-4 py-2 border border-slate-300 rounded-lg"><option value="received">Alınan Çek</option><option value="given">Verilen Çek</option></select></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Çek Türü</label><select value={formData.check_type} onChange={(e) => { const newType = e.target.value as 'received' | 'given'; setFormData({ ...formData, check_type: newType, bank_name: '' }); if (newType === 'given' && formData.firm_id) fetchFirmBankAccounts(formData.firm_id); }} className="w-full px-4 py-2 border border-slate-300 rounded-lg"><option value="received">Alınan Çek</option><option value="given">Verilen Çek</option></select></div>
               <SearchableSelect
                 options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
                 value={formData.firm_id}
-                onChange={(id) => setFormData({ ...formData, firm_id: id })}
+                onChange={(id) => { setFormData({ ...formData, firm_id: id, bank_name: '' }); fetchFirmBankAccounts(id); }}
                 label="Cari"
                 placeholder="Kod veya isim ile cari ara..."
                 required
               />
-              <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Banka</label><input type="text" value={formData.bank_name} onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Şube</label><input type="text" value={formData.bank_branch} onChange={(e) => setFormData({ ...formData, bank_branch: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div></div>
+              {formData.check_type === 'given' && formData.firm_id ? (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Banka Hesabı *</label>
+                  <select
+                    value={formData.bank_name}
+                    onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                    required
+                  >
+                    <option value="">Banka seçin...</option>
+                    {firmBankAccounts.map(ba => (
+                      <option key={ba.id} value={ba.bank_name}>{ba.bank_name} - {ba.account_number || ba.branch || ''}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Banka</label><input type="text" value={formData.bank_name} onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Şube</label><input type="text" value={formData.bank_branch} onChange={(e) => setFormData({ ...formData, bank_branch: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div></div>
+              )}
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Tutar</label><input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
               <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Düzenleme</label><input type="text" value={formData.issue_date} onChange={(e) => setFormData({ ...formData, issue_date: e.target.value })} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Vade</label><input type="text" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div></div>
               <div className="flex gap-2 justify-end">
