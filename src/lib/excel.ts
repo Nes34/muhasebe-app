@@ -1,11 +1,28 @@
 import * as XLSX from 'xlsx';
-import type { Transaction } from '../types';
+import type { Transaction, Cari, Firm } from '../types';
 
 export function exportToExcel(data: Record<string, unknown>[], filename: string, sheetName = 'Sayfa1') {
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
   XLSX.writeFile(wb, `${filename}.xlsx`);
+}
+
+export function exportToCSV(data: Record<string, unknown>[], filename: string) {
+  if (data.length === 0) return;
+  const headers = Object.keys(data[0]);
+  const csvRows = [
+    '\uFEFF' + headers.join(';'),
+    ...data.map(row => headers.map(h => {
+      const val = String(row[h] ?? '');
+      return val.includes(';') || val.includes('"') || val.includes('\n') ? `"${val.replace(/"/g, '""')}"` : val;
+    }).join(';'))
+  ];
+  const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${filename}.csv`;
+  link.click();
 }
 
 export function importFromExcel(file: File): Promise<Record<string, unknown>[]> {
@@ -25,6 +42,32 @@ export function importFromExcel(file: File): Promise<Record<string, unknown>[]> 
     reader.onerror = () => reject(new Error('Dosya okunamadı'));
     reader.readAsArrayBuffer(file);
   });
+}
+
+export function exportCarilerToCSV(cariler: Cari[]) {
+  const data = cariler.map(c => ({
+    'Kod': c.code || '',
+    'Cari Adı': c.name,
+    'Vergi No': c.tax_number || '',
+    'Tür': c.type === 'customer' ? 'Alıcı' : c.type === 'supplier' ? 'Satıcı' : 'Alıcı/Satıcı',
+    'Adres': c.address || '',
+    'Telefon': c.phone || '',
+    'E-posta': c.email || '',
+  }));
+  exportToCSV(data, 'cariler');
+}
+
+export function exportFirmsToCSV(firms: Firm[]) {
+  const data = firms.map(f => ({
+    'Kod': f.code || '',
+    'Firma Adı': f.name,
+    'Vergi No': f.tax_number || '',
+    'Tür': f.type === 'both' ? 'Her İkisi' : f.type === 'customer' ? 'Alıcı' : 'Satıcı',
+    'Adres': f.address || '',
+    'Telefon': f.phone || '',
+    'E-posta': f.email || '',
+  }));
+  exportToCSV(data, 'firmalar');
 }
 
 export function exportTransactionsToExcel(transactions: Transaction[]) {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { importFromExcel } from '../lib/excel';
+import { importFromExcel, exportCarilerToCSV } from '../lib/excel';
 import { generateNextCode, findSimilar, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import type { Cari, Firm, Project } from '../types';
@@ -261,10 +261,13 @@ export default function Cariler() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Cari Yönetimi{selectedFirm ? ` - ${selectedFirm.name}` : ''}</h1>
         <div className="flex gap-2">
-          <button onClick={() => setShowExcelImport(true)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+          <button onClick={() => exportCarilerToCSV(cariler)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            <Download size={16} />CSV İndir
+          </button>
+          <button onClick={() => setShowExcelImport(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             <FileSpreadsheet size={16} />Excel'den İçe Aktar
           </button>
-          <button onClick={() => { setEditingCari(null); setFormData({ name: '', tax_number: '', address: '', phone: '', email: '', type: 'both' }); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><Plus size={16} />Yeni Cari</button>
+          <button onClick={() => { setEditingCari(null); setFormData({ name: '', tax_number: '', address: '', phone: '', email: '', type: 'both' }); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors"><Plus size={16} />Yeni Cari</button>
         </div>
       </div>
 

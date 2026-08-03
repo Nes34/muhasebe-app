@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, findSimilar } from '../lib/utils';
-import { importFromExcel } from '../lib/excel';
+import { importFromExcel, exportFirmsToCSV } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
 import type { Firm } from '../types';
 import { Plus, Edit2, Trash2, Search, Building2, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
@@ -181,10 +181,13 @@ export default function Firms() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Firma Yönetimi{selectedFirm ? ` - ${selectedFirm.name}` : ''}</h1>
         <div className="flex gap-2">
-          <button onClick={() => setShowExcelImport(true)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+          <button onClick={() => exportFirmsToCSV(firmSummaries.map(fs => fs.firm))} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            <Download size={16} />CSV İndir
+          </button>
+          <button onClick={() => setShowExcelImport(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             <FileSpreadsheet size={16} />Excel'den İçe Aktar
           </button>
-          <button onClick={() => { setEditingFirm(null); setFormData({ name: '', tax_number: '', address: '', phone: '', email: '', type: 'both' }); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><Plus size={16} />Yeni Firma</button>
+          <button onClick={() => { setEditingFirm(null); setFormData({ name: '', tax_number: '', address: '', phone: '', email: '', type: 'both' }); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors"><Plus size={16} />Yeni Firma</button>
         </div>
       </div>
 
