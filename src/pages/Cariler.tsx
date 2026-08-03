@@ -67,15 +67,17 @@ export default function Cariler() {
 
     const cariIds = firms.map(f => f.id);
     
-    // İşlemleri çek - filtre uygula
+    // İşlemleri çek - selectedFirm veya filterFirmId filtresi uygula
     let txQuery = supabase.from('transactions').select('firm_id, amount, transaction_type, invoice_number, project_id').in('firm_id', cariIds);
     if (filterFirmId) txQuery = txQuery.eq('firm_id', filterFirmId);
+    else if (selectedFirm) txQuery = txQuery.eq('firm_id', selectedFirm.id);
     if (filterProjectId) txQuery = txQuery.eq('project_id', filterProjectId);
     const { data: transactions } = await txQuery;
 
-    // Çekleri çek - filtre uygula
+    // Çekleri çek - selectedFirm veya filterFirmId filtresi uygula
     let checkQuery = supabase.from('checks').select('firm_id, amount, check_type').in('firm_id', cariIds);
     if (filterFirmId) checkQuery = checkQuery.eq('firm_id', filterFirmId);
+    else if (selectedFirm) checkQuery = checkQuery.eq('firm_id', selectedFirm.id);
     const { data: checks } = await checkQuery;
 
     // Her cari için verileri hesapla
@@ -249,12 +251,15 @@ export default function Cariler() {
     }
   };
 
-  const filteredProjects = allProjects.filter(p => !filterFirmId || p.firm_id === filterFirmId);
+  const filteredProjects = allProjects.filter(p => {
+    const firmFilter = filterFirmId || selectedFirm?.id;
+    return !firmFilter || p.firm_id === firmFilter;
+  });
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Cari Yönetimi</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Cari Yönetimi{selectedFirm ? ` - ${selectedFirm.name}` : ''}</h1>
         <div className="flex gap-2">
           <button onClick={() => setShowExcelImport(true)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
             <FileSpreadsheet size={16} />Excel'den İçe Aktar

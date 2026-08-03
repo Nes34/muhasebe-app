@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, findSimilar } from '../lib/utils';
 import { importFromExcel } from '../lib/excel';
+import { useFirm } from '../hooks/useFirm';
 import type { Firm } from '../types';
 import { Plus, Edit2, Trash2, Search, Building2, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 
@@ -15,6 +16,7 @@ interface FirmSummary {
 }
 
 export default function Firms() {
+  const { selectedFirm } = useFirm();
   const [firms, setFirms] = useState<Firm[]>([]);
   const [firmSummaries, setFirmSummaries] = useState<FirmSummary[]>([]);
   const [_loading, setLoading] = useState(true);
@@ -27,7 +29,7 @@ export default function Firms() {
   const [similarWarning, setSimilarWarning] = useState<Firm[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  useEffect(() => { fetchFirms(); fetchFirmSummaries(); }, []);
+  useEffect(() => { fetchFirms(); fetchFirmSummaries(); }, [selectedFirm]);
 
   useEffect(() => {
     if (formData.name && !editingFirm) {
@@ -45,7 +47,9 @@ export default function Firms() {
   };
 
   const fetchFirmSummaries = async () => {
-    const { data: firmsData } = await supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both').order('code');
+    let firmsQuery = supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both').order('code');
+    if (selectedFirm) firmsQuery = firmsQuery.eq('id', selectedFirm.id);
+    const { data: firmsData } = await firmsQuery;
     if (!firmsData || firmsData.length === 0) { setFirmSummaries([]); return; }
 
     const firmIds = firmsData.map(f => f.id);
@@ -175,7 +179,7 @@ export default function Firms() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Firma Yönetimi</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Firma Yönetimi{selectedFirm ? ` - ${selectedFirm.name}` : ''}</h1>
         <div className="flex gap-2">
           <button onClick={() => setShowExcelImport(true)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
             <FileSpreadsheet size={16} />Excel'den İçe Aktar
@@ -195,7 +199,9 @@ export default function Firms() {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
           <Building2 size={20} className="text-blue-600" />
-          <h2 className="text-lg font-semibold text-slate-800">Firma Bazlı Toplamlar</h2>
+          <h2 className="text-lg font-semibold text-slate-800">
+            {selectedFirm ? `${selectedFirm.name} - Firma Özetleri` : 'Tüm Firmalar - Firma Özetleri'}
+          </h2>
         </div>
 
         {firmSummaries.length === 0 ? (
