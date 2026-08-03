@@ -17,6 +17,8 @@ export function NotificationBell() {
       case 'low_stock': return <AlertTriangle size={16} className="text-amber-500" />;
       case 'budget_overrun': return <AlertCircle size={16} className="text-red-500" />;
       case 'low_balance': return <AlertTriangle size={16} className="text-amber-500" />;
+      case 'pending_invoice_order': return <AlertTriangle size={16} className="text-purple-500" />;
+      case 'delivery_complete_order': return <Info size={16} className="text-green-500" />;
       default: return <Info size={16} className="text-blue-500" />;
     }
   };

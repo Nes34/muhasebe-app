@@ -4,7 +4,7 @@ import { parseDateTR, todayISO } from '../lib/utils';
 
 export interface Notification {
   id: string;
-  type: 'overdue_check' | 'low_stock' | 'budget_overrun' | 'low_balance';
+  type: 'overdue_check' | 'low_stock' | 'budget_overrun' | 'low_balance' | 'pending_invoice_order' | 'delivery_complete_order';
   title: string;
   message: string;
   severity: 'warning' | 'danger' | 'info';
@@ -131,6 +131,51 @@ export function useNotifications() {
           message: `${acc.bank_name} ${acc.branch || ''} bakiyesi düşük: ${acc.current_balance.toLocaleString('tr-TR')} ₺`,
           severity: 'warning',
           link: '/bankalar',
+          created_at: new Date().toISOString(),
+        });
+      }
+    });
+
+    // 5. Faturası kesilmeyen siparişler
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('id, order_number, total_amount, status, items:order_items(quantity, invoiced_quantity)')
+      .not('status', 'eq', 'cancelled');
+
+    (orders || []).forEach(order => {
+      const orderItems = order.items || [];
+      const totalQty = orderItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
+      const invoicedQty = orderItems.reduce((sum: number, item: any) => sum + item.invoiced_quantity, 0);
+      
+      if (totalQty > 0 && invoicedQty < totalQty) {
+        const percent = Math.round((invoicedQty / totalQty) * 100);
+        items.push({
+          id: `order-invoice-${order.id}`,
+          type: 'pending_invoice_order',
+          title: 'Faturası Kesilmeyen Sipariş',
+          message: `#${order.order_number} nolu siparişin faturası eksik (%${percent} kesilmiş)`,
+          severity: 'warning',
+          link: '/siparis-takibi',
+          created_at: new Date().toISOString(),
+        });
+      }
+    });
+
+    // 6. İrsaliyeleri tamamlanan ama faturası kesilmeyen siparişler
+    (orders || []).forEach(order => {
+      const orderItems = order.items || [];
+      const totalQty = orderItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
+      const deliveredQty = orderItems.reduce((sum: number, item: any) => sum + item.delivered_quantity, 0);
+      const invoicedQty = orderItems.reduce((sum: number, item: any) => sum + item.invoiced_quantity, 0);
+      
+      if (totalQty > 0 && deliveredQty >= totalQty && invoicedQty < totalQty) {
+        items.push({
+          id: `order-delivery-complete-${order.id}`,
+          type: 'delivery_complete_order',
+          title: 'İrsaliyeleri Tamamlandı',
+          message: `#${order.order_number} nolu siparişin irsaliyeleri tamamlanmış, fatura bekleniyor`,
+          severity: 'info',
+          link: '/siparis-takibi',
           created_at: new Date().toISOString(),
         });
       }

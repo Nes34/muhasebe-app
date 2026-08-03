@@ -23,6 +23,8 @@ import Firms from './pages/Firms';
 import Cariler from './pages/Cariler';
 import FirmMerge from './pages/FirmMerge';
 import UserManagement from './pages/UserManagement';
+import OrderEntry from './pages/OrderEntry';
+import OrderTracking from './pages/OrderTracking';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -60,6 +62,8 @@ function AppLayout() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/islem-girisi" element={<TransactionEntry />} />
             <Route path="/islem-takibi" element={<TransactionTracking />} />
+            <Route path="/siparis-girisi" element={<OrderEntry />} />
+            <Route path="/siparis-takibi" element={<OrderTracking />} />
             <Route path="/stok" element={<StockManagement />} />
             <Route path="/stok-birimleri" element={<StockUnitManagement />} />
             <Route path="/stok-birlesme" element={<StockMerge />} />

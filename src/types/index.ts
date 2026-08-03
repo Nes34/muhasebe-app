@@ -283,3 +283,89 @@ export interface AccountStatement {
   total_credit: number;
   balance: number;
 }
+
+// =============================================
+// SİPARİŞ YÖNETİMİ TİPLERİ
+// =============================================
+
+export interface Order {
+  id: string;
+  order_number: number;
+  order_date: string;
+  firm_id?: string;
+  cari_id?: string;
+  project_id?: string;
+  description?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  total_amount: number;
+  currency: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  firm?: Firm;
+  cari?: Cari;
+  project?: Project;
+  items?: OrderItem[];
+}
+
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  product_id?: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+  amount: number;
+  delivered_quantity: number;
+  invoiced_quantity: number;
+  sort_order: number;
+  created_at: string;
+  product?: Product;
+}
+
+export interface OrderDelivery {
+  id: string;
+  order_id: string;
+  delivery_number: string;
+  delivery_date: string;
+  notes?: string;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  created_by?: string;
+  created_at: string;
+  items?: OrderDeliveryItem[];
+}
+
+export interface OrderDeliveryItem {
+  id: string;
+  delivery_id: string;
+  order_item_id: string;
+  quantity: number;
+  notes?: string;
+  created_at: string;
+  order_item?: OrderItem;
+}
+
+export interface OrderInvoice {
+  id: string;
+  order_id: string;
+  invoice_number: string;
+  invoice_date: string;
+  total_amount: number;
+  notes?: string;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  created_by?: string;
+  created_at: string;
+  items?: OrderInvoiceItem[];
+}
+
+export interface OrderInvoiceItem {
+  id: string;
+  invoice_id: string;
+  order_item_id: string;
+  quantity: number;
+  unit_price: number;
+  amount: number;
+  created_at: string;
+  order_item?: OrderItem;
+}

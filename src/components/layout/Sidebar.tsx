@@ -16,6 +16,8 @@ import {
   PieChart,
   GitMerge,
   FolderKanban,
+  ShoppingCart,
+  Truck,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -61,6 +63,14 @@ const menuGroups: MenuGroup[] = [
     items: [
       { to: '/islem-girisi', icon: ArrowRightLeft, label: 'İşlem Girişi' },
       { to: '/islem-takibi', icon: ArrowRightLeft, label: 'İşlem Takibi' },
+    ],
+  },
+  {
+    title: 'SİPARİŞLER',
+    icon: ShoppingCart,
+    items: [
+      { to: '/siparis-girisi', icon: ShoppingCart, label: 'Sipariş Girişi' },
+      { to: '/siparis-takibi', icon: Truck, label: 'Sipariş Takibi' },
     ],
   },
   {
