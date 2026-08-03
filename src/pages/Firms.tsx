@@ -54,34 +54,15 @@ export default function Firms() {
 
     const firmIds = firmsData.map(f => f.id);
 
-    // Firmaların cari_id'lerini bul
-    const { data: cariLinks } = await supabase.from('cariler').select('id');
-    const allCariIds = cariLinks?.map(c => c.id) || [];
-
-    const [txRes, checkRes, cashTxRes, bankTxRes] = await Promise.all([
-      supabase.from('transactions').select('firm_id, cari_id, amount, transaction_type, is_exception').or(`firm_id.in.(${firmIds.join(',')}),cari_id.in.(${allCariIds.join(',')})`),
-      supabase.from('checks').select('firm_id, cari_id, amount, check_type, status').or(`firm_id.in.(${firmIds.join(',')}),cari_id.in.(${allCariIds.join(',')})`),
-      supabase.from('cash_transactions').select('cari_id, amount, transaction_type').in('cari_id', allCariIds),
-      supabase.from('bank_transactions').select('cari_id, amount, transaction_type').in('cari_id', allCariIds),
+    // Sadece firm_id bazlı çek (transactions ve checks'te firm_id var)
+    const [txRes, checkRes] = await Promise.all([
+      supabase.from('transactions').select('firm_id, amount, transaction_type, is_exception').in('firm_id', firmIds),
+      supabase.from('checks').select('firm_id, amount, check_type, status').in('firm_id', firmIds),
     ]);
 
     const summaries: FirmSummary[] = firmsData.map(firm => {
-      // Hem firm_id hem cari_id eşleşen işlemleri al
-      const txs = txRes.data?.filter(t => 
-        (t.firm_id === firm.id) || 
-        (t.cari_id && allCariIds.includes(t.cari_id))
-      ).filter(t => !t.is_exception) || [];
-      
-      const checks = checkRes.data?.filter(c => 
-        (c.firm_id === firm.id) || 
-        (c.cari_id && allCariIds.includes(c.cari_id))
-      ) || [];
-
-      // Kasa ve banka hareketleri (cari_id üzerinden)
-      const cashIn = cashTxRes.data?.filter(t => t.cari_id && allCariIds.includes(t.cari_id) && t.transaction_type === 'in').reduce((s, t) => s + t.amount, 0) || 0;
-      const cashOut = cashTxRes.data?.filter(t => t.cari_id && allCariIds.includes(t.cari_id) && t.transaction_type === 'out').reduce((s, t) => s + t.amount, 0) || 0;
-      const bankIn = bankTxRes.data?.filter(t => t.cari_id && allCariIds.includes(t.cari_id) && t.transaction_type === 'in').reduce((s, t) => s + t.amount, 0) || 0;
-      const bankOut = bankTxRes.data?.filter(t => t.cari_id && allCariIds.includes(t.cari_id) && t.transaction_type === 'out').reduce((s, t) => s + t.amount, 0) || 0;
+      const txs = txRes.data?.filter(t => t.firm_id === firm.id && !t.is_exception) || [];
+      const checks = checkRes.data?.filter(c => c.firm_id === firm.id) || [];
 
       const income = txs.filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice').reduce((s, t) => s + t.amount, 0);
       const expense = txs.filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice').reduce((s, t) => s + t.amount, 0);
@@ -92,8 +73,9 @@ export default function Firms() {
       
       const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
       
-      // Kâr/Zarar = gelir + kasa girişi + banka girişi + bekleyen alınan çekler - gider - kasa çıkışı - banka çıkışı - bekleyen verilen çekler
-      const profitLoss = (income + cashIn + bankIn + pendingReceivedChecks) - (expense + cashOut + bankOut + pendingGivenChecks);
+      // Kâr/Zarar = gelir + bekleyen alınan çekler - gider - bekleyen verilen çekler
+      // (tahsil/ödenen çekler zaten banka hareketi olarak gelir/gidere eklendi)
+      const profitLoss = (income + pendingReceivedChecks) - (expense + pendingGivenChecks);
 
       return { firm, income, expense, checksGiven: pendingGivenChecks, checksPaid, profitLoss };
     });
