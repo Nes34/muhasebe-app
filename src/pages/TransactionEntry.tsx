@@ -101,7 +101,7 @@ export default function TransactionEntry() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedFirm]);
 
   // Header'da firma seçildiğinde firmId'yi otomatik ayarla
   useEffect(() => {
@@ -118,13 +118,24 @@ export default function TransactionEntry() {
   }, [firms]);
 
   const fetchData = async () => {
+    let projectsQuery = supabase.from('projects').select('*').eq('status', 'active');
+    let cashQuery = supabase.from('cash_registers').select('*').eq('is_active', true);
+    let bankQuery = supabase.from('bank_accounts').select('*').eq('is_active', true);
+
+    // Seçili firmaya göre filtrele
+    if (selectedFirm) {
+      projectsQuery = projectsQuery.eq('firm_id', selectedFirm.id);
+      cashQuery = cashQuery.eq('firm_id', selectedFirm.id);
+      bankQuery = bankQuery.eq('firm_id', selectedFirm.id);
+    }
+
     const [firmsRes, projectsRes, categoriesRes, typesRes, cashRes, bankRes, productsRes, unitsRes, descriptionsRes] = await Promise.all([
       supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both'),
-      supabase.from('projects').select('*').eq('status', 'active'),
+      projectsQuery,
       supabase.from('expense_categories').select('*').eq('is_active', true),
       supabase.from('transaction_types').select('*').eq('is_active', true).order('sort_order'),
-      supabase.from('cash_registers').select('*').eq('is_active', true),
-      supabase.from('bank_accounts').select('*').eq('is_active', true),
+      cashQuery,
+      bankQuery,
       supabase.from('products').select('*').eq('is_active', true).order('name'),
       supabase.from('stock_units').select('*').eq('is_active', true).order('sort_order'),
       supabase.from('transactions').select('description').not('description', 'is', null),

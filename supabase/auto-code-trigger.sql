@@ -9,6 +9,13 @@ DECLARE
   new_code TEXT;
   clean_name TEXT;
 BEGIN
+  -- Firmalar (type: 'both') kod almaz
+  IF NEW.type = 'both' THEN
+    NEW.code := NULL;
+    RETURN NEW;
+  END IF;
+
+  -- Zaten kod varsa dokunma
   IF NEW.code IS NOT NULL AND NEW.code != '' THEN
     RETURN NEW;
   END IF;
@@ -22,7 +29,8 @@ BEGIN
   first_letter := UPPER(SUBSTRING(clean_name FROM 1 FOR 1));
   IF first_letter !~ '[A-Z]' THEN first_letter := 'X'; END IF;
 
-  SELECT COUNT(*) + 1 INTO next_num FROM firms WHERE code LIKE first_letter || '.%';
+  -- Sadece cariler (customer/supplier) arasinda say
+  SELECT COUNT(*) + 1 INTO next_num FROM firms WHERE code LIKE first_letter || '.%' AND type IN ('customer', 'supplier');
   new_code := first_letter || '.' || LPAD(next_num::TEXT, 4, '0');
   NEW.code := new_code;
   RETURN NEW;
@@ -34,9 +42,10 @@ CREATE TRIGGER trg_generate_firm_code
   FOR EACH ROW
   EXECUTE FUNCTION generate_firm_code();
 
--- Mevcut firmalari sifirla ve koda gore ata
-UPDATE firms SET code = NULL;
+-- Mevcut firmalarin kodlarini temizle (firmalardan kodu kaldir)
+UPDATE firms SET code = NULL WHERE type = 'both';
 
+-- Cariler icin kod ata
 DO $$
 DECLARE
   rec RECORD;
@@ -45,17 +54,15 @@ DECLARE
   nc TEXT;
   clean_name TEXT;
 BEGIN
-  FOR rec IN SELECT id, name FROM firms ORDER BY name LOOP
+  FOR rec IN SELECT id, name FROM firms WHERE type IN ('customer', 'supplier') AND (code IS NULL OR code = '') ORDER BY name LOOP
     clean_name := translate(rec.name,
       'ıişçöüğİİŞÇÖÜĞ',
       'iiscoogIISCOOG'
     );
     fl := UPPER(SUBSTRING(clean_name FROM 1 FOR 1));
     IF fl !~ '[A-Z]' THEN fl := 'X'; END IF;
-    SELECT COUNT(*) + 1 INTO nn FROM firms WHERE code LIKE fl || '.%';
+    SELECT COUNT(*) + 1 INTO nn FROM firms WHERE code LIKE fl || '.%' AND type IN ('customer', 'supplier');
     nc := fl || '.' || LPAD(nn::TEXT, 4, '0');
     UPDATE firms SET code = nc WHERE id = rec.id;
   END LOOP;
 END $$;
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_firms_code ON firms(code) WHERE code IS NOT NULL;
