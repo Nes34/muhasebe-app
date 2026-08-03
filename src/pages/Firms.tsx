@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { formatCurrency, findSimilar } from '../lib/utils';
 import { importFromExcel } from '../lib/excel';
-import { findSimilar } from '../lib/utils';
 import type { Firm } from '../types';
-import { Plus, Edit2, Trash2, Search, Building2, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Building2, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+
+interface FirmSummary {
+  firm: Firm;
+  income: number;
+  expense: number;
+  checksGiven: number;
+  checksPaid: number;
+  profitLoss: number;
+}
 
 export default function Firms() {
   const [firms, setFirms] = useState<Firm[]>([]);
+  const [firmSummaries, setFirmSummaries] = useState<FirmSummary[]>([]);
   const [_loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -17,7 +27,7 @@ export default function Firms() {
   const [similarWarning, setSimilarWarning] = useState<Firm[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  useEffect(() => { fetchFirms(); }, []);
+  useEffect(() => { fetchFirms(); fetchFirmSummaries(); }, []);
 
   useEffect(() => {
     if (formData.name && !editingFirm) {
@@ -33,6 +43,39 @@ export default function Firms() {
     if (data) setFirms(data);
     setLoading(false);
   };
+
+  const fetchFirmSummaries = async () => {
+    const { data: firmsData } = await supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both').order('code');
+    if (!firmsData || firmsData.length === 0) { setFirmSummaries([]); return; }
+
+    const firmIds = firmsData.map(f => f.id);
+
+    const [txRes, checkRes] = await Promise.all([
+      supabase.from('transactions').select('firm_id, amount, type').in('firm_id', firmIds).eq('is_exception', false),
+      supabase.from('checks').select('firm_id, amount, check_type, status').in('firm_id', firmIds),
+    ]);
+
+    const summaries: FirmSummary[] = firmsData.map(firm => {
+      const txs = txRes.data?.filter(t => t.firm_id === firm.id) || [];
+      const checks = checkRes.data?.filter(c => c.firm_id === firm.id) || [];
+
+      const income = txs.filter(t => t.type === 'income' || t.type === 'invoice').reduce((s, t) => s + t.amount, 0);
+      const expense = txs.filter(t => t.type !== 'income' && t.type !== 'invoice').reduce((s, t) => s + t.amount, 0);
+      const checksGiven = checks.filter(c => c.check_type === 'given' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
+      const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
+      const profitLoss = income - expense;
+
+      return { firm, income, expense, checksGiven, checksPaid, profitLoss };
+    });
+
+    setFirmSummaries(summaries);
+  };
+
+  const totalIncome = firmSummaries.reduce((s, f) => s + f.income, 0);
+  const totalExpense = firmSummaries.reduce((s, f) => s + f.expense, 0);
+  const totalChecksGiven = firmSummaries.reduce((s, f) => s + f.checksGiven, 0);
+  const totalChecksPaid = firmSummaries.reduce((s, f) => s + f.checksPaid, 0);
+  const totalProfitLoss = firmSummaries.reduce((s, f) => s + f.profitLoss, 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +99,7 @@ export default function Firms() {
     setFormData({ name: '', tax_number: '', address: '', phone: '', email: '', type: 'both' });
     setSimilarWarning([]);
     fetchFirms();
+    fetchFirmSummaries();
     setTimeout(() => setMessage(null), 3000);
   };
 
@@ -69,6 +113,7 @@ export default function Firms() {
     if (confirm('Bu firmayı silmek istediğinizden emin misiniz?')) {
       await supabase.from('firms').update({ is_active: false }).eq('id', id);
       fetchFirms();
+      fetchFirmSummaries();
     }
   };
 
@@ -117,6 +162,7 @@ export default function Firms() {
       alert(`${importedCount} firma başarıyla içe aktarıldı!`);
       setShowExcelImport(false);
       fetchFirms();
+      fetchFirmSummaries();
     } catch (error) {
       console.error('Excel import hatası:', error);
       alert('Excel dosyası okunurken bir hata oluştu.');
@@ -144,6 +190,83 @@ export default function Firms() {
           {message.text}
         </div>
       )}
+
+      {/* Firma Özet Kartları */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Building2 size={20} className="text-blue-600" />
+          <h2 className="text-lg font-semibold text-slate-800">Firma Bazlı Toplamlar</h2>
+        </div>
+
+        {firmSummaries.length === 0 ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
+            <Building2 size={32} className="mx-auto mb-2 text-slate-300" />
+            <p className="text-slate-500">Henüz firma bulunamadı.</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+              <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                <div className="flex items-center gap-2 mb-2"><TrendingUp size={16} className="text-green-600" /><span className="text-xs text-green-700 font-medium">Firma Geliri</span></div>
+                <p className="text-lg font-bold text-green-600">{formatCurrency(totalIncome)}</p>
+              </div>
+              <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+                <div className="flex items-center gap-2 mb-2"><TrendingDown size={16} className="text-red-600" /><span className="text-xs text-red-700 font-medium">Firma Gideri</span></div>
+                <p className="text-lg font-bold text-red-600">{formatCurrency(totalExpense)}</p>
+              </div>
+              <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                <div className="flex items-center gap-2 mb-2"><DollarSign size={16} className="text-orange-600" /><span className="text-xs text-orange-700 font-medium">Verilen Çekler</span></div>
+                <p className="text-lg font-bold text-orange-600">{formatCurrency(totalChecksGiven)}</p>
+              </div>
+              <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                <div className="flex items-center gap-2 mb-2"><DollarSign size={16} className="text-purple-600" /><span className="text-xs text-purple-700 font-medium">Ödenen Çekler</span></div>
+                <p className="text-lg font-bold text-purple-600">{formatCurrency(totalChecksPaid)}</p>
+              </div>
+              <div className={`rounded-xl p-4 border ${totalProfitLoss >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                <div className="flex items-center gap-2 mb-2"><TrendingUp size={16} className={totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'} /><span className={`text-xs font-medium ${totalProfitLoss >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>Kar/Zarar</span></div>
+                <p className={`text-lg font-bold ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatCurrency(totalProfitLoss)}</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="text-left py-3 px-4">Firma</th>
+                      <th className="text-right py-3 px-4">Gelir</th>
+                      <th className="text-right py-3 px-4">Gider</th>
+                      <th className="text-right py-3 px-4">Verilen Çek</th>
+                      <th className="text-right py-3 px-4">Ödenen Çek</th>
+                      <th className="text-right py-3 px-4">Kar/Zarar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {firmSummaries.map(fs => (
+                      <tr key={fs.firm.id} className="border-t border-slate-100 hover:bg-slate-50">
+                        <td className="py-3 px-4"><div className="flex items-center gap-2"><Building2 size={14} className="text-slate-500" /><span className="font-medium">{fs.firm.name}</span></div></td>
+                        <td className="py-3 px-4 text-right text-green-600 font-mono">{formatCurrency(fs.income)}</td>
+                        <td className="py-3 px-4 text-right text-red-600 font-mono">{formatCurrency(fs.expense)}</td>
+                        <td className="py-3 px-4 text-right text-orange-600 font-mono">{formatCurrency(fs.checksGiven)}</td>
+                        <td className="py-3 px-4 text-right text-purple-600 font-mono">{formatCurrency(fs.checksPaid)}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold"><span className={fs.profitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{formatCurrency(fs.profitLoss)}</span></td>
+                      </tr>
+                    ))}
+                    <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
+                      <td className="py-3 px-4">TOPLAM</td>
+                      <td className="py-3 px-4 text-right text-green-600 font-mono">{formatCurrency(totalIncome)}</td>
+                      <td className="py-3 px-4 text-right text-red-600 font-mono">{formatCurrency(totalExpense)}</td>
+                      <td className="py-3 px-4 text-right text-orange-600 font-mono">{formatCurrency(totalChecksGiven)}</td>
+                      <td className="py-3 px-4 text-right text-purple-600 font-mono">{formatCurrency(totalChecksPaid)}</td>
+                      <td className="py-3 px-4 text-right font-mono"><span className={totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{formatCurrency(totalProfitLoss)}</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="mb-4 relative"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Firma ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full md:w-96 pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" /></div>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
