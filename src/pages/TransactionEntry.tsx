@@ -9,7 +9,7 @@ import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import DescriptionAutocomplete from '../components/DescriptionAutocomplete';
 import { Plus, Trash2, Save, AlertCircle, CheckCircle, X, Upload, FileSpreadsheet, Search, Package, Download, TrendingUp, TrendingDown, FileText, Truck, Receipt, Building2 } from 'lucide-react';
-import type { Firm, Project, ExpenseCategory, TransactionItemInput, TransactionType, CashRegister, BankAccount, Product, StockUnit } from '../types';
+import type { Firm, Cari, Project, ExpenseCategory, TransactionItemInput, TransactionType, CashRegister, BankAccount, Product, StockUnit } from '../types';
 
 // İşlem tipine göre renk eşleme
 const TYPE_COLORS: Record<string, { bg: string; border: string; text: string; icon: string }> = {
@@ -43,6 +43,7 @@ export default function TransactionEntry() {
   const [transactionType, setTransactionType] = useState<string>('invoice');
   const [transactionDate, setTransactionDate] = useState(formatDateTR(new Date()));
   const [firmId, setFirmId] = useState('');
+  const [cariId, setCariId] = useState('');
   const [projectId, setProjectId] = useState('');
   const [expenseCategoryId, setExpenseCategoryId] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -64,6 +65,7 @@ export default function TransactionEntry() {
   const [dueDate, setDueDate] = useState('');
   
   const [firms, setFirms] = useState<Firm[]>([]);
+  const [cariler, setCariler] = useState<Cari[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
@@ -99,20 +101,6 @@ export default function TransactionEntry() {
     fetchData();
   }, [selectedFirm]);
 
-  // Header'da firma seçildiğinde firmId'yi otomatik ayarla
-  useEffect(() => {
-    if (selectedFirm) {
-      setFirmId(selectedFirm.id);
-    }
-  }, [selectedFirm]);
-
-  // Tek firma varsa otomatik seç
-  useEffect(() => {
-    if (firms.length === 1 && !firmId) {
-      setFirmId(firms[0].id);
-    }
-  }, [firms]);
-
   const fetchData = async () => {
     let projectsQuery = supabase.from('projects').select('*').eq('status', 'active');
     let cashQuery = supabase.from('cash_registers').select('*').eq('is_active', true);
@@ -125,8 +113,9 @@ export default function TransactionEntry() {
       bankQuery = bankQuery.eq('firm_id', selectedFirm.id);
     }
 
-    const [firmsRes, projectsRes, categoriesRes, typesRes, cashRes, bankRes, productsRes, unitsRes, descriptionsRes] = await Promise.all([
+    const [firmsRes, carilerRes, projectsRes, categoriesRes, typesRes, cashRes, bankRes, productsRes, unitsRes, descriptionsRes] = await Promise.all([
       supabase.from('firms').select('*').eq('is_active', true).in('type', ['customer', 'supplier']),
+      supabase.from('cariler').select('*').eq('is_active', true).order('code'),
       projectsQuery,
       supabase.from('expense_categories').select('*').eq('is_active', true),
       supabase.from('transaction_types').select('*').eq('is_active', true).order('sort_order'),
@@ -138,6 +127,7 @@ export default function TransactionEntry() {
     ]);
 
     if (firmsRes.data) setFirms(firmsRes.data);
+    if (carilerRes.data) setCariler(carilerRes.data);
     if (projectsRes.data) setProjects(projectsRes.data);
     if (categoriesRes.data) setExpenseCategories(categoriesRes.data);
     if (typesRes.data) setTransactionTypes(typesRes.data);
@@ -516,6 +506,7 @@ export default function TransactionEntry() {
           transaction_date: transactionDate,
           transaction_type: transactionType,
           firm_id: firmId || null,
+          cari_id: cariId || null,
           expense_category_id: expenseCategoryId || null,
           project_id: projectId || null,
           amount: totals.grandTotal,
@@ -676,6 +667,7 @@ export default function TransactionEntry() {
       setMessage({ type: 'success', text: 'İşlem başarıyla kaydedildi!' });
       
       setFirmId('');
+      setCariId('');
       setProjectId('');
       setExpenseCategoryId('');
       setInvoiceNumber('');
@@ -831,38 +823,24 @@ export default function TransactionEntry() {
 
             {showFirm && (
               <div>
-                {selectedFirm ? (
-                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2">
-                      <Building2 size={16} className="text-blue-600" />
-                      <span className="text-sm text-blue-700">
-                        Seçili Firma: <span className="font-bold">{selectedFirm.code ? `${selectedFirm.code} - ` : ''}{selectedFirm.name}</span>
-                      </span>
-                    </div>
-                    <p className="text-xs text-blue-600 mt-1">Bu işlem sadece bu firmaya eklenecek.</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-slate-700">Firma</label>
-                      <button
-                        type="button"
-                        onClick={() => setShowAddFirmModal(true)}
-                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
-                      >
-                        <Plus size={12} />
-                        Yeni Ekle
-                      </button>
-                    </div>
-                    <SearchableSelect
-                      options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
-                      value={firmId}
-                      onChange={(id) => setFirmId(id)}
-                      placeholder="Kod veya isim ile cari ara..."
-                      required
-                    />
-                  </>
-                )}
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-slate-700">Firma</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddFirmModal(true)}
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                  >
+                    <Plus size={12} />
+                    Yeni Ekle
+                  </button>
+                </div>
+                <SearchableSelect
+                  options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
+                  value={firmId}
+                  onChange={(id) => setFirmId(id)}
+                  placeholder="Kod veya isim ile firma ara..."
+                  required
+                />
               </div>
             )}
 
@@ -900,6 +878,16 @@ export default function TransactionEntry() {
               {firmId && projects.filter(p => p.firm_id === firmId).length === 0 && (
                 <p className="text-xs text-amber-600 mt-1">Bu firmaya ait proje bulunamadı</p>
               )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Cari</label>
+              <SearchableSelect
+                options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
+                value={cariId}
+                onChange={(id) => setCariId(id)}
+                placeholder="Kod veya isim ile cari ara..."
+              />
             </div>
 
             {showInvoiceNumber && (
