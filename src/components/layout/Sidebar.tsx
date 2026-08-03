@@ -14,7 +14,6 @@ import {
   Receipt,
   CreditCard,
   PieChart,
-  ArrowLeftRight,
   GitMerge,
   FolderKanban,
 } from 'lucide-react';
@@ -70,7 +69,6 @@ const menuGroups: MenuGroup[] = [
     items: [
       { to: '/stok', icon: Package, label: 'Stok Yönetimi' },
       { to: '/stok-birimleri', icon: Ruler, label: 'Stok Birimleri' },
-      { to: '/stok-aktarim', icon: ArrowLeftRight, label: 'Stok Aktarımı' },
       { to: '/stok-birlesme', icon: GitMerge, label: 'Stok Birleştirme' },
     ],
   },

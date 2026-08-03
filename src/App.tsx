@@ -12,7 +12,6 @@ import TransactionEntry from './pages/TransactionEntry';
 import TransactionTracking from './pages/TransactionTracking';
 import StockManagement from './pages/StockManagement';
 import StockUnitManagement from './pages/StockUnitManagement';
-import StockTransfer from './pages/StockTransfer';
 import StockMerge from './pages/StockMerge';
 import CheckManagement from './pages/CheckManagement';
 import CashManagement from './pages/CashManagement';
@@ -63,7 +62,6 @@ function AppLayout() {
             <Route path="/islem-takibi" element={<TransactionTracking />} />
             <Route path="/stok" element={<StockManagement />} />
             <Route path="/stok-birimleri" element={<StockUnitManagement />} />
-            <Route path="/stok-aktarim" element={<StockTransfer />} />
             <Route path="/stok-birlesme" element={<StockMerge />} />
             <Route path="/cekler" element={<CheckManagement />} />
             <Route path="/kasalar" element={<CashManagement />} />
