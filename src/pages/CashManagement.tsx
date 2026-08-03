@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import type { CashRegister, CashTransaction, Firm, Project } from '../types';
-import { Plus, ArrowUpCircle, ArrowDownCircle, Wallet } from 'lucide-react';
+import { Plus, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 
 export default function CashManagement() {
   const { selectedFirm } = useFirm();
@@ -59,7 +59,11 @@ export default function CashManagement() {
 
   const handleCreateRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    await supabase.from('cash_registers').insert({ ...formData, firm_id: selectedFirm?.id, current_balance: formData.opening_balance, is_active: true });
+    const { error } = await supabase.from('cash_registers').insert({ ...formData, firm_id: selectedFirm?.id || null, current_balance: formData.opening_balance, is_active: true });
+    if (error) {
+      if (error.code === '23505') { alert('Bu isimde bir kasa zaten mevcut!'); return; }
+      alert('Kasa oluşturulurken hata: ' + error.message); return;
+    }
     setShowForm(false); setFormData({ name: '', currency: 'TRY', opening_balance: 0 }); fetchRegisters();
   };
 
@@ -95,10 +99,6 @@ export default function CashManagement() {
 
   const filteredProjects = projects.filter(p => !transactionData.firm_id || p.firm_id === transactionData.firm_id);
 
-  // Tüm kasaların toplam bakiyesi (firma seçilmediğinde)
-  const totalBalance = registers.reduce((sum, r) => sum + (r.current_balance || 0), 0);
-  const totalOpening = registers.reduce((sum, r) => sum + (r.opening_balance || 0), 0);
-
   // Hareketleri çek
   useEffect(() => {
     const fetchTx = async () => {
@@ -122,46 +122,25 @@ export default function CashManagement() {
         <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><Plus size={16} />Yeni Kasa</button>
       </div>
 
-      {/* Kasa Kartları */}
-      {!selectedFirm ? (
-        // Tüm firmalar seçiliyse → tek toplam kart
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <div onClick={() => { setSelectedRegister('all'); }} className="bg-white rounded-xl p-6 border-2 cursor-pointer transition-all border-blue-500 shadow-lg">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Wallet size={24} className="text-blue-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-800">Tüm Kasalar</h3>
-                <p className="text-xs text-slate-500">{registers.length} kasa</p>
-              </div>
+      {/* Kasa Kartları - hepsi ayrı ayrı */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        {registers.map(register => (
+          <div key={register.id} onClick={() => { setSelectedRegister(register.id); fetchTransactions(register.id); }} className={`bg-white rounded-xl p-6 border-2 cursor-pointer transition-all ${selectedRegister === register.id ? 'border-blue-500 shadow-lg' : 'border-slate-200 hover:border-slate-300'}`}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-slate-800">{register.name}</h3>
+              <button onClick={(e) => { e.stopPropagation(); setEditModal(register); setEditBalance(register.opening_balance || 0); }} className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50">Düzenle</button>
             </div>
-            <p className="text-2xl font-bold text-blue-600 mt-3">{formatCurrency(totalBalance)}</p>
-            <p className="text-sm text-slate-500 mt-1">Toplam Bakiye</p>
-            <p className="text-xs text-slate-400 mt-1">Açılış: {formatCurrency(totalOpening)}</p>
+            <p className="text-2xl font-bold text-blue-600 mt-2">{formatCurrency(register.current_balance, register.currency)}</p>
+            <p className="text-sm text-slate-500 mt-1">{register.currency}</p>
+            <p className="text-xs text-slate-400 mt-1">Açılış: {formatCurrency(register.opening_balance || 0)}</p>
           </div>
-        </div>
-      ) : (
-        // Firma seçiliyse → o firmaya ait kasalar
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {registers.map(register => (
-            <div key={register.id} onClick={() => { setSelectedRegister(register.id); fetchTransactions(register.id); }} className={`bg-white rounded-xl p-6 border-2 cursor-pointer transition-all ${selectedRegister === register.id ? 'border-blue-500 shadow-lg' : 'border-slate-200 hover:border-slate-300'}`}>
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-slate-800">{register.name}</h3>
-                <button onClick={(e) => { e.stopPropagation(); setEditModal(register); setEditBalance(register.opening_balance || 0); }} className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50">Düzenle</button>
-              </div>
-              <p className="text-2xl font-bold text-blue-600 mt-2">{formatCurrency(register.current_balance, register.currency)}</p>
-              <p className="text-sm text-slate-500 mt-1">{register.currency}</p>
-              <p className="text-xs text-slate-400 mt-1">Açılış: {formatCurrency(register.opening_balance || 0)}</p>
-            </div>
-          ))}
-          {registers.length === 0 && (
-            <div className="bg-white rounded-xl p-6 border border-slate-200 text-center">
-              <p className="text-slate-500">Bu firmaya ait kasa bulunamadı.</p>
-            </div>
-          )}
-        </div>
-      )}
+        ))}
+        {registers.length === 0 && (
+          <div className="bg-white rounded-xl p-6 border border-slate-200 text-center">
+            <p className="text-slate-500">{selectedFirm ? 'Bu firmaya ait kasa bulunamadı.' : 'Henüz kasa bulunamadı.'}</p>
+          </div>
+        )}
+      </div>
 
       {/* Hareketler Tablosu */}
       <div className="bg-white rounded-xl border border-slate-200">
