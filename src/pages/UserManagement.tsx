@@ -71,7 +71,8 @@ export default function UserManagement() {
     e.preventDefault();
     if (editingUser) {
       if (formData.email !== editingUser.email) {
-        await supabase.rpc('update_auth_user_email', { target_user_id: editingUser.id, new_email: formData.email });
+        const { error } = await supabase.rpc('update_auth_user_email', { target_user_id: editingUser.id, new_email: formData.email });
+        if (error) { alert('Auth e-posta güncellenemedi: ' + error.message); return; }
       }
       await supabase.from('user_profiles').update({ email: formData.email, full_name: formData.full_name, role: formData.role, firm_id: formData.firm_id || null }).eq('id', editingUser.id);
     } else {
