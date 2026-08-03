@@ -70,7 +70,7 @@ export default function UserManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingUser) {
-      await supabase.from('user_profiles').update({ full_name: formData.full_name, role: formData.role, firm_id: formData.firm_id || null }).eq('id', editingUser.id);
+      await supabase.from('user_profiles').update({ email: formData.email, full_name: formData.full_name, role: formData.role, firm_id: formData.firm_id || null }).eq('id', editingUser.id);
     } else {
       const { data: authData, error: authError } = await supabase.auth.signUp({ email: formData.email, password: formData.password });
       if (authError) { alert('Hata: ' + authError.message); return; }
@@ -294,7 +294,7 @@ export default function UserManagement() {
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <h2 className="text-lg font-semibold mb-4">{editingUser ? 'Kullanıcı Düzenle' : 'Yeni Kullanıcı'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">E-posta</label><input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required disabled={!!editingUser} /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">E-posta</label><input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
               {!editingUser && (
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Şifre</label><input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required minLength={6} /></div>
               )}
