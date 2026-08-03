@@ -80,10 +80,18 @@ export default function Cariler() {
     else if (selectedFirm) checkQuery = checkQuery.eq('firm_id', selectedFirm.id);
     const { data: checks } = await checkQuery;
 
+    // Kasa hareketlerini çek
+    const { data: cashTx } = await supabase.from('cash_transactions').select('cari_id, amount, transaction_type').in('cari_id', cariIds);
+
+    // Banka hareketlerini çek
+    const { data: bankTx } = await supabase.from('bank_transactions').select('cari_id, amount, transaction_type').in('cari_id', cariIds);
+
     // Her cari için verileri hesapla
     const withBalance: CariWithBalance[] = cariData.map(c => {
       const cariTransactions = transactions?.filter(t => t.cari_id === c.id) || [];
       const cariChecks = checks?.filter(ch => ch.cari_id === c.id) || [];
+      const cariCashTx = cashTx?.filter(t => t.cari_id === c.id) || [];
+      const cariBankTx = bankTx?.filter(t => t.cari_id === c.id) || [];
 
       const totalIncome = cariTransactions
         .filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice')
@@ -118,10 +126,18 @@ export default function Cariler() {
         .filter(ch => ch.check_type === 'given' && ch.status === 'pending')
         .reduce((sum, ch) => sum + ch.amount, 0);
 
-      // Borç = gider + fatura + bekleyen verilen çekler
-      const debt = (totalExpense + (cariTransactions.filter(t => t.transaction_type === 'invoice').reduce((sum, t) => sum + t.amount, 0))) + pendingIssuedChecks;
-      // Alacak = gelir + bekleyen alınan çekler
-      const credit = totalIncome + pendingReceivedChecks;
+      // Kasa hareketleri: giren para = alacak, çıkan para = borç
+      const cashIn = cariCashTx.filter(t => t.transaction_type === 'in').reduce((sum, t) => sum + t.amount, 0);
+      const cashOut = cariCashTx.filter(t => t.transaction_type === 'out').reduce((sum, t) => sum + t.amount, 0);
+
+      // Banka hareketleri: giren para = alacak, çıkan para = borç
+      const bankIn = cariBankTx.filter(t => t.transaction_type === 'in').reduce((sum, t) => sum + t.amount, 0);
+      const bankOut = cariBankTx.filter(t => t.transaction_type === 'out').reduce((sum, t) => sum + t.amount, 0);
+
+      // Borç = gider + fatura + bekleyen verilen çekler + kasa çıkışı + banka çıkışı
+      const debt = totalExpense + issuedInvoices + pendingIssuedChecks + cashOut + bankOut;
+      // Alacak = gelir + bekleyen alınan çekler + kasa girişi + banka girişi
+      const credit = totalIncome + pendingReceivedChecks + cashIn + bankIn;
       // Bakiye = alacak - borç
       const balance = credit - debt;
 

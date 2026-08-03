@@ -76,7 +76,7 @@ export default function Dashboard() {
       (weekTx as any[] || []).forEach((t: any) => {
         const day = dailyMap.get(t.transaction_date);
         if (day) {
-          if (['income', 'invoice', 'sale_invoice'].includes(t.transaction_type)) {
+          if (['income', 'invoice'].includes(t.transaction_type)) {
             day.income += t.amount;
           } else {
             day.expense += t.amount;
@@ -93,7 +93,7 @@ export default function Dashboard() {
       const expenseList: any[] = [];
 
       (allTx || []).forEach((t: any) => {
-        if (['income', 'invoice', 'sale_invoice'].includes(t.transaction_type)) {
+        if (['income', 'invoice'].includes(t.transaction_type)) {
           totalIncome += t.amount;
           incomeList.push(t);
         } else {

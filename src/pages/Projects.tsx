@@ -65,23 +65,35 @@ export default function Projects() {
 
     const projectIds = projectsData.map(p => p.id);
 
-    const [txRes, checkRes] = await Promise.all([
+    const [txRes, checkRes, cashTxRes, bankTxRes] = await Promise.all([
       supabase.from('transactions').select('project_id, amount, transaction_type').in('project_id', projectIds).eq('is_exception', false),
       supabase.from('checks').select('project_id, amount, check_type, status').in('project_id', projectIds),
+      supabase.from('cash_transactions').select('project_id, amount, transaction_type').in('project_id', projectIds),
+      supabase.from('bank_transactions').select('project_id, amount, transaction_type').in('project_id', projectIds),
     ]);
 
     const summaries: ProjectSummary[] = projectsData.map(project => {
       const txs = txRes.data?.filter(t => t.project_id === project.id) || [];
       const checks = checkRes.data?.filter(c => c.project_id === project.id) || [];
+      const cashTx = cashTxRes.data?.filter(t => t.project_id === project.id) || [];
+      const bankTx = bankTxRes.data?.filter(t => t.project_id === project.id) || [];
 
       const income = txs.filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice').reduce((s, t) => s + t.amount, 0);
       const expense = txs.filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice').reduce((s, t) => s + t.amount, 0);
+
+      // Kasa ve banka hareketleri
+      const cashIn = cashTx.filter(t => t.transaction_type === 'in').reduce((s, t) => s + t.amount, 0);
+      const cashOut = cashTx.filter(t => t.transaction_type === 'out').reduce((s, t) => s + t.amount, 0);
+      const bankIn = bankTx.filter(t => t.transaction_type === 'in').reduce((s, t) => s + t.amount, 0);
+      const bankOut = bankTx.filter(t => t.transaction_type === 'out').reduce((s, t) => s + t.amount, 0);
+
       // Bekleyen çekler (tahsil/ödenmemiş)
       const pendingReceivedChecks = checks.filter(c => c.check_type === 'received' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
       const pendingGivenChecks = checks.filter(c => c.check_type === 'given' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
       const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
-      // Kâr/Zarar = gelir + bekleyen alınan çekler - gider - bekleyen verilen çekler
-      const profitLoss = (income + pendingReceivedChecks) - (expense + pendingGivenChecks);
+
+      // Kâr/Zarar = gelir + kasa girişi + banka girişi + bekleyen alınan çekler - gider - kasa çıkışı - banka çıkışı - bekleyen verilen çekler
+      const profitLoss = (income + cashIn + bankIn + pendingReceivedChecks) - (expense + cashOut + bankOut + pendingGivenChecks);
       const budget = project.budget || 0;
       const completionRate = budget > 0 ? Math.min((expense / budget) * 100, 100) : 0;
 
