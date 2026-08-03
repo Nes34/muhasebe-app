@@ -12,8 +12,10 @@ export default function BankManagement() {
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState('');
   
-  const [formData, setFormData] = useState({ bank_name: '', branch: '', account_number: '', iban: '', currency: 'TRY' });
+  const [formData, setFormData] = useState({ bank_name: '', branch: '', account_number: '', iban: '', currency: 'TRY', opening_balance: 0 });
   const [transactionData, setTransactionData] = useState({ transaction_type: 'in' as 'in' | 'out', amount: 0, description: '' });
+  const [editModal, setEditModal] = useState<BankAccount | null>(null);
+  const [editBalance, setEditBalance] = useState(0);
 
   useEffect(() => { fetchAccounts(); }, []);
 
@@ -30,8 +32,15 @@ export default function BankManagement() {
 
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    await supabase.from('bank_accounts').insert({ ...formData, current_balance: 0, is_active: true });
-    setShowForm(false); setFormData({ bank_name: '', branch: '', account_number: '', iban: '', currency: 'TRY' }); fetchAccounts();
+    await supabase.from('bank_accounts').insert({ ...formData, current_balance: formData.opening_balance, is_active: true });
+    setShowForm(false); setFormData({ bank_name: '', branch: '', account_number: '', iban: '', currency: 'TRY', opening_balance: 0 }); fetchAccounts();
+  };
+
+  const handleUpdateOpeningBalance = async () => {
+    if (!editModal) return;
+    await supabase.from('bank_accounts').update({ opening_balance: editBalance, current_balance: editBalance }).eq('id', editModal.id);
+    setEditModal(null);
+    fetchAccounts();
   };
 
   const handleAddTransaction = async (e: React.FormEvent) => {
@@ -56,12 +65,16 @@ export default function BankManagement() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {accounts.map(account => (
           <div key={account.id} onClick={() => { setSelectedAccount(account.id); fetchTransactions(account.id); }} className={`bg-white rounded-xl p-6 border-2 cursor-pointer transition-all ${selectedAccount === account.id ? 'border-blue-500 shadow-lg' : 'border-slate-200 hover:border-slate-300'}`}>
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-100 rounded-lg"><Building2 size={24} className="text-blue-600" /></div>
-              <div><h3 className="font-semibold text-slate-800">{account.bank_name}</h3><p className="text-sm text-slate-500">{account.branch || '-'}</p></div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-blue-100 rounded-lg"><Building2 size={24} className="text-blue-600" /></div>
+                <div><h3 className="font-semibold text-slate-800">{account.bank_name}</h3><p className="text-sm text-slate-500">{account.branch || '-'}</p></div>
+              </div>
+              <button onClick={(e) => { e.stopPropagation(); setEditModal(account); setEditBalance(account.opening_balance || 0); }} className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50">Düzenle</button>
             </div>
             <p className="text-2xl font-bold text-blue-600 mt-4">{formatCurrency(account.current_balance, account.currency)}</p>
             <p className="text-sm text-slate-500 mt-1">{account.iban ? `****${account.iban.slice(-4)}` : account.account_number || '-'}</p>
+            <p className="text-xs text-slate-400 mt-1">Açılış: {formatCurrency(account.opening_balance || 0)}</p>
           </div>
         ))}
       </div>
@@ -118,6 +131,7 @@ export default function BankManagement() {
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Hesap No</label><input type="text" value={formData.account_number} onChange={(e) => setFormData({ ...formData, account_number: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">IBAN</label><input type="text" value={formData.iban} onChange={(e) => setFormData({ ...formData, iban: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" placeholder="TR00 0000 0000 0000 0000 0000 00" /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Para Birimi</label><select value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg"><option value="TRY">TRY</option><option value="USD">USD</option><option value="EUR">EUR</option></select></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Açılış Bakiyesi</label><input type="number" value={formData.opening_balance} onChange={(e) => setFormData({ ...formData, opening_balance: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
               <div className="flex gap-2 justify-end"><button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button><button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Oluştur</button></div>
             </form>
           </div>
@@ -137,6 +151,24 @@ export default function BankManagement() {
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Açıklama</label><input type="text" value={transactionData.description} onChange={(e) => setTransactionData({ ...transactionData, description: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
               <div className="flex gap-2 justify-end"><button type="button" onClick={() => setShowTransactionForm(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button><button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button></div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {editModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h2 className="text-lg font-semibold mb-4">Açılış Bakiyesi Düzenle</h2>
+            <p className="text-sm text-slate-600 mb-4">{editModal.bank_name} - {editModal.branch || ''}</p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Açılış Bakiyesi</label>
+              <input type="number" value={editBalance} onChange={(e) => setEditBalance(parseFloat(e.target.value) || 0)} className="w-full px-4 py-2 border border-slate-300 rounded-lg" />
+              <p className="text-xs text-slate-500 mt-1">Not: Bu değişiklik mevcut bakiyeyi de sıfırlar</p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setEditModal(null)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
+              <button onClick={handleUpdateOpeningBalance} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button>
+            </div>
           </div>
         </div>
       )}
