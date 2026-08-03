@@ -109,6 +109,18 @@ export default function OrderEntry() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!formData.firm_id) {
+      setMessage({ type: 'error', text: 'Firma seçimi zorunludur' });
+      return;
+    }
+    if (!formData.cari_id) {
+      setMessage({ type: 'error', text: 'Cari seçimi zorunludur' });
+      return;
+    }
+    if (!formData.project_id) {
+      setMessage({ type: 'error', text: 'Proje seçimi zorunludur' });
+      return;
+    }
     if (items.length === 0) {
       setMessage({ type: 'error', text: 'En az bir kalem ekleyin' });
       return;
@@ -117,9 +129,9 @@ export default function OrderEntry() {
     try {
       const orderData = {
         order_date: formData.order_date,
-        firm_id: formData.firm_id || null,
-        cari_id: formData.cari_id || null,
-        project_id: formData.project_id || null,
+        firm_id: formData.firm_id,
+        cari_id: formData.cari_id,
+        project_id: formData.project_id,
         description: formData.description || null,
         status: 'pending' as const,
         total_amount: totalAmount,
@@ -323,7 +335,8 @@ export default function OrderEntry() {
               <tr>
                 <th className="text-left py-3 px-4">Sipariş No</th>
                 <th className="text-left py-3 px-4">Tarih</th>
-                <th className="text-left py-3 px-4">Firma/Cari</th>
+                <th className="text-left py-3 px-4">Firma</th>
+                <th className="text-left py-3 px-4">Cari</th>
                 <th className="text-left py-3 px-4">Proje</th>
                 <th className="text-right py-3 px-4">Tutar</th>
                 <th className="text-center py-3 px-4">İrsaliye</th>
@@ -340,7 +353,8 @@ export default function OrderEntry() {
                   <tr key={order.id} className="border-t border-slate-100 hover:bg-slate-50">
                     <td className="py-3 px-4 font-medium">#{order.order_number}</td>
                     <td className="py-3 px-4">{formatDateTR(order.order_date)}</td>
-                    <td className="py-3 px-4">{order.firm?.name || order.cari?.name || '-'}</td>
+                    <td className="py-3 px-4">{order.firm?.name || '-'}</td>
+                    <td className="py-3 px-4">{order.cari?.name || '-'}</td>
                     <td className="py-3 px-4">{order.project?.name || '-'}</td>
                     <td className="py-3 px-4 text-right">{formatCurrency(order.total_amount)}</td>
                     <td className="py-3 px-4">
@@ -404,7 +418,7 @@ export default function OrderEntry() {
                   <input type="date" value={formData.order_date} onChange={(e) => setFormData({ ...formData, order_date: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Firma</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Firma <span className="text-red-500">*</span></label>
                   <SearchableSelect
                     options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
                     value={formData.firm_id}
@@ -413,7 +427,7 @@ export default function OrderEntry() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Cari</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Cari <span className="text-red-500">*</span></label>
                   <SearchableSelect
                     options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
                     value={formData.cari_id}
@@ -422,7 +436,7 @@ export default function OrderEntry() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Proje</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Proje <span className="text-red-500">*</span></label>
                   <select value={formData.project_id} onChange={(e) => setFormData({ ...formData, project_id: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
                     <option value="">Proje Seçiniz...</option>
                     {projects.map(p => (
