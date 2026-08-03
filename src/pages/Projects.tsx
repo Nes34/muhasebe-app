@@ -168,10 +168,187 @@ export default function Projects() {
 
   if (!selectedFirm) {
     return (
-      <div className="flex flex-col items-center justify-center h-96">
-        <AlertTriangle size={48} className="text-amber-500 mb-4" />
-        <h2 className="text-xl font-semibold text-slate-800 mb-2">Firma Seçimi Zorunlu</h2>
-        <p className="text-slate-500">Lütfen üst kısımdan bir firma seçin.</p>
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-slate-800">Projeler - Tüm Firmalar</h1>
+          <button
+            onClick={() => {
+              setEditingProject(null);
+              setFormData({ name: '', description: '', firm_id: '', start_date: formatDateTR(new Date()), end_date: '', budget: 0, status: 'active' });
+              setShowForm(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={16} />Yeni Proje
+          </button>
+        </div>
+
+        {message && (
+          <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+            {message.type === 'success' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
+            {message.text}
+          </div>
+        )}
+
+        {/* Proje Özet Kartları */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <FolderKanban size={20} className="text-blue-600" />
+            <h2 className="text-lg font-semibold text-slate-800">Tüm Firmalar - Proje Özetleri</h2>
+          </div>
+
+          {projectSummaries.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
+              <FolderKanban size={32} className="mx-auto mb-2 text-slate-300" />
+              <p className="text-slate-500">Henüz proje bulunamadı.</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
+                <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                  <div className="flex items-center gap-2 mb-2"><TrendingUp size={16} className="text-green-600" /><span className="text-xs text-green-700 font-medium">Proje Geliri</span></div>
+                  <p className="text-lg font-bold text-green-600">{formatCurrency(totalIncome)}</p>
+                </div>
+                <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+                  <div className="flex items-center gap-2 mb-2"><TrendingDown size={16} className="text-red-600" /><span className="text-xs text-red-700 font-medium">Proje Gideri</span></div>
+                  <p className="text-lg font-bold text-red-600">{formatCurrency(totalExpense)}</p>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2"><Wallet size={16} className="text-blue-600" /><span className="text-xs text-blue-700 font-medium">Proje Bütçesi</span></div>
+                  <p className="text-lg font-bold text-blue-600">{formatCurrency(totalBudget)}</p>
+                </div>
+                <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                  <div className="flex items-center gap-2 mb-2"><DollarSign size={16} className="text-orange-600" /><span className="text-xs text-orange-700 font-medium">Verilen Çekler</span></div>
+                  <p className="text-lg font-bold text-orange-600">{formatCurrency(totalChecksGiven)}</p>
+                </div>
+                <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                  <div className="flex items-center gap-2 mb-2"><DollarSign size={16} className="text-purple-600" /><span className="text-xs text-purple-700 font-medium">Ödenen Çekler</span></div>
+                  <p className="text-lg font-bold text-purple-600">{formatCurrency(totalChecksPaid)}</p>
+                </div>
+                <div className={`rounded-xl p-4 border ${totalProfitLoss >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                  <div className="flex items-center gap-2 mb-2"><TrendingUp size={16} className={totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'} /><span className={`text-xs font-medium ${totalProfitLoss >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>Kar/Zarar</span></div>
+                  <p className={`text-lg font-bold ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatCurrency(totalProfitLoss)}</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="text-left py-3 px-4">Proje</th>
+                        <th className="text-left py-3 px-4">Firma</th>
+                        <th className="text-right py-3 px-4">Gelir</th>
+                        <th className="text-right py-3 px-4">Gider</th>
+                        <th className="text-right py-3 px-4">Bütçe</th>
+                        <th className="text-right py-3 px-4">Verilen Çek</th>
+                        <th className="text-right py-3 px-4">Ödenen Çek</th>
+                        <th className="text-right py-3 px-4">Kar/Zarar</th>
+                        <th className="text-center py-3 px-4">Tamamlanma</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {projectSummaries.map(ps => (
+                        <tr key={ps.project.id} className="border-t border-slate-100 hover:bg-slate-50">
+                          <td className="py-3 px-4"><div className="flex items-center gap-2"><FolderKanban size={14} className="text-blue-500" /><span className="font-medium">{ps.project.name}</span></div></td>
+                          <td className="py-3 px-4 text-slate-500 text-xs">{firms.find(f => f.id === ps.project.firm_id)?.name || '-'}</td>
+                          <td className="py-3 px-4 text-right text-green-600 font-mono">{formatCurrency(ps.income)}</td>
+                          <td className="py-3 px-4 text-right text-red-600 font-mono">{formatCurrency(ps.expense)}</td>
+                          <td className="py-3 px-4 text-right text-blue-600 font-mono">{formatCurrency(ps.budget)}</td>
+                          <td className="py-3 px-4 text-right text-orange-600 font-mono">{formatCurrency(ps.checksGiven)}</td>
+                          <td className="py-3 px-4 text-right text-purple-600 font-mono">{formatCurrency(ps.checksPaid)}</td>
+                          <td className="py-3 px-4 text-right font-mono font-bold"><span className={ps.profitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{formatCurrency(ps.profitLoss)}</span></td>
+                          <td className="py-3 px-4 text-center">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden"><div className={`h-full rounded-full ${ps.completionRate >= 100 ? 'bg-red-500' : ps.completionRate >= 80 ? 'bg-amber-500' : ps.completionRate >= 50 ? 'bg-blue-500' : 'bg-green-500'}`} style={{ width: `${Math.min(ps.completionRate, 100)}%` }} /></div>
+                              <span className={`text-xs font-bold w-12 ${ps.completionRate >= 100 ? 'text-red-600' : ps.completionRate >= 80 ? 'text-amber-600' : ps.completionRate >= 50 ? 'text-blue-600' : 'text-green-600'}`}>%{ps.completionRate.toFixed(0)}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
+                        <td className="py-3 px-4" colSpan={2}>TOPLAM</td>
+                        <td className="py-3 px-4 text-right text-green-600 font-mono">{formatCurrency(totalIncome)}</td>
+                        <td className="py-3 px-4 text-right text-red-600 font-mono">{formatCurrency(totalExpense)}</td>
+                        <td className="py-3 px-4 text-right text-blue-600 font-mono">{formatCurrency(totalBudget)}</td>
+                        <td className="py-3 px-4 text-right text-orange-600 font-mono">{formatCurrency(totalChecksGiven)}</td>
+                        <td className="py-3 px-4 text-right text-purple-600 font-mono">{formatCurrency(totalChecksPaid)}</td>
+                        <td className="py-3 px-4 text-right font-mono"><span className={totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{formatCurrency(totalProfitLoss)}</span></td>
+                        <td className="py-3 px-4 text-center"><span className={`text-xs font-bold ${avgCompletionRate >= 100 ? 'text-red-600' : avgCompletionRate >= 80 ? 'text-amber-600' : avgCompletionRate >= 50 ? 'text-blue-600' : 'text-green-600'}`}>%{avgCompletionRate.toFixed(0)}</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="mb-4 relative"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Proje veya firma ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full md:w-96 pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" /></div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(project => {
+            const summary = projectSummaries.find(ps => ps.project.id === project.id);
+            return (
+              <div key={project.id} className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-blue-50 rounded-lg"><FolderKanban size={20} className="text-blue-600" /></div>
+                    <div>
+                      <h3 className="font-semibold text-slate-800">{project.name}</h3>
+                      <p className="text-xs text-slate-500">{project.firm?.name || '-'}</p>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(project.status)}`}>{getStatusLabel(project.status)}</span>
+                </div>
+                {project.description && <p className="text-sm text-slate-600 mb-3 line-clamp-2">{project.description}</p>}
+                <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 mb-3">
+                  <div>Başlangıç: {project.start_date}</div>
+                  {project.end_date && <div>Bitiş: {project.end_date}</div>}
+                  {project.budget > 0 && <div>Bütçe: {formatCurrency(project.budget)}</div>}
+                  {summary && <div>K/Z: <span className={summary.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(summary.profitLoss)}</span></div>}
+                </div>
+                {summary && summary.budget > 0 && (
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-slate-500">Tamamlanma</span>
+                      <span className={`font-bold ${summary.completionRate >= 100 ? 'text-red-600' : summary.completionRate >= 80 ? 'text-amber-600' : summary.completionRate >= 50 ? 'text-blue-600' : 'text-green-600'}`}>%{summary.completionRate.toFixed(0)}</span>
+                    </div>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden"><div className={`h-full rounded-full ${summary.completionRate >= 100 ? 'bg-red-500' : summary.completionRate >= 80 ? 'bg-amber-500' : summary.completionRate >= 50 ? 'bg-blue-500' : 'bg-green-500'}`} style={{ width: `${Math.min(summary.completionRate, 100)}%` }} /></div>
+                  </div>
+                )}
+                <div className="flex gap-2 pt-3 border-t border-slate-100">
+                  <button onClick={() => handleEdit(project)} className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-sm transition-colors"><Edit2 size={14} />Düzenle</button>
+                  <button onClick={() => handleDelete(project.id)} className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg text-sm transition-colors"><Trash2 size={14} />Sil</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {filtered.length === 0 && <div className="text-center py-12"><FolderKanban size={48} className="mx-auto mb-3 text-slate-300" /><p className="text-slate-500">Proje bulunamadı</p></div>}
+
+        {showForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
+              <h2 className="text-lg font-semibold mb-4">{editingProject ? 'Proje Düzenle' : 'Yeni Proje'}</h2>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <SearchableSelect options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))} value={formData.firm_id} onChange={(id) => setFormData({ ...formData, firm_id: id })} label="Firma *" placeholder="Proje hangi firmaya ait?" required />
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Proje Adı *</label><input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Açıklama</label><textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={2} className="w-full px-4 py-2 border border-slate-300 rounded-lg resize-none" /></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç</label><input type="text" value={formData.start_date} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Bitiş</label><input type="text" value={formData.end_date} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Bütçe (₺)</label><input type="number" value={formData.budget} onChange={(e) => setFormData({ ...formData, budget: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Durum</label><select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'completed' | 'cancelled' })} className="w-full px-4 py-2 border border-slate-300 rounded-lg"><option value="active">Aktif</option><option value="completed">Tamamlandı</option><option value="cancelled">İptal</option></select></div>
+                </div>
+                <div className="flex gap-2 justify-end"><button type="button" onClick={() => { setShowForm(false); setEditingProject(null); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button><button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button></div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
