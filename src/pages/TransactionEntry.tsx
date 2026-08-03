@@ -808,27 +808,37 @@ export default function TransactionEntry() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl p-6 border border-slate-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-0 border-t border-slate-200">
+            <div className="border-r border-b border-slate-200 p-2">
               <label className="block text-sm font-medium text-slate-700 mb-1">Tarih</label>
               <input
                 type="text"
                 value={transactionDate}
                 onChange={(e) => setTransactionDate(e.target.value)}
                 placeholder="gg.aa.yyyy"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              />
+            </div>
+
+            <div className="border-r border-b border-slate-200 p-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Cari</label>
+              <SearchableSelect
+                options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
+                value={cariId}
+                onChange={(id) => setCariId(id)}
+                placeholder="Cari ara..."
               />
             </div>
 
             {showFirm && (
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-slate-700">Firma</label>
+              <div className="border-r border-b border-slate-200 p-2">
+                <div className="flex items-center justify-between mb-0.5">
+                  <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wide">Firma</label>
                   <button
                     type="button"
                     onClick={() => setShowAddFirmModal(true)}
-                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                    className="text-xs text-blue-600 hover:text-blue-700"
                   >
                     <Plus size={12} />
                     Yeni Ekle
@@ -838,21 +848,21 @@ export default function TransactionEntry() {
                   options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
                   value={firmId}
                   onChange={(id) => setFirmId(id)}
-                  placeholder="Kod veya isim ile firma ara..."
+                  placeholder="Firma ara..."
                   required
                 />
               </div>
             )}
 
             {showExpenseCategory && (
-              <div>
+              <div className="border-r border-b border-slate-200 p-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Gider Türü</label>
                 <select
                   value={expenseCategoryId}
                   onChange={(e) => setExpenseCategoryId(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 >
-                  <option value="">Gider Türü Seçiniz...</option>
+                  <option value="">Seçiniz...</option>
                   {expenseCategories.map((category) => (
                     <option key={category.id} value={category.id}>{category.name}</option>
                   ))}
@@ -860,40 +870,30 @@ export default function TransactionEntry() {
               </div>
             )}
 
-            <div>
+            <div className="border-r border-b border-slate-200 p-2">
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Proje <span className="text-red-500">*</span>
               </label>
               <select
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 required
               >
-                <option value="">Proje Seçiniz...</option>
+                <option value="">Seçiniz...</option>
                 {projects.filter(p => !firmId || p.firm_id === firmId).map((project) => (
                   <option key={project.id} value={project.id}>{project.name}</option>
                 ))}
               </select>
               {firmId && projects.filter(p => p.firm_id === firmId).length === 0 && (
-                <p className="text-xs text-amber-600 mt-1">Bu firmaya ait proje bulunamadı</p>
+                <p className="text-xs text-amber-600 mt-1">Proje bulunamadı</p>
               )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Cari</label>
-              <SearchableSelect
-                options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
-                value={cariId}
-                onChange={(id) => setCariId(id)}
-                placeholder="Kod veya isim ile cari ara..."
-              />
-            </div>
-
             {showInvoiceNumber && (
-              <div>
+              <div className="border-r border-b border-slate-200 p-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  {isIncomeType ? 'Gelir No' : isExpenseType ? 'Gider No' : isPurchaseInvoice ? 'Alış Faturası No' : isSaleInvoice ? 'Satış Faturası No' : 'Fatura No'}
+                  {isIncomeType ? 'Gelir No' : isExpenseType ? 'Gider No' : isPurchaseInvoice ? 'Alış Fatura No' : isSaleInvoice ? 'Satış Fatura No' : 'Fatura No'}
                 </label>
                 <input
                   type="text"
@@ -901,195 +901,119 @@ export default function TransactionEntry() {
                   onChange={(e) => handleInvoiceNumberChange(e.target.value)}
                   onKeyDown={handleInvoiceNumberKeyDown}
                   placeholder={isIncomeType ? 'GEL2026/1' : isExpenseType ? 'GID2026/1' : 'aab2026/1'}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
-                {invoiceNumber && invoiceNumber.includes('/') && (
-                  <p className="mt-1 text-xs text-slate-500">
-                    Format: {formatInvoiceNumberOnSave(invoiceNumber)}
-                  </p>
-                )}
               </div>
             )}
 
             {showDeliveryNoteNumber && (
-              <div>
+              <div className="border-r border-b border-slate-200 p-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">İrsaliye No</label>
                 <input
                   type="text"
                   value={deliveryNoteNumber}
                   onChange={(e) => setDeliveryNoteNumber(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
               </div>
             )}
 
-            {/* Gelir/Gider için ödeme yöntemi */}
             {(isIncomeType || isExpenseType) && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Ödeme Yöntemi</label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value as 'cash' | 'bank' | 'check' | '')}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  >
-                    <option value="">Seçiniz...</option>
-                    <option value="cash">Nakit (Kasa)</option>
-                    <option value="bank">Banka Havalesi</option>
-                    <option value="check">Çek</option>
-                  </select>
-                </div>
-
-                {/* Kasa seçimi */}
-                {paymentMethod === 'cash' && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Kasa</label>
-                    <select
-                      value={cashRegisterId}
-                      onChange={(e) => setCashRegisterId(e.target.value)}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    >
-                      <option value="">Kasa Seçiniz...</option>
-                      {cashRegisters.map((register) => (
-                        <option key={register.id} value={register.id}>{register.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Banka hesabı seçimi */}
-                {paymentMethod === 'bank' && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Banka Hesabı</label>
-                    <select
-                      value={bankAccountId}
-                      onChange={(e) => setBankAccountId(e.target.value)}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    >
-                      <option value="">Banka Hesabı Seçiniz...</option>
-                      {bankAccounts.map((account) => (
-                        <option key={account.id} value={account.id}>{account.bank_name} - {account.iban || account.account_number}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Çek bilgileri */}
-                {paymentMethod === 'check' && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Çek Numarası</label>
-                      <input
-                        type="text"
-                        value={checkNumber}
-                        onChange={(e) => setCheckNumber(e.target.value)}
-                        placeholder="Çek numarası"
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Çek Türü</label>
-                      <select
-                        value={checkType}
-                        onChange={(e) => setCheckType(e.target.value as 'received' | 'given')}
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                      >
-                        <option value="received">Alınan Çek</option>
-                        <option value="given">Verilen Çek</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Banka</label>
-                      <input
-                        type="text"
-                        value={bankName}
-                        onChange={(e) => setBankName(e.target.value)}
-                        placeholder="Banka adı"
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Şube</label>
-                      <input
-                        type="text"
-                        value={bankBranch}
-                        onChange={(e) => setBankBranch(e.target.value)}
-                        placeholder="Şube adı"
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Vade Tarihi</label>
-                      <input
-                        type="text"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                        placeholder="gg.aa.yyyy"
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                      />
-                    </div>
-                  </>
-                )}
-              </>
+              <div className="border-r border-b border-slate-200 p-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Ödeme Yöntemi</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value as 'cash' | 'bank' | 'check' | '')}
+                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
+                  <option value="">Seçiniz...</option>
+                  <option value="cash">Nakit (Kasa)</option>
+                  <option value="bank">Banka Havalesi</option>
+                  <option value="check">Çek</option>
+                </select>
+              </div>
             )}
 
-            {isCheckType && (
+            {(isIncomeType || isExpenseType) && paymentMethod === 'cash' && (
+              <div className="border-r border-b border-slate-200 p-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Kasa</label>
+                <select
+                  value={cashRegisterId}
+                  onChange={(e) => setCashRegisterId(e.target.value)}
+                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
+                  <option value="">Seçiniz...</option>
+                  {cashRegisters.map((register) => (
+                    <option key={register.id} value={register.id}>{register.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {(isIncomeType || isExpenseType) && paymentMethod === 'bank' && (
+              <div className="border-r border-b border-slate-200 p-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Banka Hesabı</label>
+                <select
+                  value={bankAccountId}
+                  onChange={(e) => setBankAccountId(e.target.value)}
+                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
+                  <option value="">Seçiniz...</option>
+                  {bankAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>{account.bank_name} - {account.iban || account.account_number}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {(isIncomeType || isExpenseType) && paymentMethod === 'check' && (
               <>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Çek Numarası</label>
+                <div className="border-r border-b border-slate-200 p-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Çek No</label>
                   <input
                     type="text"
                     value={checkNumber}
                     onChange={(e) => setCheckNumber(e.target.value)}
                     placeholder="Çek numarası"
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
                 </div>
-                <div>
+                <div className="border-r border-b border-slate-200 p-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Çek Türü</label>
                   <select
                     value={checkType}
                     onChange={(e) => setCheckType(e.target.value as 'received' | 'given')}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   >
-                    <option value="received">Alınan Çek</option>
-                    <option value="given">Verilen Çek</option>
+                    <option value="received">Alınan</option>
+                    <option value="given">Verilen</option>
                   </select>
                 </div>
-                <div>
+                <div className="border-r border-b border-slate-200 p-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Banka</label>
                   <input
                     type="text"
                     value={bankName}
                     onChange={(e) => setBankName(e.target.value)}
-                    placeholder="Banka adı"
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Şube</label>
-                  <input
-                    type="text"
-                    value={bankBranch}
-                    onChange={(e) => setBankBranch(e.target.value)}
-                    placeholder="Şube adı"
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Vade Tarihi</label>
+                <div className="border-r border-b border-slate-200 p-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Vade</label>
                   <input
                     type="text"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     placeholder="gg.aa.yyyy"
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
                 </div>
               </>
             )}
           </div>
+        </div>
 
+        <div className="bg-white rounded-xl p-6 border border-slate-200">
           <div className="mt-4">
             <DescriptionAutocomplete
               value={description}
