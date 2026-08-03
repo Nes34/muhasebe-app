@@ -20,7 +20,7 @@ export default function AccountStatement() {
   useEffect(() => { fetchFirms(); fetchProjects(); }, []);
 
   const fetchFirms = async () => {
-    const { data } = await supabase.from('firms').select('*').eq('is_active', true).order('name');
+    const { data } = await supabase.from('firms').select('*').eq('is_active', true).order('code');
     if (data) setFirms(data);
   };
 

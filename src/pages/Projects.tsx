@@ -31,7 +31,7 @@ export default function Projects() {
   const fetchData = async () => {
     setLoading(true);
     const [firmsRes, projectsRes] = await Promise.all([
-      supabase.from('firms').select('*').eq('is_active', true).order('name'),
+      supabase.from('firms').select('*').eq('is_active', true).order('code'),
       supabase.from('projects').select('*, firm:firms(*)').order('created_at', { ascending: false }),
     ]);
     if (firmsRes.data) setFirms(firmsRes.data);

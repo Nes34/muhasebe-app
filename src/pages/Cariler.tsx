@@ -45,7 +45,7 @@ export default function Cariler() {
   }, [formData.name, cariler, editingCari]);
 
   const fetchCariler = async () => {
-    const { data: firms } = await supabase.from('firms').select('*').eq('is_active', true).order('name');
+    const { data: firms } = await supabase.from('firms').select('*').eq('is_active', true).order('code');
     if (!firms) { setLoading(false); return; }
 
     const cariIds = firms.map(f => f.id);

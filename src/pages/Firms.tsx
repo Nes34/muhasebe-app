@@ -33,7 +33,7 @@ export default function Firms() {
   }, [formData.name, firms, editingFirm]);
 
   const fetchFirms = async () => {
-    const { data } = await supabase.from('firms').select('*').eq('is_active', true).order('name');
+    const { data } = await supabase.from('firms').select('*').eq('is_active', true).order('code');
     if (!data) { setLoading(false); return; }
 
     const firmIds = data.map(f => f.id);
