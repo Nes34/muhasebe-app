@@ -1,0 +1,108 @@
+import { useState, useEffect, createContext, useContext } from 'react';
+import type { ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
+import type { Firm, Project } from '../types';
+
+interface FirmContextType {
+  selectedFirm: Firm | null;
+  firms: Firm[];
+  setSelectedFirm: (firm: Firm | null) => void;
+  selectedProject: Project | null;
+  projects: Project[];
+  setSelectedProject: (project: Project | null) => void;
+  loading: boolean;
+}
+
+const FirmContext = createContext<FirmContextType | undefined>(undefined);
+
+export function FirmProvider({ children }: { children: ReactNode }) {
+  const [selectedFirm, setSelectedFirm] = useState<Firm | null>(null);
+  const [firms, setFirms] = useState<Firm[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchFirms();
+    
+    // LocalStorage'dan son seçili firmayı al
+    const savedFirmId = localStorage.getItem('selectedFirmId');
+    if (savedFirmId) {
+      const savedFirm = firms.find(f => f.id === savedFirmId);
+      if (savedFirm) setSelectedFirm(savedFirm);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [selectedFirm]);
+
+  const fetchFirms = async () => {
+    const { data } = await supabase.from('firms').select('*').eq('is_active', true).order('name');
+    if (data) {
+      setFirms(data);
+      
+      // LocalStorage'dan son seçili firmayı al
+      const savedFirmId = localStorage.getItem('selectedFirmId');
+      if (savedFirmId) {
+        const savedFirm = data.find(f => f.id === savedFirmId);
+        if (savedFirm) setSelectedFirm(savedFirm);
+      }
+    }
+    setLoading(false);
+  };
+
+  const fetchProjects = async () => {
+    let query = supabase.from('projects').select('*').eq('status', 'active').order('name');
+    
+    // Firma seçiliyse sadece o firmaya ait projeleri göster
+    if (selectedFirm) {
+      query = query.eq('firm_id', selectedFirm.id);
+    }
+    
+    const { data } = await query;
+    if (data) {
+      setProjects(data);
+      // Seçili proje bu firmada yoksa sıfırla
+      if (selectedProject && !data.some(p => p.id === selectedProject.id)) {
+        setSelectedProject(null);
+      }
+    }
+  };
+
+  const handleSetSelectedFirm = (firm: Firm | null) => {
+    setSelectedFirm(firm);
+    setSelectedProject(null); // Firma değişince projeyi sıfırla
+    if (firm) {
+      localStorage.setItem('selectedFirmId', firm.id);
+    } else {
+      localStorage.removeItem('selectedFirmId');
+    }
+  };
+
+  const handleSetSelectedProject = (project: Project | null) => {
+    setSelectedProject(project);
+  };
+
+  return (
+    <FirmContext.Provider value={{ 
+      selectedFirm, 
+      firms, 
+      setSelectedFirm: handleSetSelectedFirm, 
+      selectedProject,
+      projects,
+      setSelectedProject: handleSetSelectedProject,
+      loading 
+    }}>
+      {children}
+    </FirmContext.Provider>
+  );
+}
+
+export function useFirm() {
+  const context = useContext(FirmContext);
+  if (context === undefined) {
+    throw new Error('useFirm must be used within a FirmProvider');
+  }
+  return context;
+}
