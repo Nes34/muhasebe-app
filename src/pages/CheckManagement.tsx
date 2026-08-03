@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { formatDateTR, formatCurrency } from '../lib/utils';
+import { formatDateTR, formatCurrency, toISODate, parseDateTR, todayISO } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import type { Check, Cari, BankAccount } from '../types';
@@ -31,7 +31,7 @@ export default function CheckManagement() {
     notes: '',
   });
 
-  useEffect(() => { fetchChecks(); fetchMeta(); }, [selectedFirm]);
+  useEffect(() => { fetchMeta().then(() => fetchChecks()); }, [selectedFirm]);
 
   const fetchChecks = async () => {
     let query = supabase.from('checks').select('*').order('due_date', { ascending: true });
@@ -42,42 +42,61 @@ export default function CheckManagement() {
     if (!data) { setLoading(false); return; }
 
     // Vadesi dolan çekleri otomatik tahsil/öde
-    const today = new Date().toISOString().split('T')[0];
-    const dueChecks = data.filter(c => c.status === 'pending' && c.due_date <= today);
+    const today = todayISO();
+    const dueChecks = data.filter(c => {
+      if (c.status !== 'pending') return false;
+      // Tarih formatını normalize et ve karşılaştır
+      const dueDate = toISODate(c.due_date);
+      return dueDate && dueDate <= today;
+    });
 
     for (const check of dueChecks) {
+      // İdempotency: zaten işlendi mi kontrol et
+      const { data: freshCheck } = await supabase.from('checks').select('status').eq('id', check.id).single();
+      if (freshCheck && freshCheck.status !== 'pending') continue;
+
       const newStatus = check.check_type === 'received' ? 'collected' : 'paid';
       const cariName = cariler.find(c => c.id === check.cari_id)?.name || '';
 
       // Çek durumunu güncelle
       await supabase.from('checks').update({ status: newStatus }).eq('id', check.id);
 
-      // Çekin banka hesabını bul
+      // Çekin banka hesabını bul (bank_name ile eşleştir)
       const acc = bankAccounts.find(a => a.bank_name === check.bank_name);
 
       if (check.check_type === 'received') {
         // Tahsil edilen çek → bankaya giriş
         if (acc) {
+          // Güncel bakiyeyi oku (race condition önleme)
+          const { data: freshAcc } = await supabase.from('bank_accounts').select('current_balance').eq('id', acc.id).single();
+          const currentBalance = freshAcc?.current_balance ?? acc.current_balance;
+
           await supabase.from('bank_transactions').insert({
             bank_account_id: acc.id,
             cari_id: check.cari_id,
+            firm_id: check.firm_id,
             transaction_type: 'in',
             amount: check.amount,
             description: `Çek Tahsil (Otomatik): ${check.check_number} - ${cariName}`,
           });
-          await supabase.from('bank_accounts').update({ current_balance: acc.current_balance + check.amount }).eq('id', acc.id);
+          await supabase.from('bank_accounts').update({ current_balance: currentBalance + check.amount }).eq('id', acc.id);
         }
       } else {
         // Ödenen çek → bankadan çıkış
         if (acc) {
+          // Güncel bakiyeyi oku (race condition önleme)
+          const { data: freshAcc } = await supabase.from('bank_accounts').select('current_balance').eq('id', acc.id).single();
+          const currentBalance = freshAcc?.current_balance ?? acc.current_balance;
+
           await supabase.from('bank_transactions').insert({
             bank_account_id: acc.id,
             cari_id: check.cari_id,
+            firm_id: check.firm_id,
             transaction_type: 'out',
             amount: check.amount,
             description: `Çek Ödeme (Otomatik): ${check.check_number} - ${cariName}`,
           });
-          await supabase.from('bank_accounts').update({ current_balance: acc.current_balance - check.amount }).eq('id', acc.id);
+          await supabase.from('bank_accounts').update({ current_balance: currentBalance - check.amount }).eq('id', acc.id);
         }
       }
     }
@@ -162,7 +181,7 @@ export default function CheckManagement() {
 
   const getDaysUntilDue = (dueDate: string) => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const due = new Date(dueDate); due.setHours(0, 0, 0, 0);
+    const due = parseDateTR(dueDate) || new Date(dueDate); due.setHours(0, 0, 0, 0);
     return Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   };
 

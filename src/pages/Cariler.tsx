@@ -80,18 +80,19 @@ export default function Cariler() {
     else if (selectedFirm) checkQuery = checkQuery.eq('firm_id', selectedFirm.id);
     const { data: checks } = await checkQuery;
 
-    // Kasa hareketlerini çek
-    const { data: cashTx } = await supabase.from('cash_transactions').select('cari_id, amount, transaction_type').in('cari_id', cariIds);
+    // Kasa hareketlerini çek (transaction_id olanlar transactions tablosunda zaten sayıldı)
+    const { data: cashTx } = await supabase.from('cash_transactions').select('cari_id, amount, transaction_type, transaction_id').in('cari_id', cariIds);
 
-    // Banka hareketlerini çek
-    const { data: bankTx } = await supabase.from('bank_transactions').select('cari_id, amount, transaction_type').in('cari_id', cariIds);
+    // Banka hareketlerini çek (transaction_id olanlar transactions tablosunda zaten sayıldı)
+    const { data: bankTx } = await supabase.from('bank_transactions').select('cari_id, amount, transaction_type, transaction_id').in('cari_id', cariIds);
 
     // Her cari için verileri hesapla
     const withBalance: CariWithBalance[] = cariData.map(c => {
       const cariTransactions = transactions?.filter(t => t.cari_id === c.id) || [];
       const cariChecks = checks?.filter(ch => ch.cari_id === c.id) || [];
-      const cariCashTx = cashTx?.filter(t => t.cari_id === c.id) || [];
-      const cariBankTx = bankTx?.filter(t => t.cari_id === c.id) || [];
+      // transaction_id olmayan kasa/banka hareketleri (bağımsız hareketler)
+      const cariCashTx = cashTx?.filter(t => t.cari_id === c.id && !t.transaction_id) || [];
+      const cariBankTx = bankTx?.filter(t => t.cari_id === c.id && !t.transaction_id) || [];
 
       const totalIncome = cariTransactions
         .filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice')

@@ -73,10 +73,15 @@ export default function Dashboard() {
         dailyMap.set(dateStr, { date: dateStr, income: 0, expense: 0 });
       }
 
+      // Transfer tipleri gelir/gider olarak sayılmaz (iç transfer)
+      const transferTypes = ['transfer', 'stock_transfer', 'cash_transfer', 'bank_transfer'];
+
       (weekTx as any[] || []).forEach((t: any) => {
         const day = dailyMap.get(t.transaction_date);
         if (day) {
-          if (['income', 'invoice'].includes(t.transaction_type)) {
+          if (transferTypes.includes(t.transaction_type)) {
+            // Transferler gelir/gider olarak sayılmaz
+          } else if (['income', 'invoice'].includes(t.transaction_type)) {
             day.income += t.amount;
           } else {
             day.expense += t.amount;
@@ -93,7 +98,9 @@ export default function Dashboard() {
       const expenseList: any[] = [];
 
       (allTx || []).forEach((t: any) => {
-        if (['income', 'invoice'].includes(t.transaction_type)) {
+        if (transferTypes.includes(t.transaction_type)) {
+          // Transferler gelir/gider olarak sayılmaz
+        } else if (['income', 'invoice'].includes(t.transaction_type)) {
           totalIncome += t.amount;
           incomeList.push(t);
         } else {

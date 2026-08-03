@@ -68,15 +68,16 @@ export default function Projects() {
     const [txRes, checkRes, cashTxRes, bankTxRes] = await Promise.all([
       supabase.from('transactions').select('project_id, amount, transaction_type').in('project_id', projectIds).eq('is_exception', false),
       supabase.from('checks').select('project_id, amount, check_type, status').in('project_id', projectIds),
-      supabase.from('cash_transactions').select('project_id, amount, transaction_type').in('project_id', projectIds),
-      supabase.from('bank_transactions').select('project_id, amount, transaction_type').in('project_id', projectIds),
+      supabase.from('cash_transactions').select('project_id, amount, transaction_type, transaction_id').in('project_id', projectIds),
+      supabase.from('bank_transactions').select('project_id, amount, transaction_type, transaction_id').in('project_id', projectIds),
     ]);
 
     const summaries: ProjectSummary[] = projectsData.map(project => {
       const txs = txRes.data?.filter(t => t.project_id === project.id) || [];
       const checks = checkRes.data?.filter(c => c.project_id === project.id) || [];
-      const cashTx = cashTxRes.data?.filter(t => t.project_id === project.id) || [];
-      const bankTx = bankTxRes.data?.filter(t => t.project_id === project.id) || [];
+      // transaction_id olan kasa/banka hareketleri transactions tablosunda zaten sayıldı, hariç tut
+      const cashTx = cashTxRes.data?.filter(t => t.project_id === project.id && !t.transaction_id) || [];
+      const bankTx = bankTxRes.data?.filter(t => t.project_id === project.id && !t.transaction_id) || [];
 
       const income = txs.filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice').reduce((s, t) => s + t.amount, 0);
       const expense = txs.filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice').reduce((s, t) => s + t.amount, 0);

@@ -15,6 +15,51 @@ export function formatDateTR(date: Date | string | null | undefined): string {
   return `${day}.${month}.${year}`;
 }
 
+/**
+ * gg.aa.yyyy veya Date nesnesini yyyy-mm-dd formatına çevirir (veritabanı için)
+ */
+export function toISODate(date: Date | string | null | undefined): string {
+  if (!date) return '';
+  if (date instanceof Date) {
+    if (isNaN(date.getTime())) return '';
+    return date.toISOString().split('T')[0];
+  }
+  // gg.aa.yyyy formatını parse et
+  const parts = date.split('.');
+  if (parts.length === 3) {
+    const [day, month, year] = parts;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  // Zaten yyyy-mm-dd ise
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+  // Diğer formatları Date'e çevir
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString().split('T')[0];
+}
+
+/**
+ * gg.aa.yyyy string'ini Date nesnesine çevirir
+ */
+export function parseDateTR(dateStr: string | null | undefined): Date | null {
+  if (!dateStr) return null;
+  const parts = dateStr.split('.');
+  if (parts.length === 3) {
+    const [day, month, year] = parts;
+    const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    if (!isNaN(d.getTime())) return d;
+  }
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Bugünün yyyy-mm-dd formatında tarihini döndür
+ */
+export function todayISO(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
 export function formatCurrency(amount: number, currency = 'TRY'): string {
   return new Intl.NumberFormat('tr-TR', {
     style: 'currency',
