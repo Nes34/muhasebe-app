@@ -3,11 +3,15 @@ import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import type { CashRegister, CashTransaction, Firm, Project } from '../types';
-import { Plus, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { Plus, ArrowUpCircle, ArrowDownCircle, Building2 } from 'lucide-react';
+
+interface CashRegisterWithFirms extends CashRegister {
+  firms: Firm[];
+}
 
 export default function CashManagement() {
   const { selectedFirm } = useFirm();
-  const [registers, setRegisters] = useState<CashRegister[]>([]);
+  const [registers, setRegisters] = useState<CashRegisterWithFirms[]>([]);
   const [transactions, setTransactions] = useState<CashTransaction[]>([]);
   const [firms, setFirms] = useState<Firm[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -15,10 +19,9 @@ export default function CashManagement() {
   const [showForm, setShowForm] = useState(false);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [selectedRegister, setSelectedRegister] = useState('');
-
-  const [formData, setFormData] = useState({ name: '', currency: 'TRY', opening_balance: 0 });
+  const [formData, setFormData] = useState({ name: '', currency: 'TRY', opening_balance: 0, firm_ids: [] as string[] });
   const [transactionData, setTransactionData] = useState<{ transaction_type: 'in' | 'out'; amount: number; description: string; firm_id: string; project_id: string }>({ transaction_type: 'in', amount: 0, description: '', firm_id: '', project_id: '' });
-  const [editModal, setEditModal] = useState<CashRegister | null>(null);
+  const [editModal, setEditModal] = useState<CashRegisterWithFirms | null>(null);
   const [editBalance, setEditBalance] = useState(0);
 
   useEffect(() => { fetchData(); }, []);
@@ -46,10 +49,26 @@ export default function CashManagement() {
   };
 
   const fetchRegisters = async () => {
-    let query = supabase.from('cash_registers').select('*').eq('is_active', true).order('name');
-    if (selectedFirm) query = query.eq('firm_id', selectedFirm.id);
-    const { data } = await query;
-    if (data) setRegisters(data);
+    // Tüm kasaları çek
+    const { data: regs } = await supabase.from('cash_registers').select('*').eq('is_active', true).order('name');
+    if (!regs) { setRegisters([]); return; }
+
+    // Her kasanın firmalarını çek
+    const regIds = regs.map(r => r.id);
+    const { data: crfLinks } = await supabase.from('cash_register_firms').select('cash_register_id, firm_id').in('cash_register_id', regIds);
+
+    const enriched: CashRegisterWithFirms[] = regs.map(reg => {
+      const firmIds = crfLinks?.filter(l => l.cash_register_id === reg.id).map(l => l.firm_id) || [];
+      const regFirms = firms.filter(f => firmIds.includes(f.id));
+      return { ...reg, firms: regFirms };
+    });
+
+    // Firma filtresi uygula
+    if (selectedFirm) {
+      setRegisters(enriched.filter(r => r.firms.some(f => f.id === selectedFirm.id)));
+    } else {
+      setRegisters(enriched);
+    }
   };
 
   const fetchTransactions = async (registerId: string) => {
@@ -59,12 +78,17 @@ export default function CashManagement() {
 
   const handleCreateRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from('cash_registers').insert({ ...formData, firm_id: selectedFirm?.id || null, current_balance: formData.opening_balance, is_active: true });
+    const { data: newReg, error } = await supabase.from('cash_registers').insert({ name: formData.name, currency: formData.currency, opening_balance: formData.opening_balance, current_balance: formData.opening_balance, is_active: true }).select().single();
     if (error) {
       if (error.code === '23505') { alert('Bu isimde bir kasa zaten mevcut!'); return; }
       alert('Kasa oluşturulurken hata: ' + error.message); return;
     }
-    setShowForm(false); setFormData({ name: '', currency: 'TRY', opening_balance: 0 }); fetchRegisters();
+    // Firmaları bağla
+    if (newReg && formData.firm_ids.length > 0) {
+      const links = formData.firm_ids.map(fid => ({ cash_register_id: newReg.id, firm_id: fid }));
+      await supabase.from('cash_register_firms').insert(links);
+    }
+    setShowForm(false); setFormData({ name: '', currency: 'TRY', opening_balance: 0, firm_ids: [] }); fetchRegisters();
   };
 
   const handleUpdateOpeningBalance = async () => {
@@ -97,6 +121,13 @@ export default function CashManagement() {
     fetchRegisters(); if (selectedRegister) fetchTransactions(selectedRegister);
   };
 
+  const toggleFirmId = (fid: string) => {
+    setFormData(prev => ({
+      ...prev,
+      firm_ids: prev.firm_ids.includes(fid) ? prev.firm_ids.filter(id => id !== fid) : [...prev.firm_ids, fid],
+    }));
+  };
+
   const filteredProjects = projects.filter(p => !transactionData.firm_id || p.firm_id === transactionData.firm_id);
 
   // Hareketleri çek
@@ -122,7 +153,7 @@ export default function CashManagement() {
         <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><Plus size={16} />Yeni Kasa</button>
       </div>
 
-      {/* Kasa Kartları - hepsi ayrı ayrı */}
+      {/* Kasa Kartları */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {registers.map(register => (
           <div key={register.id} onClick={() => { setSelectedRegister(register.id); fetchTransactions(register.id); }} className={`bg-white rounded-xl p-6 border-2 cursor-pointer transition-all ${selectedRegister === register.id ? 'border-blue-500 shadow-lg' : 'border-slate-200 hover:border-slate-300'}`}>
@@ -133,6 +164,15 @@ export default function CashManagement() {
             <p className="text-2xl font-bold text-blue-600 mt-2">{formatCurrency(register.current_balance, register.currency)}</p>
             <p className="text-sm text-slate-500 mt-1">{register.currency}</p>
             <p className="text-xs text-slate-400 mt-1">Açılış: {formatCurrency(register.opening_balance || 0)}</p>
+            {register.firms.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {register.firms.map(f => (
+                  <span key={f.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">
+                    <Building2 size={10} />{f.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         ))}
         {registers.length === 0 && (
@@ -148,7 +188,7 @@ export default function CashManagement() {
           <h2 className="font-semibold text-slate-800">
             {selectedFirm ? `${selectedFirm.name} - Kasa Hareketleri` : 'Tüm Kasa Hareketleri'}
           </h2>
-          {selectedFirm && selectedRegister && selectedRegister !== 'all' && (
+          {selectedRegister && (
             <button onClick={() => setShowTransactionForm(true)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"><Plus size={16} />Hareket Ekle</button>
           )}
         </div>
@@ -175,6 +215,7 @@ export default function CashManagement() {
         )}
       </div>
 
+      {/* Yeni Kasa Formu */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
@@ -183,12 +224,25 @@ export default function CashManagement() {
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Kasa Adı</label><input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Para Birimi</label><select value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg"><option value="TRY">TRY</option><option value="USD">USD</option><option value="EUR">EUR</option></select></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Açılış Bakiyesi</label><input type="number" value={formData.opening_balance} onChange={(e) => setFormData({ ...formData, opening_balance: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Firmalar</label>
+                <div className="space-y-1 max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-2">
+                  {firms.map(f => (
+                    <label key={f.id} className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded cursor-pointer">
+                      <input type="checkbox" checked={formData.firm_ids.includes(f.id)} onChange={() => toggleFirmId(f.id)} className="rounded text-blue-600" />
+                      <span className="text-sm">{f.code ? `${f.code} - ` : ''}{f.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Birden fazla firmaya bağlayabilirsiniz</p>
+              </div>
               <div className="flex gap-2 justify-end"><button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button><button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Oluştur</button></div>
             </form>
           </div>
         </div>
       )}
 
+      {/* Hareket Ekleme Formu */}
       {showTransactionForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
@@ -218,6 +272,7 @@ export default function CashManagement() {
         </div>
       )}
 
+      {/* Açılış Bakiyesi Düzenleme */}
       {editModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">

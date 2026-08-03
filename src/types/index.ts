@@ -115,6 +115,7 @@ export interface CashRegister {
   currency: string;
   is_active: boolean;
   created_at: string;
+  firms?: Firm[];
 }
 
 export interface CashTransaction {
