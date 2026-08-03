@@ -37,23 +37,23 @@ INSERT INTO firms (code, name, tax_number, phone, email, address, type, is_activ
 ON CONFLICT DO NOTHING;
 
 -- 4. KASA TANIMLARI (test icin)
-INSERT INTO cash_registers (name, current_balance, firm_id)
-SELECT 'Ana Kasa', 100000, id
+INSERT INTO cash_registers (name, current_balance, firm_id, currency, is_active)
+SELECT 'Ana Kasa', 100000, id, 'TRY', true
 FROM firms WHERE name = 'Dere Insaat Ltd.'
 AND NOT EXISTS (SELECT 1 FROM cash_registers WHERE name = 'Ana Kasa');
 
-INSERT INTO cash_registers (name, current_balance, firm_id)
-SELECT 'Ana Kasa', 50000, id
+INSERT INTO cash_registers (name, current_balance, firm_id, currency, is_active)
+SELECT 'Ana Kasa', 50000, id, 'TRY', true
 FROM firms WHERE name = 'Yildiz Tekstil A.S.'
 AND NOT EXISTS (SELECT 1 FROM cash_registers WHERE name = 'Ana Kasa');
 
 -- 5. BANKA HESAPLARI (test icin)
-INSERT INTO bank_accounts (bank_name, branch_name, iban, current_balance, firm_id)
-SELECT 'Ziraat Bankasi', 'Levent Subesi', 'TR123456789012345678901234', 250000, id
+INSERT INTO bank_accounts (bank_name, branch, iban, current_balance, firm_id, currency, is_active)
+SELECT 'Ziraat Bankasi', 'Levent Subesi', 'TR123456789012345678901234', 250000, id, 'TRY', true
 FROM firms WHERE name = 'Dere Insaat Ltd.'
 AND NOT EXISTS (SELECT 1 FROM bank_accounts WHERE bank_name = 'Ziraat Bankasi');
 
-INSERT INTO bank_accounts (bank_name, branch_name, iban, current_balance, firm_id)
-SELECT 'Is Bankasi', 'Kadikoy Subesi', 'TR987654321098765432109876', 180000, id
+INSERT INTO bank_accounts (bank_name, branch, iban, current_balance, firm_id, currency, is_active)
+SELECT 'Is Bankasi', 'Kadikoy Subesi', 'TR987654321098765432109876', 180000, id, 'TRY', true
 FROM firms WHERE name = 'Yildiz Tekstil A.S.'
 AND NOT EXISTS (SELECT 1 FROM bank_accounts WHERE bank_name = 'Is Bankasi');
