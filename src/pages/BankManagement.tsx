@@ -75,17 +75,36 @@ export default function BankManagement() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Tarih</th><th className="text-left py-3 px-4">Tür</th><th className="text-right py-3 px-4">Tutar</th><th className="text-left py-3 px-4">Açıklama</th></tr></thead>
             <tbody>
-              {transactions.map(t => (
-                <tr key={t.id} className="border-t border-slate-100">
-                  <td className="py-3 px-4">{formatDateTR(t.created_at)}</td>
-                  <td className="py-3 px-4"><span className={`flex items-center gap-1 ${t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}`}>{t.transaction_type === 'in' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}{t.transaction_type === 'in' ? 'Giriş' : 'Çıkış'}</span></td>
-                  <td className="py-3 px-4 text-right font-medium"><span className={t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}>{t.transaction_type === 'in' ? '+' : '-'}{formatCurrency(t.amount)}</span></td>
-                  <td className="py-3 px-4 text-slate-600">{t.description || '-'}</td>
-                </tr>
-              ))}
+              {(() => {
+                const account = accounts.find(a => a.id === selectedAccount);
+                const openingBalance = account?.opening_balance || 0;
+                return (
+                  <>
+                    <tr className="border-t border-slate-100 bg-blue-50">
+                      <td className="py-3 px-4 text-blue-600 font-medium">-</td>
+                      <td className="py-3 px-4"><span className="text-blue-600 font-medium">Açılış</span></td>
+                      <td className="py-3 px-4 text-right font-medium text-blue-600">{formatCurrency(openingBalance)}</td>
+                      <td className="py-3 px-4 text-blue-500 italic">Açılış Bakiyesi</td>
+                    </tr>
+                    {transactions.map(t => (
+                      <tr key={t.id} className="border-t border-slate-100">
+                        <td className="py-3 px-4">{formatDateTR(t.created_at)}</td>
+                        <td className="py-3 px-4"><span className={`flex items-center gap-1 ${t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}`}>{t.transaction_type === 'in' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}{t.transaction_type === 'in' ? 'Giriş' : 'Çıkış'}</span></td>
+                        <td className="py-3 px-4 text-right font-medium"><span className={t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}>{t.transaction_type === 'in' ? '+' : '-'}{formatCurrency(t.amount)}</span></td>
+                        <td className="py-3 px-4 text-slate-600">{t.description || '-'}</td>
+                      </tr>
+                    ))}
+                  </>
+                );
+              })()}
             </tbody>
           </table>
-          {transactions.length === 0 && <p className="text-center py-8 text-slate-500">Henüz hareket yok.</p>}
+          {transactions.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-slate-500">Henüz hareket yok.</p>
+              <p className="text-sm text-blue-500 mt-2">Açılış Bakiyesi: {formatCurrency(accounts.find(a => a.id === selectedAccount)?.opening_balance || 0)}</p>
+            </div>
+          )}
         </div>
       )}
 

@@ -111,6 +111,7 @@ export interface CashRegister {
   name: string;
   firm_id?: string;
   current_balance: number;
+  opening_balance?: number;
   currency: string;
   is_active: boolean;
   created_at: string;
@@ -135,6 +136,7 @@ export interface BankAccount {
   account_number?: string;
   iban?: string;
   current_balance: number;
+  opening_balance?: number;
   currency: string;
   firm_id?: string;
   is_active: boolean;
