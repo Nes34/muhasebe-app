@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
@@ -99,7 +99,7 @@ export default function Projects() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.firm_id) {
-      setMessage({ type: 'error', text: 'LÃ¼tfen bir firma seÃ§in.' });
+      setMessage({ type: 'error', text: 'Lütfen bir firma seçin.' });
       setTimeout(() => setMessage(null), 3000);
       return;
     }
@@ -114,7 +114,7 @@ export default function Projects() {
         budget: formData.budget,
         status: formData.status,
       }).eq('id', editingProject.id);
-      setMessage({ type: 'success', text: 'Proje gÃ¼ncellendi!' });
+      setMessage({ type: 'success', text: 'Proje güncellendi!' });
     } else {
       await supabase.from('projects').insert({
         name: formData.name,
@@ -150,7 +150,7 @@ export default function Projects() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Bu projeyi silmek istediÄŸinizden emin misiniz?')) {
+    if (confirm('Bu projeyi silmek istediğinizden emin misiniz?')) {
       await supabase.from('projects').delete().eq('id', id);
       fetchData();
       fetchProjectSummaries();
@@ -163,9 +163,8 @@ export default function Projects() {
     return matchesSearch && matchesFirm;
   });
 
-  const getStatusLabel = (status: string) => ({ active: 'Aktif', completed: 'TamamlandÄ±', cancelled: 'Ä°ptal' }[status] || status);
+  const getStatusLabel = (status: string) => ({ active: 'Aktif', completed: 'Tamamlandı', cancelled: 'İptal' }[status] || status);
   const getStatusColor = (status: string) => ({ active: 'bg-green-100 text-green-700', completed: 'bg-blue-100 text-blue-700', cancelled: 'bg-red-100 text-red-700' }[status] || 'bg-slate-100 text-slate-700');
-
 
   return (
     <div>
@@ -190,23 +189,23 @@ export default function Projects() {
         </div>
       )}
 
-      {/* Proje Ã–zet KartlarÄ± */}
+      {/* Proje Özet Kartları */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
           <FolderKanban size={20} className="text-blue-600" />
           <h2 className="text-lg font-semibold text-slate-800">
-            {selectedFirm ? `${selectedFirm.name} - Proje Ã–zetleri` : 'TÃ¼m Firmalar - Proje Ã–zetleri'}
+            {selectedFirm ? `${selectedFirm.name} - Proje Özetleri` : 'Tüm Firmalar - Proje Özetleri'}
           </h2>
         </div>
 
         {projectSummaries.length === 0 ? (
           <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
             <FolderKanban size={32} className="mx-auto mb-2 text-slate-300" />
-            <p className="text-slate-500">HenÃ¼z proje bulunamadÄ±.</p>
+            <p className="text-slate-500">Henüz proje bulunamadı.</p>
           </div>
         ) : (
           <>
-            {/* Toplam Ã–zeti */}
+            {/* Toplam Özeti */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
               <div className="bg-green-50 rounded-xl p-4 border border-green-200">
                 <div className="flex items-center gap-2 mb-2">
@@ -225,21 +224,21 @@ export default function Projects() {
               <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
                 <div className="flex items-center gap-2 mb-2">
                   <Wallet size={16} className="text-blue-600" />
-                  <span className="text-xs text-blue-700 font-medium">Proje BÃ¼tÃ§esi</span>
+                  <span className="text-xs text-blue-700 font-medium">Proje Bütçesi</span>
                 </div>
                 <p className="text-lg font-bold text-blue-600">{formatCurrency(totalBudget)}</p>
               </div>
               <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
                 <div className="flex items-center gap-2 mb-2">
                   <DollarSign size={16} className="text-orange-600" />
-                  <span className="text-xs text-orange-700 font-medium">Verilen Ã‡ekler</span>
+                  <span className="text-xs text-orange-700 font-medium">Verilen Çekler</span>
                 </div>
                 <p className="text-lg font-bold text-orange-600">{formatCurrency(totalChecksGiven)}</p>
               </div>
               <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
                 <div className="flex items-center gap-2 mb-2">
                   <DollarSign size={16} className="text-purple-600" />
-                  <span className="text-xs text-purple-700 font-medium">Ã–denen Ã‡ekler</span>
+                  <span className="text-xs text-purple-700 font-medium">Ödenen Çekler</span>
                 </div>
                 <p className="text-lg font-bold text-purple-600">{formatCurrency(totalChecksPaid)}</p>
               </div>
@@ -252,7 +251,7 @@ export default function Projects() {
               </div>
             </div>
 
-            {/* Proje DetaylarÄ± Tablosu */}
+            {/* Proje Detayları Tablosu */}
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -261,9 +260,9 @@ export default function Projects() {
                       <th className="text-left py-3 px-4">Proje</th>
                       <th className="text-right py-3 px-4">Gelir</th>
                       <th className="text-right py-3 px-4">Gider</th>
-                      <th className="text-right py-3 px-4">BÃ¼tÃ§e</th>
-                      <th className="text-right py-3 px-4">Verilen Ã‡ek</th>
-                      <th className="text-right py-3 px-4">Ã–denen Ã‡ek</th>
+                      <th className="text-right py-3 px-4">Bütçe</th>
+                      <th className="text-right py-3 px-4">Verilen Çek</th>
+                      <th className="text-right py-3 px-4">Ödenen Çek</th>
                       <th className="text-right py-3 px-4">Kar/Zarar</th>
                       <th className="text-center py-3 px-4">Tamamlanma</th>
                     </tr>
@@ -302,7 +301,7 @@ export default function Projects() {
                         </td>
                       </tr>
                     ))}
-                    {/* Toplam SatÄ±rÄ± */}
+                    {/* Toplam Satırı */}
                     <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
                       <td className="py-3 px-4">TOPLAM</td>
                       <td className="py-3 px-4 text-right text-green-600 font-mono">{formatCurrency(totalIncome)}</td>
@@ -329,7 +328,7 @@ export default function Projects() {
         )}
       </div>
 
-      {/* Proje KartlarÄ± */}
+      {/* Proje Kartları */}
       <div className="mb-4 relative">
         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
@@ -366,13 +365,13 @@ export default function Projects() {
               )}
               
               <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 mb-3">
-                <div>BaÅŸlangÄ±Ã§: {project.start_date}</div>
-                {project.end_date && <div>BitiÅŸ: {project.end_date}</div>}
-                {project.budget > 0 && <div>BÃ¼tÃ§e: {formatCurrency(project.budget)}</div>}
+                <div>Başlangıç: {project.start_date}</div>
+                {project.end_date && <div>Bitiş: {project.end_date}</div>}
+                {project.budget > 0 && <div>Bütçe: {formatCurrency(project.budget)}</div>}
                 {summary && <div>K/Z: <span className={summary.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(summary.profitLoss)}</span></div>}
               </div>
 
-              {/* Tamamlanma Ã‡ubuÄŸu */}
+              {/* Tamamlanma Çubuğu */}
               {summary && summary.budget > 0 && (
                 <div className="mb-3">
                   <div className="flex items-center justify-between text-xs mb-1">
@@ -392,7 +391,7 @@ export default function Projects() {
               
               <div className="flex gap-2 pt-3 border-t border-slate-100">
                 <button onClick={() => handleEdit(project)} className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-sm transition-colors">
-                  <Edit2 size={14} />DÃ¼zenle
+                  <Edit2 size={14} />Düzenle
                 </button>
                 <button onClick={() => handleDelete(project.id)} className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg text-sm transition-colors">
                   <Trash2 size={14} />Sil
@@ -406,14 +405,14 @@ export default function Projects() {
       {filtered.length === 0 && (
         <div className="text-center py-12">
           <FolderKanban size={48} className="mx-auto mb-3 text-slate-300" />
-          <p className="text-slate-500">Proje bulunamadÄ±</p>
+          <p className="text-slate-500">Proje bulunamadı</p>
         </div>
       )}
 
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4">{editingProject ? 'Proje DÃ¼zenle' : 'Yeni Proje'}</h2>
+            <h2 className="text-lg font-semibold mb-4">{editingProject ? 'Proje Düzenle' : 'Yeni Proje'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <SearchableSelect
                 options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
@@ -424,7 +423,7 @@ export default function Projects() {
                 required
               />
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Proje AdÄ± *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Proje Adı *</label>
                 <input
                   type="text"
                   value={formData.name}
@@ -434,7 +433,7 @@ export default function Projects() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">AÃ§Ä±klama</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Açıklama</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -444,7 +443,7 @@ export default function Projects() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">BaÅŸlangÄ±Ã§</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç</label>
                   <input
                     type="text"
                     value={formData.start_date}
@@ -454,7 +453,7 @@ export default function Projects() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">BitiÅŸ</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Bitiş</label>
                   <input
                     type="text"
                     value={formData.end_date}
@@ -466,7 +465,7 @@ export default function Projects() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">BÃ¼tÃ§e (â‚º)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Bütçe (₺)</label>
                   <input
                     type="number"
                     value={formData.budget}
@@ -482,13 +481,13 @@ export default function Projects() {
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                   >
                     <option value="active">Aktif</option>
-                    <option value="completed">TamamlandÄ±</option>
-                    <option value="cancelled">Ä°ptal</option>
+                    <option value="completed">Tamamlandı</option>
+                    <option value="cancelled">İptal</option>
                   </select>
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
-                <button type="button" onClick={() => { setShowForm(false); setEditingProject(null); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">Ä°ptal</button>
+                <button type="button" onClick={() => { setShowForm(false); setEditingProject(null); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button>
               </div>
             </form>
