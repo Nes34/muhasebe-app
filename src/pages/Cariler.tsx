@@ -68,7 +68,7 @@ export default function Cariler() {
     const cariIds = firms.map(f => f.id);
     
     // İşlemleri çek - filtre uygula
-    let txQuery = supabase.from('transactions').select('firm_id, amount, type, invoice_number, project_id').in('firm_id', cariIds);
+    let txQuery = supabase.from('transactions').select('firm_id, amount, transaction_type, invoice_number, project_id').in('firm_id', cariIds);
     if (filterFirmId) txQuery = txQuery.eq('firm_id', filterFirmId);
     if (filterProjectId) txQuery = txQuery.eq('project_id', filterProjectId);
     const { data: transactions } = await txQuery;
@@ -84,27 +84,27 @@ export default function Cariler() {
       const firmChecks = checks?.filter(c => c.firm_id === f.id) || [];
 
       const totalIncome = firmTransactions
-        .filter(t => t.type === 'income' || t.type === 'invoice')
+        .filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice')
         .reduce((sum, t) => sum + t.amount, 0);
 
       const totalExpense = firmTransactions
-        .filter(t => t.type !== 'income' && t.type !== 'invoice')
+        .filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice')
         .reduce((sum, t) => sum + t.amount, 0);
 
       const issuedInvoices = firmTransactions
-        .filter(t => t.type === 'invoice')
+        .filter(t => t.transaction_type === 'invoice')
         .reduce((sum, t) => sum + t.amount, 0);
 
       const pendingInvoices = firmTransactions
-        .filter(t => t.type === 'expense' && !t.invoice_number)
+        .filter(t => t.transaction_type === 'expense' && !t.invoice_number)
         .reduce((sum, t) => sum + t.amount, 0);
 
       const debt = firmTransactions
-        .filter(t => t.type === 'expense' || t.type === 'invoice')
+        .filter(t => t.transaction_type === 'expense' || t.transaction_type === 'invoice')
         .reduce((sum, t) => sum + t.amount, 0);
 
       const credit = firmTransactions
-        .filter(t => t.type === 'income')
+        .filter(t => t.transaction_type === 'income')
         .reduce((sum, t) => sum + t.amount, 0);
 
       const receivedChecks = firmChecks

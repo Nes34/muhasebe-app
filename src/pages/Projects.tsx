@@ -66,7 +66,7 @@ export default function Projects() {
     const projectIds = projectsData.map(p => p.id);
 
     const [txRes, checkRes] = await Promise.all([
-      supabase.from('transactions').select('project_id, amount, type').in('project_id', projectIds).eq('is_exception', false),
+      supabase.from('transactions').select('project_id, amount, transaction_type').in('project_id', projectIds).eq('is_exception', false),
       supabase.from('checks').select('project_id, amount, check_type, status').in('project_id', projectIds),
     ]);
 
@@ -74,8 +74,8 @@ export default function Projects() {
       const txs = txRes.data?.filter(t => t.project_id === project.id) || [];
       const checks = checkRes.data?.filter(c => c.project_id === project.id) || [];
 
-      const income = txs.filter(t => t.type === 'income' || t.type === 'invoice').reduce((s, t) => s + t.amount, 0);
-      const expense = txs.filter(t => t.type !== 'income' && t.type !== 'invoice').reduce((s, t) => s + t.amount, 0);
+      const income = txs.filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice').reduce((s, t) => s + t.amount, 0);
+      const expense = txs.filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice').reduce((s, t) => s + t.amount, 0);
       const checksGiven = checks.filter(c => c.check_type === 'given' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
       const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
       const profitLoss = income - expense;

@@ -158,7 +158,7 @@ export default function Transfer() {
             for (const ct of cashTx) {
               const { data: reg } = await supabase.from('cash_registers').select('*').eq('id', ct.cash_register_id).single();
               if (reg) {
-                const newBalance = ct.type === 'expense' ? reg.current_balance + ct.amount : reg.current_balance - ct.amount;
+                const newBalance = ct.transaction_type === 'out' ? reg.current_balance + ct.amount : reg.current_balance - ct.amount;
                 await supabase.from('cash_registers').update({ current_balance: newBalance }).eq('id', reg.id);
               }
             }
@@ -180,7 +180,7 @@ export default function Transfer() {
             for (const bt of bankTx) {
               const { data: acc } = await supabase.from('bank_accounts').select('*').eq('id', bt.bank_account_id).single();
               if (acc) {
-                const newBalance = bt.type === 'expense' ? acc.current_balance + bt.amount : acc.current_balance - bt.amount;
+                const newBalance = bt.transaction_type === 'out' ? acc.current_balance + bt.amount : acc.current_balance - bt.amount;
                 await supabase.from('bank_accounts').update({ current_balance: newBalance }).eq('id', acc.id);
               }
             }
@@ -344,8 +344,8 @@ export default function Transfer() {
           const toKasa = cashRegisters.find(k => k.id === kasaToId);
           await supabase.from('cash_registers').update({ current_balance: (toKasa?.current_balance || 0) + amount }).eq('id', kasaToId);
           await supabase.from('cash_transactions').insert([
-            { cash_register_id: kasaFromId, firm_id: selectedFirm!.id, transaction_date: transferDate, type: 'expense', amount, description: `Kasa Aktarım → ${cashRegisters.find(k => k.id === kasaToId)?.name}`, created_by: user?.id },
-            { cash_register_id: kasaToId, firm_id: selectedFirm!.id, transaction_date: transferDate, type: 'income', amount, description: `${cashRegisters.find(k => k.id === kasaFromId)?.name}'ndan aktarıldı`, created_by: user?.id },
+            { cash_register_id: kasaFromId, firm_id: selectedFirm!.id, transaction_date: transferDate, transaction_type: 'out', amount, description: `Kasa Aktarım → ${cashRegisters.find(k => k.id === kasaToId)?.name}`, created_by: user?.id },
+            { cash_register_id: kasaToId, firm_id: selectedFirm!.id, transaction_date: transferDate, transaction_type: 'in', amount, description: `${cashRegisters.find(k => k.id === kasaFromId)?.name}'ndan aktarıldı`, created_by: user?.id },
           ]);
           desc = 'Kasa Aktarım';
           break;
@@ -359,8 +359,8 @@ export default function Transfer() {
           const toBank = bankAccounts.find(b => b.id === bankaToId);
           await supabase.from('bank_accounts').update({ current_balance: (toBank?.current_balance || 0) + amount }).eq('id', bankaToId);
           await supabase.from('bank_transactions').insert([
-            { bank_account_id: bankaFromId, firm_id: selectedFirm!.id, transaction_date: transferDate, type: 'expense', amount, description: `Banka Aktarım → ${bankAccounts.find(b => b.id === bankaToId)?.bank_name}`, created_by: user?.id },
-            { bank_account_id: bankaToId, firm_id: selectedFirm!.id, transaction_date: transferDate, type: 'income', amount, description: `${bankAccounts.find(b => b.id === bankaFromId)?.bank_name}'ndan aktarıldı`, created_by: user?.id },
+            { bank_account_id: bankaFromId, firm_id: selectedFirm!.id, transaction_date: transferDate, transaction_type: 'out', amount, description: `Banka Aktarım → ${bankAccounts.find(b => b.id === bankaToId)?.bank_name}`, created_by: user?.id },
+            { bank_account_id: bankaToId, firm_id: selectedFirm!.id, transaction_date: transferDate, transaction_type: 'in', amount, description: `${bankAccounts.find(b => b.id === bankaFromId)?.bank_name}'ndan aktarıldı`, created_by: user?.id },
           ]);
           desc = 'Banka Aktarım';
           break;
