@@ -3,13 +3,14 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { addRequest, getPendingRequests, approveRequest, rejectRequest, type ApprovalRequest } from '../lib/approvals';
 import SearchableSelect from '../components/SearchableSelect';
-import type { Firm } from '../types';
+import type { Firm, Cari } from '../types';
 import { GitMerge, AlertTriangle, CheckCircle, AlertCircle, Shield, Send, Clock, Check, X } from 'lucide-react';
 
 export default function FirmMerge() {
   const { user, userRole } = useAuth();
   const isAdmin = userRole === 'admin';
   const [firms, setFirms] = useState<Firm[]>([]);
+  const [cariler, setCariler] = useState<Cari[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [merging, setMerging] = useState(false);
@@ -36,27 +37,29 @@ export default function FirmMerge() {
 
   const fetchFirms = async () => {
     setLoading(true);
-    const { data } = await supabase.from('firms').select('*').in('type', ['customer', 'supplier']).order('code');
-    if (data) setFirms(data);
+    const [firmsRes, carilerRes] = await Promise.all([
+      supabase.from('firms').select('*').in('type', ['customer', 'supplier']).order('code'),
+      supabase.from('cariler').select('*').eq('is_active', true).order('code'),
+    ]);
+    if (firmsRes.data) setFirms(firmsRes.data);
+    if (carilerRes.data) setCariler(carilerRes.data);
     setLoading(false);
   };
 
-  const fetchStats = async (firmId: string) => {
-    const [txRes, projRes, checkRes, cashRes, bankRes, prodRes] = await Promise.all([
-      supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('firm_id', firmId),
-      supabase.from('projects').select('id', { count: 'exact', head: true }).eq('firm_id', firmId),
-      supabase.from('checks').select('id', { count: 'exact', head: true }).eq('firm_id', firmId),
-      supabase.from('cash_transactions').select('id', { count: 'exact', head: true }).eq('firm_id', firmId),
-      supabase.from('bank_transactions').select('id', { count: 'exact', head: true }).eq('firm_id', firmId),
-      supabase.from('products').select('id', { count: 'exact', head: true }).eq('firm_id', firmId),
+  const fetchStats = async (cariId: string) => {
+    const [txRes, checkRes, cashRes, bankRes] = await Promise.all([
+      supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('cari_id', cariId),
+      supabase.from('checks').select('id', { count: 'exact', head: true }).eq('cari_id', cariId),
+      supabase.from('cash_transactions').select('id', { count: 'exact', head: true }).eq('cari_id', cariId),
+      supabase.from('bank_transactions').select('id', { count: 'exact', head: true }).eq('cari_id', cariId),
     ]);
     setStats({
-      transactions: txRes.count || 0, projects: projRes.count || 0, checks: checkRes.count || 0,
-      cashTransactions: cashRes.count || 0, bankTransactions: bankRes.count || 0, products: prodRes.count || 0,
+      transactions: txRes.count || 0, projects: 0, checks: checkRes.count || 0,
+      cashTransactions: cashRes.count || 0, bankTransactions: bankRes.count || 0, products: 0,
     });
   };
 
-  const oldFirm = firms.find(f => f.id === oldFirmId);
+  const oldFirm = cariler.find(c => c.id === oldFirmId);
 
   const handleApprove = async (req: ApprovalRequest) => {
     await approveRequest(req.id, user?.id || '');
@@ -83,7 +86,7 @@ export default function FirmMerge() {
     if (createNew && newFirmName.length < 2) { setMessage({ type: 'error', text: 'Yeni firma adı en az 2 karakter olmalıdır!' }); return; }
     if (confirmText !== 'BİRLEŞTİR') { setMessage({ type: 'error', text: 'Onay için "BİRLEŞTİR" yazmalısınız!' }); return; }
 
-    const targetName = createNew ? newFirmName : firms.find(f => f.id === newFirmName)?.name;
+    const targetName = createNew ? newFirmName : cariler.find(c => c.id === newFirmName)?.name;
 
     // Non-admin → talep gönder
     if (!isAdmin) {
@@ -123,15 +126,10 @@ export default function FirmMerge() {
         targetFirmId = newFirmName;
       }
 
-      await supabase.from('transactions').update({ firm_id: targetFirmId }).eq('firm_id', oldFirmId);
-      await supabase.from('projects').update({ firm_id: targetFirmId }).eq('firm_id', oldFirmId);
-      await supabase.from('checks').update({ firm_id: targetFirmId }).eq('firm_id', oldFirmId);
-      await supabase.from('cash_transactions').update({ firm_id: targetFirmId }).eq('firm_id', oldFirmId);
-      await supabase.from('bank_transactions').update({ firm_id: targetFirmId }).eq('firm_id', oldFirmId);
-      await supabase.from('products').update({ firm_id: targetFirmId }).eq('firm_id', oldFirmId);
-      await supabase.from('cash_registers').update({ firm_id: targetFirmId }).eq('firm_id', oldFirmId);
-      await supabase.from('bank_accounts').update({ firm_id: targetFirmId }).eq('firm_id', oldFirmId);
-      await supabase.from('firms').update({ is_active: false, name: `${oldFirm?.name} (BİRLEŞTİRİLDİ)` }).eq('id', oldFirmId);
+      await supabase.from('transactions').update({ cari_id: targetFirmId }).eq('cari_id', oldFirmId);
+      await supabase.from('checks').update({ cari_id: targetFirmId }).eq('cari_id', oldFirmId);
+      await supabase.from('cash_transactions').update({ cari_id: targetFirmId }).eq('cari_id', oldFirmId);
+      await supabase.from('bank_transactions').update({ cari_id: targetFirmId }).eq('cari_id', oldFirmId);
 
       setMessage({ type: 'success', text: `"${oldFirm?.name}" → "${targetName}" başarıyla birleştirildi!` });
       setOldFirmId(''); setNewFirmName(''); setConfirmText(''); setCreateNew(false);
@@ -215,7 +213,7 @@ export default function FirmMerge() {
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             <SearchableSelect
-              options={activeFirms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
+              options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
               value={oldFirmId}
               onChange={(id) => { setOldFirmId(id); setConfirmText(''); }}
               label="Eski Cari"
@@ -255,7 +253,7 @@ export default function FirmMerge() {
               </div>
               {!createNew ? (
                 <SearchableSelect
-                  options={activeFirms.filter(f => f.id !== oldFirmId).map(f => ({ id: f.id, code: f.code, name: f.name }))}
+                  options={cariler.filter(c => c.id !== oldFirmId).map(c => ({ id: c.id, code: c.code, name: c.name }))}
                   value={newFirmName}
                   onChange={(id) => setNewFirmName(id)}
                   label="Hedef Cari"
@@ -292,7 +290,7 @@ export default function FirmMerge() {
               <div className="flex justify-center"><ArrowRight size={24} className="text-slate-400" /></div>
               <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                 <p className="text-xs text-green-500 mb-1">{createNew ? 'Yeni Cari' : 'Hedef Cari'}</p>
-                <p className="font-bold text-green-700">{createNew ? newFirmName || '...' : firms.find(f => f.id === newFirmName)?.name || '...'}</p>
+                <p className="font-bold text-green-700">{createNew ? newFirmName || '...' : cariler.find(c => c.id === newFirmName)?.name || '...'}</p>
               </div>
             </div>
           ) : (
