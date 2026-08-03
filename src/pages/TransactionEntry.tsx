@@ -848,7 +848,7 @@ export default function TransactionEntry() {
                 ) : (
                   <>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-slate-700">Cari</label>
+                      <label className="block text-sm font-medium text-slate-700">Firma</label>
                       <button
                         type="button"
                         onClick={() => setShowAddFirmModal(true)}
