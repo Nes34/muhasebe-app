@@ -893,10 +893,13 @@ export default function TransactionEntry() {
                 required
               >
                 <option value="">Proje Seçiniz...</option>
-                {projects.map((project) => (
+                {projects.filter(p => !firmId || p.firm_id === firmId).map((project) => (
                   <option key={project.id} value={project.id}>{project.name}</option>
                 ))}
               </select>
+              {firmId && projects.filter(p => p.firm_id === firmId).length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">Bu firmaya ait proje bulunamadı</p>
+              )}
             </div>
 
             {showInvoiceNumber && (

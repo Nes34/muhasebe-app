@@ -439,10 +439,13 @@ export default function OrderEntry() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Proje <span className="text-red-500">*</span></label>
                   <select value={formData.project_id} onChange={(e) => setFormData({ ...formData, project_id: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg">
                     <option value="">Proje Seçiniz...</option>
-                    {projects.map(p => (
+                    {projects.filter(p => !formData.firm_id || p.firm_id === formData.firm_id).map(p => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
+                  {formData.firm_id && projects.filter(p => p.firm_id === formData.firm_id).length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">Bu firmaya ait proje bulunamadı</p>
+                  )}
                 </div>
               </div>
 
