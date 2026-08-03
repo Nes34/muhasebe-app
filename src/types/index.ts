@@ -123,6 +123,7 @@ export interface CashTransaction {
   transaction_id?: string;
   transaction_type: 'in' | 'out';
   firm_id?: string;
+  project_id?: string;
   amount: number;
   description?: string;
   created_at: string;
@@ -149,6 +150,7 @@ export interface BankTransaction {
   transaction_id?: string;
   transaction_type: 'in' | 'out';
   firm_id?: string;
+  project_id?: string;
   amount: number;
   description?: string;
   created_at: string;

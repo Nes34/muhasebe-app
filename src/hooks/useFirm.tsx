@@ -38,7 +38,7 @@ export function FirmProvider({ children }: { children: ReactNode }) {
   }, [selectedFirm]);
 
   const fetchFirms = async () => {
-    const { data } = await supabase.from('firms').select('*').eq('is_active', true).order('code');
+    const { data } = await supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both').order('code');
     if (data) {
       setFirms(data);
       

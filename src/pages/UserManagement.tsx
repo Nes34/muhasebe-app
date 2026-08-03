@@ -54,7 +54,7 @@ export default function UserManagement() {
   };
 
   const fetchFirms = async () => {
-    const { data } = await supabase.from('firms').select('*').eq('is_active', true);
+    const { data } = await supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both');
     if (data) setFirms(data);
   };
 

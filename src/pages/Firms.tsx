@@ -2,26 +2,37 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { importFromExcel } from '../lib/excel';
 import { findSimilar, formatCurrency } from '../lib/utils';
-import type { Firm } from '../types';
-import { Plus, Edit2, Trash2, Search, Building2, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle, Users, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { useFirm } from '../hooks/useFirm';
+import type { Firm, Project } from '../types';
+import { Plus, Edit2, Trash2, Search, Building2, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, Wallet, FolderKanban, DollarSign } from 'lucide-react';
 
-interface FirmWithBalance extends Firm {
-  balance?: number;
+interface ProjectSummary {
+  project: Project;
+  income: number;
+  expense: number;
+  budget: number;
+  checksGiven: number;
+  checksPaid: number;
+  profitLoss: number;
+  completionRate: number;
 }
 
 export default function Firms() {
-  const [firms, setFirms] = useState<FirmWithBalance[]>([]);
+  const { selectedFirm } = useFirm();
+  const [firms, setFirms] = useState<Firm[]>([]);
+  const [projectSummaries, setProjectSummaries] = useState<ProjectSummary[]>([]);
   const [_loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [editingFirm, setEditingFirm] = useState<FirmWithBalance | null>(null);
+  const [editingFirm, setEditingFirm] = useState<Firm | null>(null);
   const [formData, setFormData] = useState({ name: '', tax_number: '', address: '', phone: '', email: '', type: 'both' as 'customer' | 'supplier' | 'both' });
   const [showExcelImport, setShowExcelImport] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [similarWarning, setSimilarWarning] = useState<FirmWithBalance[]>([]);
+  const [similarWarning, setSimilarWarning] = useState<Firm[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => { fetchFirms(); }, []);
+  useEffect(() => { fetchProjectSummaries(); }, [selectedFirm]);
 
   useEffect(() => {
     if (formData.name && !editingFirm) {
@@ -33,34 +44,58 @@ export default function Firms() {
   }, [formData.name, firms, editingFirm]);
 
   const fetchFirms = async () => {
-    const { data } = await supabase.from('firms').select('*').eq('is_active', true).order('code');
-    if (!data) { setLoading(false); return; }
-
-    const firmIds = data.map(f => f.id);
-    
-    const { data: transactions } = await supabase
-      .from('transactions')
-      .select('firm_id, amount, type')
-      .in('firm_id', firmIds);
-
-    const balanceMap: Record<string, number> = {};
-    for (const t of transactions || []) {
-      if (!balanceMap[t.firm_id]) balanceMap[t.firm_id] = 0;
-      if (t.type === 'income' || t.type === 'invoice') {
-        balanceMap[t.firm_id] += t.amount;
-      } else {
-        balanceMap[t.firm_id] -= t.amount;
-      }
-    }
-
-    const withBalance: FirmWithBalance[] = data.map(f => ({
-      ...f,
-      balance: balanceMap[f.id] || 0,
-    }));
-
-    setFirms(withBalance);
+    const { data } = await supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both').order('code');
+    if (data) setFirms(data);
     setLoading(false);
   };
+
+  const fetchProjectSummaries = async () => {
+    let projectQuery = supabase.from('projects').select('*').order('name');
+    if (selectedFirm) projectQuery = projectQuery.eq('firm_id', selectedFirm.id);
+    const { data: projects } = await projectQuery;
+    if (!projects || projects.length === 0) { setProjectSummaries([]); return; }
+
+    const projectIds = projects.map(p => p.id);
+
+    const [txRes, checkRes] = await Promise.all([
+      supabase.from('transactions').select('project_id, amount, type').in('project_id', projectIds).eq('is_exception', false),
+      supabase.from('checks').select('project_id, amount, check_type, status').in('project_id', projectIds),
+    ]);
+
+    const summaries: ProjectSummary[] = projects.map(project => {
+      const txs = txRes.data?.filter(t => t.project_id === project.id) || [];
+      const checks = checkRes.data?.filter(c => c.project_id === project.id) || [];
+
+      const income = txs.filter(t => t.type === 'income' || t.type === 'invoice').reduce((s, t) => s + t.amount, 0);
+      const expense = txs.filter(t => t.type !== 'income' && t.type !== 'invoice').reduce((s, t) => s + t.amount, 0);
+      const checksGiven = checks.filter(c => c.check_type === 'given' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
+      const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
+      const profitLoss = income - expense;
+      const budget = project.budget || 0;
+      const completionRate = budget > 0 ? Math.min((expense / budget) * 100, 100) : 0;
+
+      return {
+        project,
+        income,
+        expense,
+        budget,
+        checksGiven,
+        checksPaid,
+        profitLoss,
+        completionRate,
+      };
+    });
+
+    setProjectSummaries(summaries);
+  };
+
+  const totalIncome = projectSummaries.reduce((s, p) => s + p.income, 0);
+  const totalExpense = projectSummaries.reduce((s, p) => s + p.expense, 0);
+  const totalBudget = projectSummaries.reduce((s, p) => s + p.budget, 0);
+  const totalChecksGiven = projectSummaries.reduce((s, p) => s + p.checksGiven, 0);
+  const totalChecksPaid = projectSummaries.reduce((s, p) => s + p.checksPaid, 0);
+  const totalProfitLoss = projectSummaries.reduce((s, p) => s + p.profitLoss, 0);
+  const avgCompletionRate = totalBudget > 0 ? Math.min((totalExpense / totalBudget) * 100, 100) : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,7 +122,7 @@ export default function Firms() {
     setTimeout(() => setMessage(null), 3000);
   };
 
-  const handleEdit = (firm: FirmWithBalance) => {
+  const handleEdit = (firm: Firm) => {
     setEditingFirm(firm);
     setFormData({ name: firm.name, tax_number: firm.tax_number || '', address: firm.address || '', phone: firm.phone || '', email: firm.email || '', type: firm.type });
     setShowForm(true);
@@ -101,9 +136,6 @@ export default function Firms() {
   };
 
   const filtered = firms.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()) || f.tax_number?.toLowerCase().includes(searchTerm.toLowerCase()));
-
-  const totalAlacak = firms.reduce((sum, f) => sum + (f.balance && f.balance > 0 ? f.balance : 0), 0);
-  const totalBorç = firms.reduce((sum, f) => sum + (f.balance && f.balance < 0 ? Math.abs(f.balance) : 0), 0);
 
   const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -126,12 +158,7 @@ export default function Firms() {
         const phone = String(row['Telefon'] || row['telefon'] || row['Phone'] || row['phone'] || '');
         const email = String(row['E-posta'] || row['eposta'] || row['Email'] || row['email'] || '');
         const address = String(row['Adres'] || row['adres'] || row['Address'] || row['address'] || '');
-        const typeStr = String(row['Tür'] || row['tur'] || row['Type'] || row['type'] || 'both');
         
-        let type: 'customer' | 'supplier' | 'both' = 'both';
-        if (typeStr.toLowerCase() === 'müşteri' || typeStr.toLowerCase() === 'customer') type = 'customer';
-        else if (typeStr.toLowerCase() === 'tedarikçi' || typeStr.toLowerCase() === 'supplier') type = 'supplier';
-
         if (!name) continue;
 
         const exists = firms.some(f => f.name.toLowerCase() === name.toLowerCase());
@@ -143,7 +170,7 @@ export default function Firms() {
           phone: phone.trim() || null,
           email: email.trim() || null,
           address: address.trim() || null,
-          type,
+          type: 'both',
           is_active: true,
         });
 
@@ -181,47 +208,155 @@ export default function Firms() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Toplam Firma</p>
-              <p className="text-2xl font-bold text-slate-800">{firms.length}</p>
-            </div>
-            <div className="p-3 bg-blue-50 rounded-lg"><Users size={24} className="text-blue-600" /></div>
-          </div>
+      {/* Proje Özet Kartları */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <FolderKanban size={20} className="text-blue-600" />
+          <h2 className="text-lg font-semibold text-slate-800">
+            {selectedFirm ? `${selectedFirm.name} - Proje Özetleri` : 'Tüm Firmalar - Proje Özetleri'}
+          </h2>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Toplam Alacak</p>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(totalAlacak)}</p>
-            </div>
-            <div className="p-3 bg-green-50 rounded-lg"><ArrowUpRight size={24} className="text-green-600" /></div>
+
+        {projectSummaries.length === 0 ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
+            <FolderKanban size={32} className="mx-auto mb-2 text-slate-300" />
+            <p className="text-slate-500">{selectedFirm ? 'Bu firmaya ait proje bulunamadı.' : 'Proje bulunamadı.'}</p>
           </div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Toplam Borç</p>
-              <p className="text-2xl font-bold text-red-600">{formatCurrency(totalBorç)}</p>
+        ) : (
+          <>
+            {/* Toplam Özeti */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
+              <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp size={16} className="text-green-600" />
+                  <span className="text-xs text-green-700 font-medium">Proje Geliri</span>
+                </div>
+                <p className="text-lg font-bold text-green-600">{formatCurrency(totalIncome)}</p>
+              </div>
+              <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingDown size={16} className="text-red-600" />
+                  <span className="text-xs text-red-700 font-medium">Proje Gideri</span>
+                </div>
+                <p className="text-lg font-bold text-red-600">{formatCurrency(totalExpense)}</p>
+              </div>
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Wallet size={16} className="text-blue-600" />
+                  <span className="text-xs text-blue-700 font-medium">Proje Bütçesi</span>
+                </div>
+                <p className="text-lg font-bold text-blue-600">{formatCurrency(totalBudget)}</p>
+              </div>
+              <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign size={16} className="text-orange-600" />
+                  <span className="text-xs text-orange-700 font-medium">Verilen Çekler</span>
+                </div>
+                <p className="text-lg font-bold text-orange-600">{formatCurrency(totalChecksGiven)}</p>
+              </div>
+              <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign size={16} className="text-purple-600" />
+                  <span className="text-xs text-purple-700 font-medium">Ödenen Çekler</span>
+                </div>
+                <p className="text-lg font-bold text-purple-600">{formatCurrency(totalChecksPaid)}</p>
+              </div>
+              <div className={`rounded-xl p-4 border ${totalProfitLoss >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp size={16} className={totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'} />
+                  <span className={`text-xs font-medium ${totalProfitLoss >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>Kar/Zarar</span>
+                </div>
+                <p className={`text-lg font-bold ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatCurrency(totalProfitLoss)}</p>
+              </div>
             </div>
-            <div className="p-3 bg-red-50 rounded-lg"><ArrowDownRight size={24} className="text-red-600" /></div>
-          </div>
-        </div>
+
+            {/* Proje Detayları */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="text-left py-3 px-4">Proje</th>
+                      <th className="text-right py-3 px-4">Gelir</th>
+                      <th className="text-right py-3 px-4">Gider</th>
+                      <th className="text-right py-3 px-4">Bütçe</th>
+                      <th className="text-right py-3 px-4">Verilen Çek</th>
+                      <th className="text-right py-3 px-4">Ödenen Çek</th>
+                      <th className="text-right py-3 px-4">Kar/Zarar</th>
+                      <th className="text-center py-3 px-4">Tamamlanma</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {projectSummaries.map(ps => (
+                      <tr key={ps.project.id} className="border-t border-slate-100 hover:bg-slate-50">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <FolderKanban size={14} className="text-blue-500" />
+                            <span className="font-medium">{ps.project.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right text-green-600 font-mono">{formatCurrency(ps.income)}</td>
+                        <td className="py-3 px-4 text-right text-red-600 font-mono">{formatCurrency(ps.expense)}</td>
+                        <td className="py-3 px-4 text-right text-blue-600 font-mono">{formatCurrency(ps.budget)}</td>
+                        <td className="py-3 px-4 text-right text-orange-600 font-mono">{formatCurrency(ps.checksGiven)}</td>
+                        <td className="py-3 px-4 text-right text-purple-600 font-mono">{formatCurrency(ps.checksPaid)}</td>
+                        <td className="py-3 px-4 text-right font-mono font-bold">
+                          <span className={ps.profitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                            {formatCurrency(ps.profitLoss)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${ps.completionRate >= 100 ? 'bg-red-500' : ps.completionRate >= 80 ? 'bg-amber-500' : ps.completionRate >= 50 ? 'bg-blue-500' : 'bg-green-500'}`}
+                                style={{ width: `${Math.min(ps.completionRate, 100)}%` }}
+                              />
+                            </div>
+                            <span className={`text-xs font-bold w-12 ${ps.completionRate >= 100 ? 'text-red-600' : ps.completionRate >= 80 ? 'text-amber-600' : ps.completionRate >= 50 ? 'text-blue-600' : 'text-green-600'}`}>
+                              %{ps.completionRate.toFixed(0)}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {/* Toplam Satırı */}
+                    <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
+                      <td className="py-3 px-4">TOPLAM</td>
+                      <td className="py-3 px-4 text-right text-green-600 font-mono">{formatCurrency(totalIncome)}</td>
+                      <td className="py-3 px-4 text-right text-red-600 font-mono">{formatCurrency(totalExpense)}</td>
+                      <td className="py-3 px-4 text-right text-blue-600 font-mono">{formatCurrency(totalBudget)}</td>
+                      <td className="py-3 px-4 text-right text-orange-600 font-mono">{formatCurrency(totalChecksGiven)}</td>
+                      <td className="py-3 px-4 text-right text-purple-600 font-mono">{formatCurrency(totalChecksPaid)}</td>
+                      <td className="py-3 px-4 text-right font-mono">
+                        <span className={totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                          {formatCurrency(totalProfitLoss)}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={`text-xs font-bold ${avgCompletionRate >= 100 ? 'text-red-600' : avgCompletionRate >= 80 ? 'text-amber-600' : avgCompletionRate >= 50 ? 'text-blue-600' : 'text-green-600'}`}>
+                          %{avgCompletionRate.toFixed(0)}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mb-4 relative"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Firma ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full md:w-96 pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" /></div>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Firma Adı</th><th className="text-left py-3 px-4">Vergi No</th><th className="text-right py-3 px-4">Bakiye</th><th className="text-left py-3 px-4">Telefon</th><th className="text-center py-3 px-4">İşlem</th></tr></thead>
+            <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Firma Adı</th><th className="text-left py-3 px-4">Vergi No</th><th className="text-left py-3 px-4">Telefon</th><th className="text-center py-3 px-4">İşlem</th></tr></thead>
             <tbody>
               {filtered.map(firm => (
                 <tr key={firm.id} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="py-3 px-4"><div className="flex items-center gap-3"><div className="p-2 bg-slate-100 rounded-lg"><Building2 size={16} className="text-slate-600" /></div><span className="font-medium">{firm.name}</span></div></td>
                   <td className="py-3 px-4 text-slate-600">{firm.tax_number || '-'}</td>
-                  <td className="py-3 px-4 text-right"><span className={`font-mono font-bold ${(firm.balance || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(firm.balance || 0)}</span></td>
                   <td className="py-3 px-4 text-slate-600">{firm.phone || '-'}</td>
                   <td className="py-3 px-4 text-center"><div className="flex items-center justify-center gap-2"><button onClick={() => handleEdit(firm)} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={16} /></button><button onClick={() => handleDelete(firm.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button></div></td>
                 </tr>
@@ -281,7 +416,6 @@ export default function Firms() {
                   <li>- <strong>Telefon</strong> (opsiyonel)</li>
                   <li>- <strong>E-posta</strong> (opsiyonel)</li>
                   <li>- <strong>Adres</strong> (opsiyonel)</li>
-                  <li>- <strong>Tür</strong> (Müşteri/Tedarikçi/Her İkisi)</li>
                 </ul>
               </div>
 
@@ -322,7 +456,7 @@ C.0001,DEF A.Ş.,5554443333,0312 333 1111,info@def.com,Ankara`;
               
               <div className="bg-slate-50 rounded-lg p-3">
                 <p className="text-xs text-slate-600">
-                  <strong>Not:</strong> Aynı isimde firma varsa atlanır.
+                  <strong>Not:</strong> Kodlar otomatik üretilir. Aynı isimde firma varsa atlanır.
                 </p>
               </div>
             </div>

@@ -119,7 +119,7 @@ export default function TransactionEntry() {
 
   const fetchData = async () => {
     const [firmsRes, projectsRes, categoriesRes, typesRes, cashRes, bankRes, productsRes, unitsRes, descriptionsRes] = await Promise.all([
-      supabase.from('firms').select('*').eq('is_active', true),
+      supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both'),
       supabase.from('projects').select('*').eq('status', 'active'),
       supabase.from('expense_categories').select('*').eq('is_active', true),
       supabase.from('transaction_types').select('*').eq('is_active', true).order('sort_order'),

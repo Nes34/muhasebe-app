@@ -44,7 +44,7 @@ export default function TransactionTracking() {
     const [transactionsRes, typesRes, firmsRes, projectsRes] = await Promise.all([
       txQuery,
       supabase.from('transaction_types').select('*').eq('is_active', true),
-      supabase.from('firms').select('*').eq('is_active', true),
+      supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both'),
       supabase.from('projects').select('*'),
     ]);
 

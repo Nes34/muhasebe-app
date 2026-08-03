@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDateTR } from '../lib/utils';
 import { exportToExcel } from '../lib/excel';
 import { useAuth } from '../hooks/useAuth';
-import { BarChart3, TrendingUp, TrendingDown, Download, Users, Search, FileText } from 'lucide-react';
+import { useFirm } from '../hooks/useFirm';
+import { BarChart3, TrendingUp, TrendingDown, Download, Users, Search, FileText, AlertTriangle } from 'lucide-react';
 import type { UserProfile } from '../types';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -24,6 +25,7 @@ interface TransactionLog {
 
 export default function Reports() {
   const { user } = useAuth();
+  const { selectedFirm } = useFirm();
   const [firmReports, setFirmReports] = useState<Report[]>([]);
   const [projectReports, setProjectReports] = useState<Report[]>([]);
   const [transactionLogs, setTransactionLogs] = useState<TransactionLog[]>([]);
@@ -37,7 +39,7 @@ export default function Reports() {
     fetchReports(); 
     fetchUserProfiles();
     fetchUserRole();
-  }, []);
+  }, [selectedFirm]);
 
   const fetchUserRole = async () => {
     if (!user) return;
@@ -51,7 +53,9 @@ export default function Reports() {
   };
 
   const fetchReports = async () => {
-    const { data: transactions } = await supabase.from('transactions').select('*, firm:firms(*), project:projects(*)').eq('is_exception', false);
+    let query = supabase.from('transactions').select('*, firm:firms(*), project:projects(*)').eq('is_exception', false);
+    if (selectedFirm) query = query.eq('firm_id', selectedFirm.id);
+    const { data: transactions } = await query;
     if (!transactions) { setLoading(false); return; }
 
     const firmMap = new Map<string, Report>();
@@ -194,11 +198,21 @@ export default function Reports() {
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>;
 
+  if (!selectedFirm) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96">
+        <AlertTriangle size={48} className="text-amber-500 mb-4" />
+        <h2 className="text-xl font-semibold text-slate-800 mb-2">Firma Seçimi Zorunlu</h2>
+        <p className="text-slate-500">Lütfen üst kısımdan bir firma seçin.</p>
+      </div>
+    );
+  }
+
   const data = activeTab === 'firm' ? firmReports : activeTab === 'project' ? projectReports : [];
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Raporlar</h1>
+      <h1 className="text-2xl font-bold text-slate-800 mb-6">Raporlar{selectedFirm ? ` - ${selectedFirm.name}` : ''}</h1>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-green-50 rounded-xl p-6 border border-green-200"><div className="flex items-center gap-3"><div className="p-3 bg-green-500 rounded-lg"><TrendingUp size={24} className="text-white" /></div><div><p className="text-sm text-green-700">Toplam Gelir</p><p className="text-2xl font-bold text-green-600">{formatCurrency(totalIncome)}</p></div></div></div>
         <div className="bg-red-50 rounded-xl p-6 border border-red-200"><div className="flex items-center gap-3"><div className="p-3 bg-red-500 rounded-lg"><TrendingDown size={24} className="text-white" /></div><div><p className="text-sm text-red-700">Toplam Gider</p><p className="text-2xl font-bold text-red-600">{formatCurrency(totalExpense)}</p></div></div></div>

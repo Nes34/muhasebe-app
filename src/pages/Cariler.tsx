@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { importFromExcel } from '../lib/excel';
 import { generateNextCode, findSimilar, formatCurrency } from '../lib/utils';
-import type { Firm } from '../types';
-import { Plus, Edit2, Trash2, Search, Users, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useFirm } from '../hooks/useFirm';
+import type { Firm, Project } from '../types';
+import { Plus, Edit2, Trash2, Search, Users, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle, Filter } from 'lucide-react';
 
 interface CariWithBalance extends Firm {
   balance?: number;
@@ -18,9 +19,14 @@ interface CariWithBalance extends Firm {
 }
 
 export default function Cariler() {
+  const { selectedFirm } = useFirm();
   const [cariler, setCariler] = useState<CariWithBalance[]>([]);
   const [_loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterFirmId, setFilterFirmId] = useState('');
+  const [filterProjectId, setFilterProjectId] = useState('');
+  const [allFirms, setAllFirms] = useState<Firm[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingCari, setEditingCari] = useState<CariWithBalance | null>(null);
   const [formData, setFormData] = useState({ name: '', tax_number: '', address: '', phone: '', email: '', type: 'both' as 'customer' | 'supplier' | 'both' });
@@ -30,7 +36,8 @@ export default function Cariler() {
   const [autoCode, setAutoCode] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  useEffect(() => { fetchCariler(); }, []);
+  useEffect(() => { fetchMeta(); }, []);
+  useEffect(() => { fetchCariler(); }, [selectedFirm, filterFirmId, filterProjectId]);
 
   useEffect(() => {
     if (formData.name && !editingCari) {
@@ -44,70 +51,70 @@ export default function Cariler() {
     }
   }, [formData.name, cariler, editingCari]);
 
+  const fetchMeta = async () => {
+    const [firmsRes, projectsRes] = await Promise.all([
+      supabase.from('firms').select('*').eq('is_active', true).in('type', ['customer', 'supplier']).order('code'),
+      supabase.from('projects').select('*').order('name'),
+    ]);
+    if (firmsRes.data) setAllFirms(firmsRes.data);
+    if (projectsRes.data) setAllProjects(projectsRes.data);
+  };
+
   const fetchCariler = async () => {
-    const { data: firms } = await supabase.from('firms').select('*').eq('is_active', true).order('code');
+    setLoading(true);
+    const { data: firms } = await supabase.from('firms').select('*').eq('is_active', true).in('type', ['customer', 'supplier']).order('code');
     if (!firms) { setLoading(false); return; }
 
     const cariIds = firms.map(f => f.id);
     
-    // İşlemleri çek (invoice_number dahil)
-    const { data: transactions } = await supabase
-      .from('transactions')
-      .select('firm_id, amount, type, invoice_number')
-      .in('firm_id', cariIds);
+    // İşlemleri çek - filtre uygula
+    let txQuery = supabase.from('transactions').select('firm_id, amount, type, invoice_number, project_id').in('firm_id', cariIds);
+    if (filterFirmId) txQuery = txQuery.eq('firm_id', filterFirmId);
+    if (filterProjectId) txQuery = txQuery.eq('project_id', filterProjectId);
+    const { data: transactions } = await txQuery;
 
-    // Çekleri çek
-    const { data: checks } = await supabase
-      .from('checks')
-      .select('firm_id, amount, check_type')
-      .in('firm_id', cariIds);
+    // Çekleri çek - filtre uygula
+    let checkQuery = supabase.from('checks').select('firm_id, amount, check_type').in('firm_id', cariIds);
+    if (filterFirmId) checkQuery = checkQuery.eq('firm_id', filterFirmId);
+    const { data: checks } = await checkQuery;
 
     // Her cari için verileri hesapla
     const withBalance: CariWithBalance[] = firms.map(f => {
       const firmTransactions = transactions?.filter(t => t.firm_id === f.id) || [];
       const firmChecks = checks?.filter(c => c.firm_id === f.id) || [];
 
-      // Gelir toplamı (income + invoice)
       const totalIncome = firmTransactions
         .filter(t => t.type === 'income' || t.type === 'invoice')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Gider toplamı (expense + other)
       const totalExpense = firmTransactions
         .filter(t => t.type !== 'income' && t.type !== 'invoice')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Kestiği fatura (invoice tipindeki işlemler)
       const issuedInvoices = firmTransactions
         .filter(t => t.type === 'invoice')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Kesmesi gereken fatura (gider işlemleri ama faturası olmayan)
       const pendingInvoices = firmTransactions
         .filter(t => t.type === 'expense' && !t.invoice_number)
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Borç (cariye ait gider/fatura işlemleri - bize borçlu)
       const debt = firmTransactions
         .filter(t => t.type === 'expense' || t.type === 'invoice')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Alacak (cariye ait gelir işlemleri - bize alacaklı)
       const credit = firmTransactions
         .filter(t => t.type === 'income')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Alınan çek
       const receivedChecks = firmChecks
         .filter(c => c.check_type === 'received')
         .reduce((sum, c) => sum + c.amount, 0);
 
-      // Verilen çek
       const issuedChecks = firmChecks
         .filter(c => c.check_type === 'given')
         .reduce((sum, c) => sum + c.amount, 0);
 
-      // Bakiye = Gelir - Gider
       const balance = totalIncome - totalExpense;
 
       return {
@@ -242,6 +249,12 @@ export default function Cariler() {
     }
   };
 
+  const filteredProjects = allProjects.filter(p => !filterFirmId || p.firm_id === filterFirmId);
+
+  const totalDebt = filtered.reduce((s, c) => s + (c.debt || 0), 0);
+  const totalCredit = filtered.reduce((s, c) => s + (c.credit || 0), 0);
+  const totalBalance = filtered.reduce((s, c) => s + (c.balance || 0), 0);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -261,7 +274,55 @@ export default function Cariler() {
         </div>
       )}
 
-      <div className="mb-4 relative"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Cari ara... (kod, isim veya vergi no)" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full md:w-96 pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" /></div>
+      {/* Filtreler */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Filter size={16} className="text-slate-500" />
+          <span className="text-sm font-medium text-slate-700">Filtreleme</span>
+          {(filterFirmId || filterProjectId) && (
+            <button onClick={() => { setFilterFirmId(''); setFilterProjectId(''); }} className="text-xs text-blue-600 hover:text-blue-800 ml-2">Filtreleri Temizle</button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Cari Ara</label>
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input type="text" placeholder="Kod, isim veya vergi no..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Firma / Cari Filtresi</label>
+            <select value={filterFirmId} onChange={(e) => { setFilterFirmId(e.target.value); setFilterProjectId(''); }} className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm">
+              <option value="">Tüm Firmalar</option>
+              {allFirms.filter(f => f.type === 'both').map(f => <option key={f.id} value={f.id}>{f.code ? `${f.code} - ` : ''}{f.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1">Proje Filtresi</label>
+            <select value={filterProjectId} onChange={(e) => setFilterProjectId(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm">
+              <option value="">Tüm Projeler</option>
+              {filteredProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Özet Kartları */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+          <p className="text-sm text-red-700">Toplam Borç</p>
+          <p className="text-2xl font-bold text-red-600">{formatCurrency(totalDebt)}</p>
+        </div>
+        <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+          <p className="text-sm text-green-700">Toplam Alacak</p>
+          <p className="text-2xl font-bold text-green-600">{formatCurrency(totalCredit)}</p>
+        </div>
+        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+          <p className="text-sm text-blue-700">Net Bakiye</p>
+          <p className={`text-2xl font-bold ${totalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(totalBalance)}</p>
+        </div>
+      </div>
       
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">

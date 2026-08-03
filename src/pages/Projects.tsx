@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
+import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import type { Project, Firm } from '../types';
 import { Plus, Edit2, Trash2, FolderKanban, AlertTriangle, CheckCircle, Search } from 'lucide-react';
 
 export default function Projects() {
+  const { selectedFirm } = useFirm();
   const [firms, setFirms] = useState<Firm[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [_loading, setLoading] = useState(true);
@@ -26,12 +28,12 @@ export default function Projects() {
 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [selectedFirm]);
 
   const fetchData = async () => {
     setLoading(true);
     const [firmsRes, projectsRes] = await Promise.all([
-      supabase.from('firms').select('*').eq('is_active', true).order('code'),
+      supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both').order('code'),
       supabase.from('projects').select('*, firm:firms(*)').order('created_at', { ascending: false }),
     ]);
     if (firmsRes.data) setFirms(firmsRes.data);
@@ -98,13 +100,24 @@ export default function Projects() {
     }
   };
 
-  const filtered = projects.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.firm?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = projects.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.firm?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFirm = !selectedFirm || p.firm_id === selectedFirm.id;
+    return matchesSearch && matchesFirm;
+  });
 
   const getStatusLabel = (status: string) => ({ active: 'Aktif', completed: 'Tamamlandı', cancelled: 'İptal' }[status] || status);
   const getStatusColor = (status: string) => ({ active: 'bg-green-100 text-green-700', completed: 'bg-blue-100 text-blue-700', cancelled: 'bg-red-100 text-red-700' }[status] || 'bg-slate-100 text-slate-700');
+
+  if (!selectedFirm) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96">
+        <AlertTriangle size={48} className="text-amber-500 mb-4" />
+        <h2 className="text-xl font-semibold text-slate-800 mb-2">Firma Seçimi Zorunlu</h2>
+        <p className="text-slate-500">Lütfen üst kısımdan bir firma seçin.</p>
+      </div>
+    );
+  }
 
   return (
     <div>

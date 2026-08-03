@@ -31,7 +31,7 @@ export default function FirmMerge() {
 
   const fetchFirms = async () => {
     setLoading(true);
-    const { data } = await supabase.from('firms').select('*').order('code');
+    const { data } = await supabase.from('firms').select('*').eq('type', 'both').order('code');
     if (data) setFirms(data);
     setLoading(false);
   };

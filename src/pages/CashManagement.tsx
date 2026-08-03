@@ -1,28 +1,53 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
-import type { CashRegister, CashTransaction } from '../types';
-import { Plus, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { useFirm } from '../hooks/useFirm';
+import type { CashRegister, CashTransaction, Firm, Project } from '../types';
+import { Plus, ArrowUpCircle, ArrowDownCircle, AlertTriangle } from 'lucide-react';
 
 export default function CashManagement() {
+  const { selectedFirm } = useFirm();
   const [registers, setRegisters] = useState<CashRegister[]>([]);
   const [transactions, setTransactions] = useState<CashTransaction[]>([]);
+  const [firms, setFirms] = useState<Firm[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [_loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [selectedRegister, setSelectedRegister] = useState('');
-  
+
   const [formData, setFormData] = useState({ name: '', currency: 'TRY', opening_balance: 0 });
-  const [transactionData, setTransactionData] = useState({ transaction_type: 'in' as 'in' | 'out', amount: 0, description: '' });
+  const [transactionData, setTransactionData] = useState<{ transaction_type: 'in' | 'out'; amount: number; description: string; firm_id: string; project_id: string }>({ transaction_type: 'in', amount: 0, description: '', firm_id: '', project_id: '' });
   const [editModal, setEditModal] = useState<CashRegister | null>(null);
   const [editBalance, setEditBalance] = useState(0);
 
-  useEffect(() => { fetchRegisters(); }, []);
+  useEffect(() => { fetchData(); }, []);
+
+  useEffect(() => {
+    if (selectedFirm) {
+      setTransactionData(prev => ({ ...prev, firm_id: selectedFirm.id }));
+    }
+  }, [selectedFirm]);
+
+  useEffect(() => {
+    fetchRegisters();
+  }, [selectedFirm]);
+
+  const fetchData = async () => {
+    const [firmsRes, projectsRes] = await Promise.all([
+      supabase.from('firms').select('*').eq('is_active', true).in('type', ['customer', 'supplier']).order('code'),
+      supabase.from('projects').select('*').eq('status', 'active').order('name'),
+    ]);
+    if (firmsRes.data) setFirms(firmsRes.data);
+    if (projectsRes.data) setProjects(projectsRes.data);
+    setLoading(false);
+  };
 
   const fetchRegisters = async () => {
-    const { data } = await supabase.from('cash_registers').select('*').eq('is_active', true).order('name');
+    let query = supabase.from('cash_registers').select('*').eq('is_active', true).order('name');
+    if (selectedFirm) query = query.eq('firm_id', selectedFirm.id);
+    const { data } = await query;
     if (data) setRegisters(data);
-    setLoading(false);
   };
 
   const fetchTransactions = async (registerId: string) => {
@@ -32,7 +57,7 @@ export default function CashManagement() {
 
   const handleCreateRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    await supabase.from('cash_registers').insert({ ...formData, current_balance: formData.opening_balance, is_active: true });
+    await supabase.from('cash_registers').insert({ ...formData, firm_id: selectedFirm?.id, current_balance: formData.opening_balance, is_active: true });
     setShowForm(false); setFormData({ name: '', currency: 'TRY', opening_balance: 0 }); fetchRegisters();
   };
 
@@ -45,15 +70,38 @@ export default function CashManagement() {
 
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    await supabase.from('cash_transactions').insert({ cash_register_id: selectedRegister, ...transactionData });
+    if (!transactionData.firm_id) { alert('Cari seçimi zorunludur!'); return; }
+    if (!transactionData.project_id) { alert('Proje seçimi zorunludur!'); return; }
+
+    await supabase.from('cash_transactions').insert({
+      cash_register_id: selectedRegister,
+      firm_id: transactionData.firm_id,
+      project_id: transactionData.project_id,
+      transaction_type: transactionData.transaction_type,
+      amount: transactionData.amount,
+      description: transactionData.description,
+    });
+
     const register = registers.find(r => r.id === selectedRegister);
     if (register) {
       const newBalance = transactionData.transaction_type === 'in' ? register.current_balance + transactionData.amount : register.current_balance - transactionData.amount;
       await supabase.from('cash_registers').update({ current_balance: newBalance }).eq('id', selectedRegister);
     }
-    setShowTransactionForm(false); setTransactionData({ transaction_type: 'in', amount: 0, description: '' });
+    setShowTransactionForm(false); setTransactionData({ transaction_type: 'in', amount: 0, description: '', firm_id: selectedFirm?.id || '', project_id: '' });
     fetchRegisters(); if (selectedRegister) fetchTransactions(selectedRegister);
   };
+
+  const filteredProjects = projects.filter(p => !transactionData.firm_id || p.firm_id === transactionData.firm_id);
+
+  if (!selectedFirm) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96">
+        <AlertTriangle size={48} className="text-amber-500 mb-4" />
+        <h2 className="text-xl font-semibold text-slate-800 mb-2">Firma Seçimi Zorunlu</h2>
+        <p className="text-slate-500">Lütfen üst kısımdan bir firma seçin.</p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -83,7 +131,7 @@ export default function CashManagement() {
             <button onClick={() => setShowTransactionForm(true)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"><Plus size={16} />Hareket Ekle</button>
           </div>
           <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Tarih</th><th className="text-left py-3 px-4">Tür</th><th className="text-right py-3 px-4">Tutar</th><th className="text-left py-3 px-4">Açıklama</th></tr></thead>
+            <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Tarih</th><th className="text-left py-3 px-4">Tür</th><th className="text-left py-3 px-4">Cari</th><th className="text-left py-3 px-4">Proje</th><th className="text-right py-3 px-4">Tutar</th><th className="text-left py-3 px-4">Açıklama</th></tr></thead>
             <tbody>
               {(() => {
                 const register = registers.find(r => r.id === selectedRegister);
@@ -93,6 +141,8 @@ export default function CashManagement() {
                     <tr className="border-t border-slate-100 bg-blue-50">
                       <td className="py-3 px-4 text-blue-600 font-medium">-</td>
                       <td className="py-3 px-4"><span className="text-blue-600 font-medium">Açılış</span></td>
+                      <td className="py-3 px-4">-</td>
+                      <td className="py-3 px-4">-</td>
                       <td className="py-3 px-4 text-right font-medium text-blue-600">{formatCurrency(openingBalance)}</td>
                       <td className="py-3 px-4 text-blue-500 italic">Açılış Bakiyesi</td>
                     </tr>
@@ -100,6 +150,8 @@ export default function CashManagement() {
                       <tr key={t.id} className="border-t border-slate-100">
                         <td className="py-3 px-4">{formatDateTR(t.created_at)}</td>
                         <td className="py-3 px-4"><span className={`flex items-center gap-1 ${t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}`}>{t.transaction_type === 'in' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}{t.transaction_type === 'in' ? 'Giriş' : 'Çıkış'}</span></td>
+                        <td className="py-3 px-4 text-slate-600">{firms.find(f => f.id === t.firm_id)?.name || '-'}</td>
+                        <td className="py-3 px-4 text-slate-600">{projects.find(p => p.id === t.project_id)?.name || '-'}</td>
                         <td className="py-3 px-4 text-right font-medium"><span className={t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}>{t.transaction_type === 'in' ? '+' : '-'}{formatCurrency(t.amount)}</span></td>
                         <td className="py-3 px-4 text-slate-600">{t.description || '-'}</td>
                       </tr>
@@ -141,6 +193,18 @@ export default function CashManagement() {
                 <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="tt" value="in" checked={transactionData.transaction_type === 'in'} onChange={(e) => setTransactionData({ ...transactionData, transaction_type: e.target.value as 'in' | 'out' })} className="text-green-600" /><span className="text-green-600 font-medium">Giriş</span></label>
                 <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="tt" value="out" checked={transactionData.transaction_type === 'out'} onChange={(e) => setTransactionData({ ...transactionData, transaction_type: e.target.value as 'in' | 'out' })} className="text-red-600" /><span className="text-red-600 font-medium">Çıkış</span></label>
               </div></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Cari <span className="text-red-500">*</span></label>
+                <select value={transactionData.firm_id} onChange={(e) => setTransactionData({ ...transactionData, firm_id: e.target.value, project_id: '' })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required>
+                  <option value="">Cari Seçin</option>
+                  {firms.map(f => <option key={f.id} value={f.id}>{f.code ? `${f.code} - ` : ''}{f.name}</option>)}
+                </select>
+              </div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Proje <span className="text-red-500">*</span></label>
+                <select value={transactionData.project_id} onChange={(e) => setTransactionData({ ...transactionData, project_id: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required>
+                  <option value="">Proje Seçin</option>
+                  {filteredProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Tutar</label><input type="number" value={transactionData.amount} onChange={(e) => setTransactionData({ ...transactionData, amount: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Açıklama</label><input type="text" value={transactionData.description} onChange={(e) => setTransactionData({ ...transactionData, description: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
               <div className="flex gap-2 justify-end"><button type="button" onClick={() => setShowTransactionForm(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button><button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button></div>
