@@ -11,6 +11,7 @@ export default function CheckManagement() {
   const [checks, setChecks] = useState<Check[]>([]);
   const [cariler, setCariler] = useState<Cari[]>([]);
   const [firmBankAccounts, setFirmBankAccounts] = useState<BankAccount[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [_loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'received' | 'given'>('all');
@@ -38,13 +39,62 @@ export default function CheckManagement() {
       query = query.eq('firm_id', selectedFirm.id);
     }
     const { data } = await query;
-    if (data) setChecks(data);
+    if (!data) { setLoading(false); return; }
+
+    // Vadesi dolan çekleri otomatik tahsil/öde
+    const today = new Date().toISOString().split('T')[0];
+    const dueChecks = data.filter(c => c.status === 'pending' && c.due_date <= today);
+
+    for (const check of dueChecks) {
+      const newStatus = check.check_type === 'received' ? 'collected' : 'paid';
+      const cariName = cariler.find(c => c.id === check.cari_id)?.name || '';
+
+      // Çek durumunu güncelle
+      await supabase.from('checks').update({ status: newStatus }).eq('id', check.id);
+
+      // Çekin banka hesabını bul
+      const acc = bankAccounts.find(a => a.bank_name === check.bank_name);
+
+      if (check.check_type === 'received') {
+        // Tahsil edilen çek → bankaya giriş
+        if (acc) {
+          await supabase.from('bank_transactions').insert({
+            bank_account_id: acc.id,
+            cari_id: check.cari_id,
+            transaction_type: 'in',
+            amount: check.amount,
+            description: `Çek Tahsil (Otomatik): ${check.check_number} - ${cariName}`,
+          });
+          await supabase.from('bank_accounts').update({ current_balance: acc.current_balance + check.amount }).eq('id', acc.id);
+        }
+      } else {
+        // Ödenen çek → bankadan çıkış
+        if (acc) {
+          await supabase.from('bank_transactions').insert({
+            bank_account_id: acc.id,
+            cari_id: check.cari_id,
+            transaction_type: 'out',
+            amount: check.amount,
+            description: `Çek Ödeme (Otomatik): ${check.check_number} - ${cariName}`,
+          });
+          await supabase.from('bank_accounts').update({ current_balance: acc.current_balance - check.amount }).eq('id', acc.id);
+        }
+      }
+    }
+
+    // Güncel çekleri tekrar çek
+    const { data: updated } = await query;
+    if (updated) setChecks(updated);
     setLoading(false);
   };
 
   const fetchMeta = async () => {
-    const { data } = await supabase.from('cariler').select('*').eq('is_active', true).order('code');
-    if (data) setCariler(data);
+    const [carilerRes, bankRes] = await Promise.all([
+      supabase.from('cariler').select('*').eq('is_active', true).order('code'),
+      supabase.from('bank_accounts').select('*').eq('is_active', true).order('bank_name'),
+    ]);
+    if (carilerRes.data) setCariler(carilerRes.data);
+    if (bankRes.data) setBankAccounts(bankRes.data);
   };
 
   const fetchFirmBankAccounts = async (firmId: string) => {

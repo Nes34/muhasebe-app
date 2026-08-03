@@ -78,16 +78,17 @@ export default function Firms() {
       const income = txs.filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice').reduce((s, t) => s + t.amount, 0);
       const expense = txs.filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice').reduce((s, t) => s + t.amount, 0);
       
-      // Alınan çekler = gelir olarak ekle
-      const checksReceived = checks.filter(c => c.check_type === 'received' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
-      // Verilen çekler = gider olarak ekle
-      const checksGiven = checks.filter(c => c.check_type === 'given' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
+      // Bekleyen çekler (tahsil/ödenmemiş)
+      const pendingReceivedChecks = checks.filter(c => c.check_type === 'received' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
+      const pendingGivenChecks = checks.filter(c => c.check_type === 'given' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
+      
       const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
       
-      // Kâr/Zarar = gelir + alınan çekler - gider - verilen çekler
-      const profitLoss = (income + checksReceived) - (expense + checksGiven);
+      // Kâr/Zarar = gelir + bekleyen alınan çekler - gider - bekleyen verilen çekler
+      // (tahsil/ödenen çekler zaten banka hareketi olarak gelir/gidere eklendi)
+      const profitLoss = (income + pendingReceivedChecks) - (expense + pendingGivenChecks);
 
-      return { firm, income, expense, checksGiven, checksPaid, profitLoss };
+      return { firm, income, expense, checksGiven: pendingGivenChecks, checksPaid, profitLoss };
     });
 
     setFirmSummaries(summaries);

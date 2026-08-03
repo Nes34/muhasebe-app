@@ -76,14 +76,16 @@ export default function Projects() {
 
       const income = txs.filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice').reduce((s, t) => s + t.amount, 0);
       const expense = txs.filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice').reduce((s, t) => s + t.amount, 0);
-      const checksReceived = checks.filter(c => c.check_type === 'received' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
-      const checksGiven = checks.filter(c => c.check_type === 'given' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
+      // Bekleyen çekler (tahsil/ödenmemiş)
+      const pendingReceivedChecks = checks.filter(c => c.check_type === 'received' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
+      const pendingGivenChecks = checks.filter(c => c.check_type === 'given' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
       const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
-      const profitLoss = (income + checksReceived) - (expense + checksGiven);
+      // Kâr/Zarar = gelir + bekleyen alınan çekler - gider - bekleyen verilen çekler
+      const profitLoss = (income + pendingReceivedChecks) - (expense + pendingGivenChecks);
       const budget = project.budget || 0;
       const completionRate = budget > 0 ? Math.min((expense / budget) * 100, 100) : 0;
 
-      return { project, income, expense, budget, checksGiven, checksPaid, profitLoss, completionRate };
+      return { project, income, expense, budget, checksGiven: pendingGivenChecks, checksPaid, profitLoss, completionRate };
     });
 
     setProjectSummaries(summaries);

@@ -75,7 +75,7 @@ export default function Cariler() {
     const { data: transactions } = await txQuery;
 
     // Çekleri çek
-    let checkQuery = supabase.from('checks').select('cari_id, amount, check_type').in('cari_id', cariIds);
+    let checkQuery = supabase.from('checks').select('cari_id, amount, check_type, status').in('cari_id', cariIds);
     if (filterFirmId) checkQuery = checkQuery.eq('firm_id', filterFirmId);
     else if (selectedFirm) checkQuery = checkQuery.eq('firm_id', selectedFirm.id);
     const { data: checks } = await checkQuery;
@@ -101,23 +101,29 @@ export default function Cariler() {
         .filter(t => t.transaction_type === 'expense' && !t.invoice_number)
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const debt = cariTransactions
-        .filter(t => t.transaction_type === 'expense' || t.transaction_type === 'invoice')
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      const credit = cariTransactions
-        .filter(t => t.transaction_type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
-
       const receivedChecks = cariChecks
-        .filter(ch => ch.check_type === 'received')
+        .filter(ch => ch.check_type === 'received' && ch.status !== 'cancelled')
         .reduce((sum, ch) => sum + ch.amount, 0);
 
       const issuedChecks = cariChecks
-        .filter(ch => ch.check_type === 'given')
+        .filter(ch => ch.check_type === 'given' && ch.status !== 'cancelled')
         .reduce((sum, ch) => sum + ch.amount, 0);
 
-      const balance = totalIncome - totalExpense;
+      // Bekleyen çekler (tahsil/ödenmemiş) → gelir/gider olarak ekle
+      const pendingReceivedChecks = cariChecks
+        .filter(ch => ch.check_type === 'received' && ch.status === 'pending')
+        .reduce((sum, ch) => sum + ch.amount, 0);
+
+      const pendingIssuedChecks = cariChecks
+        .filter(ch => ch.check_type === 'given' && ch.status === 'pending')
+        .reduce((sum, ch) => sum + ch.amount, 0);
+
+      // Borç = gider + fatura + bekleyen verilen çekler
+      const debt = (totalExpense + (cariTransactions.filter(t => t.transaction_type === 'invoice').reduce((sum, t) => sum + t.amount, 0))) + pendingIssuedChecks;
+      // Alacak = gelir + bekleyen alınan çekler
+      const credit = totalIncome + pendingReceivedChecks;
+      // Bakiye = alacak - borç
+      const balance = credit - debt;
 
       return {
         ...c,
