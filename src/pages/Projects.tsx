@@ -76,9 +76,10 @@ export default function Projects() {
 
       const income = txs.filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice').reduce((s, t) => s + t.amount, 0);
       const expense = txs.filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice').reduce((s, t) => s + t.amount, 0);
+      const checksReceived = checks.filter(c => c.check_type === 'received' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
       const checksGiven = checks.filter(c => c.check_type === 'given' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
       const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
-      const profitLoss = income - expense;
+      const profitLoss = (income + checksReceived) - (expense + checksGiven);
       const budget = project.budget || 0;
       const completionRate = budget > 0 ? Math.min((expense / budget) * 100, 100) : 0;
 

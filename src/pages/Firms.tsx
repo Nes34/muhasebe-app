@@ -54,20 +54,38 @@ export default function Firms() {
 
     const firmIds = firmsData.map(f => f.id);
 
+    // Firmaların cari_id'lerini bul
+    const { data: cariLinks } = await supabase.from('cariler').select('id');
+    const allCariIds = cariLinks?.map(c => c.id) || [];
+
     const [txRes, checkRes] = await Promise.all([
-      supabase.from('transactions').select('firm_id, amount, transaction_type').in('firm_id', firmIds).eq('is_exception', false),
-      supabase.from('checks').select('firm_id, amount, check_type, status').in('firm_id', firmIds),
+      supabase.from('transactions').select('firm_id, cari_id, amount, transaction_type, is_exception').or(`firm_id.in.(${firmIds.join(',')}),cari_id.in.(${allCariIds.join(',')})`),
+      supabase.from('checks').select('firm_id, cari_id, amount, check_type, status').or(`firm_id.in.(${firmIds.join(',')}),cari_id.in.(${allCariIds.join(',')})`),
     ]);
 
     const summaries: FirmSummary[] = firmsData.map(firm => {
-      const txs = txRes.data?.filter(t => t.firm_id === firm.id) || [];
-      const checks = checkRes.data?.filter(c => c.firm_id === firm.id) || [];
+      // Hem firm_id hem cari_id eşleşen işlemleri al
+      const txs = txRes.data?.filter(t => 
+        (t.firm_id === firm.id) || 
+        (t.cari_id && allCariIds.includes(t.cari_id))
+      ).filter(t => !t.is_exception) || [];
+      
+      const checks = checkRes.data?.filter(c => 
+        (c.firm_id === firm.id) || 
+        (c.cari_id && allCariIds.includes(c.cari_id))
+      ) || [];
 
       const income = txs.filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice').reduce((s, t) => s + t.amount, 0);
       const expense = txs.filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice').reduce((s, t) => s + t.amount, 0);
+      
+      // Alınan çekler = gelir olarak ekle
+      const checksReceived = checks.filter(c => c.check_type === 'received' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
+      // Verilen çekler = gider olarak ekle
       const checksGiven = checks.filter(c => c.check_type === 'given' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
       const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
-      const profitLoss = income - expense;
+      
+      // Kâr/Zarar = gelir + alınan çekler - gider - verilen çekler
+      const profitLoss = (income + checksReceived) - (expense + checksGiven);
 
       return { firm, income, expense, checksGiven, checksPaid, profitLoss };
     });
