@@ -207,8 +207,6 @@ export default function Dashboard() {
   const getTypeLabel = (type: string) => ({
     income: 'Gelir', expense: 'Gider', invoice: 'Fatura', delivery_note: 'İrsaliye',
     purchase_invoice: 'Alış Faturası', sale_invoice: 'Satış Faturası',
-    transfer: 'Cari Aktarım', stock_transfer: 'Stok Aktarım',
-    cash_transfer: 'Kasa Aktarım', bank_transfer: 'Banka Aktarım',
   }[type] || type);
 
   const getTypeColor = (type: string) => {

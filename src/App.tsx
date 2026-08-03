@@ -10,7 +10,6 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import TransactionEntry from './pages/TransactionEntry';
 import TransactionTracking from './pages/TransactionTracking';
-import Transfer from './pages/Transfer';
 import StockManagement from './pages/StockManagement';
 import StockUnitManagement from './pages/StockUnitManagement';
 import StockTransfer from './pages/StockTransfer';
@@ -62,7 +61,6 @@ function AppLayout() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/islem-girisi" element={<TransactionEntry />} />
             <Route path="/islem-takibi" element={<TransactionTracking />} />
-            <Route path="/aktarim" element={<Transfer />} />
             <Route path="/stok" element={<StockManagement />} />
             <Route path="/stok-birimleri" element={<StockUnitManagement />} />
             <Route path="/stok-aktarim" element={<StockTransfer />} />

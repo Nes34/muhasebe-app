@@ -19,10 +19,6 @@ const TYPE_COLORS: Record<string, { bg: string; border: string; text: string; ic
   delivery_note:  { bg: 'bg-purple-50', border: 'border-purple-500', text: 'text-purple-700', icon: 'text-purple-500' },
   sale_invoice:   { bg: 'bg-teal-50', border: 'border-teal-500', text: 'text-teal-700', icon: 'text-teal-500' },
   purchase_invoice: { bg: 'bg-orange-50', border: 'border-orange-500', text: 'text-orange-700', icon: 'text-orange-500' },
-  transfer:       { bg: 'bg-cyan-50', border: 'border-cyan-500', text: 'text-cyan-700', icon: 'text-cyan-500' },
-  stock_transfer: { bg: 'bg-lime-50', border: 'border-lime-500', text: 'text-lime-700', icon: 'text-lime-500' },
-  cash_transfer:  { bg: 'bg-yellow-50', border: 'border-yellow-500', text: 'text-yellow-700', icon: 'text-yellow-500' },
-  bank_transfer:  { bg: 'bg-indigo-50', border: 'border-indigo-500', text: 'text-indigo-700', icon: 'text-indigo-500' },
 };
 
 const DEFAULT_COLOR = { bg: 'bg-slate-50', border: 'border-slate-500', text: 'text-slate-700', icon: 'text-slate-500' };

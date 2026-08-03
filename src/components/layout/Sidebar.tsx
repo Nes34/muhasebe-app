@@ -53,7 +53,6 @@ const menuGroups: MenuGroup[] = [
     items: [
       { to: '/cariler', icon: Users, label: 'Cari Yönetimi' },
       { to: '/cari-hesap', icon: Receipt, label: 'Cari Hesap Ekstresi' },
-      { to: '/aktarim', icon: ArrowLeftRight, label: 'Aktarım' },
       { to: '/firma-birlesme', icon: GitMerge, label: 'Birleştirme' },
     ],
   },
