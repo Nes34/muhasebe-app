@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency, todayISO } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
-import type { OrderItem, OrderDelivery, OrderInvoice } from '../types';
-import { Search, AlertTriangle, CheckCircle, Package, Truck, FileText, X, Save, ChevronDown, ChevronRight } from 'lucide-react';
+import SearchableSelect from '../components/SearchableSelect';
+import type { Cari, OrderDelivery, OrderInvoice } from '../types';
+import { Search, AlertTriangle, CheckCircle, Package, Truck, FileText, X, Save, ChevronDown, ChevronRight, CheckSquare, Square, Keyboard } from 'lucide-react';
 
 interface OrderWithDetails {
   id: string;
@@ -25,9 +26,44 @@ interface OrderWithDetails {
   items?: OrderItem[];
 }
 
+interface OrderItem {
+  id: string;
+  order_id: string;
+  product_id?: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+  amount: number;
+  delivered_quantity: number;
+  invoiced_quantity: number;
+  sort_order: number;
+  created_at: string;
+  product?: { name: string; unit: string };
+}
+
+interface PendingItem {
+  order_id: string;
+  order_number: number;
+  order_date: string;
+  item_id: string;
+  product_name: string;
+  description: string;
+  unit: string;
+  total_quantity: number;
+  delivered_quantity: number;
+  invoiced_quantity: number;
+  remaining_delivery: number;
+  remaining_invoice: number;
+  unit_price: number;
+  selected: boolean;
+  entry_quantity: number;
+}
+
 export default function OrderTracking() {
   const { selectedFirm } = useFirm();
   const [orders, setOrders] = useState<OrderWithDetails[]>([]);
+  const [cariler, setCariler] = useState<Cari[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -35,13 +71,14 @@ export default function OrderTracking() {
 
   // İrsaliye formu
   const [showDeliveryForm, setShowDeliveryForm] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<OrderWithDetails | null>(null);
   const [deliveryForm, setDeliveryForm] = useState({
     delivery_number: '',
     delivery_date: todayISO(),
     notes: '',
+    cari_id: '',
   });
-  const [deliveryItems, setDeliveryItems] = useState<{ order_item_id: string; quantity: number }[]>([]);
+  const [pendingDeliveryItems, setPendingDeliveryItems] = useState<PendingItem[]>([]);
+  const [loadingPending, setLoadingPending] = useState(false);
 
   // Fatura formu
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
@@ -49,9 +86,10 @@ export default function OrderTracking() {
     invoice_number: '',
     invoice_date: todayISO(),
     notes: '',
-    total_amount: 0,
+    cari_id: '',
   });
-  const [invoiceItems, setInvoiceItems] = useState<{ order_item_id: string; quantity: number; unit_price: number; amount: number }[]>([]);
+  const [pendingInvoiceItems, setPendingInvoiceItems] = useState<PendingItem[]>([]);
+  const [loadingPendingInvoice, setLoadingPendingInvoice] = useState(false);
 
   // Detay paneli
   const [showDetail, setShowDetail] = useState<string | null>(null);
@@ -59,17 +97,37 @@ export default function OrderTracking() {
   const [invoices, setInvoices] = useState<OrderInvoice[]>([]);
 
   useEffect(() => {
-    fetchOrders();
+    fetchData();
   }, [selectedFirm]);
 
-  async function fetchOrders() {
-    setLoading(true);
-    const { data } = await supabase
-      .from('orders')
-      .select('*, firm:firms(name), cari:cariler(name), project:projects(name), items:order_items(*, product:products(name, unit))')
-      .order('created_at', { ascending: false });
+  // F1 tuşu için全局 dinleyici
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F1') {
+        e.preventDefault();
+        if (showDeliveryForm && deliveryForm.cari_id) {
+          fetchPendingDeliveryItems(deliveryForm.cari_id);
+        } else if (showInvoiceForm && invoiceForm.cari_id) {
+          fetchPendingInvoiceItems(invoiceForm.cari_id);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showDeliveryForm, showInvoiceForm, deliveryForm.cari_id, invoiceForm.cari_id]);
 
-    if (data) setOrders(data as OrderWithDetails[]);
+  async function fetchData() {
+    setLoading(true);
+    const [ordersRes, carilerRes] = await Promise.all([
+      supabase
+        .from('orders')
+        .select('*, firm:firms(name), cari:cariler(name), project:projects(name), items:order_items(*, product:products(name, unit))')
+        .order('created_at', { ascending: false }),
+      supabase.from('cariler').select('*').eq('is_active', true).order('name'),
+    ]);
+
+    if (ordersRes.data) setOrders(ordersRes.data as OrderWithDetails[]);
+    if (carilerRes.data) setCariler(carilerRes.data);
     setLoading(false);
   }
 
@@ -82,76 +140,230 @@ export default function OrderTracking() {
     if (invRes.data) setInvoices(invRes.data as OrderInvoice[]);
   }
 
+  // Cari seçildiğinde tamamlanmamış irsaliye kalemlerini çek
+  async function fetchPendingDeliveryItems(cariId: string) {
+    setLoadingPending(true);
+    try {
+      // Bu cariye ait tüm aktif siparişleri çek
+      const { data: cariOrders } = await supabase
+        .from('orders')
+        .select('id, order_number, order_date, items:order_items(*)')
+        .eq('cari_id', cariId)
+        .not('status', 'eq', 'cancelled')
+        .order('order_date', { ascending: true });
+
+      const pending: PendingItem[] = [];
+      (cariOrders || []).forEach((order: any) => {
+        (order.items || []).forEach((item: any) => {
+          const remaining = item.quantity - item.delivered_quantity;
+          if (remaining > 0) {
+            pending.push({
+              order_id: order.id,
+              order_number: order.order_number,
+              order_date: order.order_date,
+              item_id: item.id,
+              product_name: item.product?.name || item.description,
+              description: item.description,
+              unit: item.unit,
+              total_quantity: item.quantity,
+              delivered_quantity: item.delivered_quantity,
+              invoiced_quantity: item.invoiced_quantity,
+              remaining_delivery: remaining,
+              remaining_invoice: item.quantity - item.invoiced_quantity,
+              unit_price: item.unit_price,
+              selected: false,
+              entry_quantity: 0,
+            });
+          }
+        });
+      });
+
+      setPendingDeliveryItems(pending);
+    } catch (error) {
+      console.error('Pending items fetch error:', error);
+    }
+    setLoadingPending(false);
+  }
+
+  // Cari seçildiğinde tamamlanmamış fatura kalemlerini çek
+  async function fetchPendingInvoiceItems(cariId: string) {
+    setLoadingPendingInvoice(true);
+    try {
+      const { data: cariOrders } = await supabase
+        .from('orders')
+        .select('id, order_number, order_date, items:order_items(*)')
+        .eq('cari_id', cariId)
+        .not('status', 'eq', 'cancelled')
+        .order('order_date', { ascending: true });
+
+      const pending: PendingItem[] = [];
+      (cariOrders || []).forEach((order: any) => {
+        (order.items || []).forEach((item: any) => {
+          const remaining = item.quantity - item.invoiced_quantity;
+          if (remaining > 0) {
+            pending.push({
+              order_id: order.id,
+              order_number: order.order_number,
+              order_date: order.order_date,
+              item_id: item.id,
+              product_name: item.product?.name || item.description,
+              description: item.description,
+              unit: item.unit,
+              total_quantity: item.quantity,
+              delivered_quantity: item.delivered_quantity,
+              invoiced_quantity: item.invoiced_quantity,
+              remaining_delivery: item.quantity - item.delivered_quantity,
+              remaining_invoice: remaining,
+              unit_price: item.unit_price,
+              selected: false,
+              entry_quantity: 0,
+            });
+          }
+        });
+      });
+
+      setPendingInvoiceItems(pending);
+    } catch (error) {
+      console.error('Pending items fetch error:', error);
+    }
+    setLoadingPendingInvoice(false);
+  }
+
+  // Tümünü seç/kaldır (irsaliye)
+  function toggleSelectAllDelivery() {
+    const allSelected = pendingDeliveryItems.every(i => i.selected);
+    setPendingDeliveryItems(pendingDeliveryItems.map(i => ({
+      ...i,
+      selected: !allSelected,
+      entry_quantity: !allSelected ? i.remaining_delivery : 0,
+    })));
+  }
+
+  // Tek kalem seç/kaldır (irsaliye)
+  function toggleItemDelivery(index: number) {
+    const newItems = [...pendingDeliveryItems];
+    const item = newItems[index];
+    newItems[index] = {
+      ...item,
+      selected: !item.selected,
+      entry_quantity: !item.selected ? item.remaining_delivery : 0,
+    };
+    setPendingDeliveryItems(newItems);
+  }
+
+  // Miktar değiştir (irsaliye)
+  function updateEntryQuantityDelivery(index: number, qty: number) {
+    const newItems = [...pendingDeliveryItems];
+    const item = newItems[index];
+    const maxQty = item.remaining_delivery;
+    newItems[index] = {
+      ...item,
+      entry_quantity: Math.min(maxQty, Math.max(0, qty)),
+      selected: qty > 0,
+    };
+    setPendingDeliveryItems(newItems);
+  }
+
+  // Tümünü seç/kaldır (fatura)
+  function toggleSelectAllInvoice() {
+    const allSelected = pendingInvoiceItems.every(i => i.selected);
+    setPendingInvoiceItems(pendingInvoiceItems.map(i => ({
+      ...i,
+      selected: !allSelected,
+      entry_quantity: !allSelected ? i.remaining_invoice : 0,
+    })));
+  }
+
+  // Tek kalem seç/kaldır (fatura)
+  function toggleItemInvoice(index: number) {
+    const newItems = [...pendingInvoiceItems];
+    const item = newItems[index];
+    newItems[index] = {
+      ...item,
+      selected: !item.selected,
+      entry_quantity: !item.selected ? item.remaining_invoice : 0,
+    };
+    setPendingInvoiceItems(newItems);
+  }
+
+  // Miktar değiştir (fatura)
+  function updateEntryQuantityInvoice(index: number, qty: number) {
+    const newItems = [...pendingInvoiceItems];
+    const item = newItems[index];
+    const maxQty = item.remaining_invoice;
+    newItems[index] = {
+      ...item,
+      entry_quantity: Math.min(maxQty, Math.max(0, qty)),
+      selected: qty > 0,
+    };
+    setPendingInvoiceItems(newItems);
+  }
+
   // İrsaliye formunu aç
-  function openDeliveryForm(order: OrderWithDetails) {
-    setSelectedOrder(order);
+  function openDeliveryForm() {
     setDeliveryForm({
       delivery_number: '',
       delivery_date: todayISO(),
       notes: '',
+      cari_id: '',
     });
-    setDeliveryItems((order.items || []).map(item => ({
-      order_item_id: item.id,
-      quantity: Math.max(0, item.quantity - item.delivered_quantity),
-    })));
+    setPendingDeliveryItems([]);
     setShowDeliveryForm(true);
   }
 
   // Fatura formunu aç
-  function openInvoiceForm(order: OrderWithDetails) {
-    setSelectedOrder(order);
+  function openInvoiceForm() {
     setInvoiceForm({
       invoice_number: '',
       invoice_date: todayISO(),
       notes: '',
-      total_amount: order.total_amount,
+      cari_id: '',
     });
-    setInvoiceItems((order.items || []).map(item => ({
-      order_item_id: item.id,
-      quantity: Math.max(0, item.quantity - item.invoiced_quantity),
-      unit_price: item.unit_price,
-      amount: Math.max(0, item.quantity - item.invoiced_quantity) * item.unit_price,
-    })));
+    setPendingInvoiceItems([]);
     setShowInvoiceForm(true);
   }
 
   // İrsaliye kaydet
   async function handleDeliverySubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedOrder) return;
-
     try {
-      const validItems = deliveryItems.filter(item => item.quantity > 0);
-      if (validItems.length === 0) {
-        setMessage({ type: 'error', text: 'En az bir kaleme miktar girin' });
+      const selectedItems = pendingDeliveryItems.filter(i => i.selected && i.entry_quantity > 0);
+      if (selectedItems.length === 0) {
+        setMessage({ type: 'error', text: 'En az bir kalem seçin ve miktar girin' });
         return;
       }
 
-      // İrsaliye oluştur
-      const { data: delivery, error: delError } = await supabase.from('order_deliveries').insert({
-        order_id: selectedOrder.id,
-        delivery_number: deliveryForm.delivery_number,
-        delivery_date: deliveryForm.delivery_date,
-        notes: deliveryForm.notes || null,
-        status: 'pending',
-      }).select().single();
+      // Her sipariş için ayrı irsaliye oluştur
+      const ordersGrouped = selectedItems.reduce((acc, item) => {
+        if (!acc[item.order_id]) acc[item.order_id] = [];
+        acc[item.order_id].push(item);
+        return acc;
+      }, {} as Record<string, PendingItem[]>);
 
-      if (delError) throw delError;
+      for (const [orderId, items] of Object.entries(ordersGrouped)) {
+        const { data: delivery, error: delError } = await supabase.from('order_deliveries').insert({
+          order_id: orderId,
+          delivery_number: deliveryForm.delivery_number,
+          delivery_date: deliveryForm.delivery_date,
+          notes: deliveryForm.notes || null,
+          status: 'pending',
+        }).select().single();
 
-      // İrsaliye kalemlerini ekle
-      const itemsToInsert = validItems.map(item => ({
-        delivery_id: delivery.id,
-        order_item_id: item.order_item_id,
-        quantity: item.quantity,
-      }));
+        if (delError) throw delError;
 
-      const { error: itemsError } = await supabase.from('order_delivery_items').insert(itemsToInsert);
-      if (itemsError) throw itemsError;
+        const itemsToInsert = items.map(item => ({
+          delivery_id: delivery.id,
+          order_item_id: item.item_id,
+          quantity: item.entry_quantity,
+        }));
 
-      setMessage({ type: 'success', text: 'İrsaliye oluşturuldu' });
+        const { error: itemsError } = await supabase.from('order_delivery_items').insert(itemsToInsert);
+        if (itemsError) throw itemsError;
+      }
+
+      setMessage({ type: 'success', text: `${selectedItems.length} kalem irsaliyeye eklendi` });
       setShowDeliveryForm(false);
-      setSelectedOrder(null);
-      fetchOrders();
+      fetchData();
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || 'İrsaliye oluşturulamadı' });
     }
@@ -160,49 +372,53 @@ export default function OrderTracking() {
   // Fatura kaydet
   async function handleInvoiceSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedOrder) return;
-
     try {
-      const validItems = invoiceItems.filter(item => item.quantity > 0);
-      if (validItems.length === 0) {
-        setMessage({ type: 'error', text: 'En az bir kaleme miktar girin' });
+      const selectedItems = pendingInvoiceItems.filter(i => i.selected && i.entry_quantity > 0);
+      if (selectedItems.length === 0) {
+        setMessage({ type: 'error', text: 'En az bir kalem seçin ve miktar girin' });
         return;
       }
 
-      // Fatura oluştur
-      const { data: invoice, error: invError } = await supabase.from('order_invoices').insert({
-        order_id: selectedOrder.id,
-        invoice_number: invoiceForm.invoice_number,
-        invoice_date: invoiceForm.invoice_date,
-        total_amount: validItems.reduce((sum, item) => sum + item.amount, 0),
-        notes: invoiceForm.notes || null,
-        status: 'pending',
-      }).select().single();
+      const ordersGrouped = selectedItems.reduce((acc, item) => {
+        if (!acc[item.order_id]) acc[item.order_id] = [];
+        acc[item.order_id].push(item);
+        return acc;
+      }, {} as Record<string, PendingItem[]>);
 
-      if (invError) throw invError;
+      for (const [orderId, items] of Object.entries(ordersGrouped)) {
+        const totalAmount = items.reduce((sum, i) => sum + i.entry_quantity * i.unit_price, 0);
 
-      // Fatura kalemlerini ekle
-      const itemsToInsert = validItems.map(item => ({
-        invoice_id: invoice.id,
-        order_item_id: item.order_item_id,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        amount: item.amount,
-      }));
+        const { data: invoice, error: invError } = await supabase.from('order_invoices').insert({
+          order_id: orderId,
+          invoice_number: invoiceForm.invoice_number,
+          invoice_date: invoiceForm.invoice_date,
+          total_amount: totalAmount,
+          notes: invoiceForm.notes || null,
+          status: 'pending',
+        }).select().single();
 
-      const { error: itemsError } = await supabase.from('order_invoice_items').insert(itemsToInsert);
-      if (itemsError) throw itemsError;
+        if (invError) throw invError;
 
-      setMessage({ type: 'success', text: 'Fatura oluşturuldu' });
+        const itemsToInsert = items.map(item => ({
+          invoice_id: invoice.id,
+          order_item_id: item.item_id,
+          quantity: item.entry_quantity,
+          unit_price: item.unit_price,
+          amount: item.entry_quantity * item.unit_price,
+        }));
+
+        const { error: itemsError } = await supabase.from('order_invoice_items').insert(itemsToInsert);
+        if (itemsError) throw itemsError;
+      }
+
+      setMessage({ type: 'success', text: `${selectedItems.length} kalem faturaya eklendi` });
       setShowInvoiceForm(false);
-      setSelectedOrder(null);
-      fetchOrders();
+      fetchData();
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || 'Fatura oluşturulamadı' });
     }
   }
 
-  // Detayları göster
   async function toggleDetail(orderId: string) {
     if (showDetail === orderId) {
       setShowDetail(null);
@@ -236,7 +452,6 @@ export default function OrderTracking() {
     return matchesSearch && matchesStatus && matchesFirm;
   });
 
-  // Bilgilendirme hesaplamaları
   const pendingInvoiceOrders = orders.filter(o => {
     const inv = getInvoiceProgress(o);
     return inv.percent < 100 && o.status !== 'cancelled';
@@ -247,12 +462,36 @@ export default function OrderTracking() {
     return del.percent === 100 && o.status !== 'completed' && o.status !== 'cancelled';
   });
 
+  // Seçili kalemlerin toplamı (irsaliye)
+  const selectedDeliveryTotal = pendingDeliveryItems
+    .filter(i => i.selected && i.entry_quantity > 0)
+    .reduce((sum, i) => sum + i.entry_quantity * i.unit_price, 0);
+
+  // Seçili kalemlerin toplamı (fatura)
+  const selectedInvoiceTotal = pendingInvoiceItems
+    .filter(i => i.selected && i.entry_quantity > 0)
+    .reduce((sum, i) => sum + i.entry_quantity * i.unit_price, 0);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
           <Truck size={24} /> Sipariş Takibi
         </h1>
+        <div className="flex gap-2">
+          <button
+            onClick={openDeliveryForm}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Truck size={16} /> Yeni İrsaliye
+          </button>
+          <button
+            onClick={openInvoiceForm}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <FileText size={16} /> Yeni Fatura
+          </button>
+        </div>
       </div>
 
       {message && (
@@ -270,17 +509,6 @@ export default function OrderTracking() {
             <span className="font-semibold text-green-800">İrsaliyeleri Tamamlanan Siparişler ({completedDeliveryOrders.length})</span>
           </div>
           <p className="text-sm text-green-700 mb-2">Bu siparişlerin tüm malzeme irsaliyeleri tamamlanmış, faturalanabilir.</p>
-          <div className="flex flex-wrap gap-2">
-            {completedDeliveryOrders.map(order => (
-              <button
-                key={order.id}
-                onClick={() => openInvoiceForm(order)}
-                className="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
-              >
-                #{order.order_number} Fatura Kes
-              </button>
-            ))}
-          </div>
         </div>
       )}
 
@@ -292,10 +520,6 @@ export default function OrderTracking() {
           </div>
           <p className="text-sm text-amber-700">
             {pendingInvoiceOrders.length} siparişin faturası henüz kesilmemiş veya eksik kesilmiş.
-            Toplam tutar: {formatCurrency(pendingInvoiceOrders.reduce((sum, o) => {
-              const inv = getInvoiceProgress(o);
-              return sum + o.total_amount * (1 - inv.percent / 100);
-            }, 0))}
           </p>
         </div>
       )}
@@ -336,12 +560,9 @@ export default function OrderTracking() {
           const delivery = getDeliveryProgress(order);
           const invoice = getInvoiceProgress(order);
           const isExpanded = showDetail === order.id;
-          const hasPendingDelivery = delivery.percent < 100;
-          const hasPendingInvoice = invoice.percent < 100;
 
           return (
             <div key={order.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              {/* Sipariş Başlığı */}
               <div className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -367,7 +588,6 @@ export default function OrderTracking() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {/* İrsaliye Durumu */}
                     <div className="text-right min-w-[120px]">
                       <div className="flex items-center gap-2 mb-1">
                         <Truck size={14} className={delivery.percent === 100 ? 'text-green-600' : 'text-blue-600'} />
@@ -382,7 +602,6 @@ export default function OrderTracking() {
                       <p className="text-xs text-slate-500 mt-1">{delivery.delivered}/{delivery.total}</p>
                     </div>
 
-                    {/* Fatura Durumu */}
                     <div className="text-right min-w-[120px]">
                       <div className="flex items-center gap-2 mb-1">
                         <FileText size={14} className={invoice.percent === 100 ? 'text-green-600' : 'text-purple-600'} />
@@ -396,26 +615,6 @@ export default function OrderTracking() {
                       </div>
                       <p className="text-xs text-slate-500 mt-1">{invoice.invoiced}/{invoice.total}</p>
                     </div>
-
-                    {/* Aksiyon Butonları */}
-                    <div className="flex gap-2">
-                      {hasPendingDelivery && order.status !== 'cancelled' && (
-                        <button
-                          onClick={() => openDeliveryForm(order)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          <Truck size={14} /> İrsaliye
-                        </button>
-                      )}
-                      {hasPendingInvoice && delivery.percent > 0 && order.status !== 'cancelled' && (
-                        <button
-                          onClick={() => openInvoiceForm(order)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors"
-                        >
-                          <FileText size={14} /> Fatura
-                        </button>
-                      )}
-                    </div>
                   </div>
                 </div>
               </div>
@@ -424,7 +623,6 @@ export default function OrderTracking() {
               {isExpanded && (
                 <div className="border-t border-slate-200 bg-slate-50 p-4">
                   <div className="grid grid-cols-2 gap-4">
-                    {/* Sipariş Kalemleri */}
                     <div>
                       <h4 className="font-medium text-slate-800 mb-2 flex items-center gap-2">
                         <Package size={14} /> Sipariş Kalemleri
@@ -461,7 +659,6 @@ export default function OrderTracking() {
                       </div>
                     </div>
 
-                    {/* İrsaliye ve Fatura Geçmişi */}
                     <div className="space-y-3">
                       <div>
                         <h4 className="font-medium text-slate-800 mb-2 flex items-center gap-2">
@@ -519,19 +716,22 @@ export default function OrderTracking() {
         )}
       </div>
 
-      {/* İrsaliye Formu */}
-      {showDeliveryForm && selectedOrder && (
+      {/* ============================================ */}
+      {/* İRSALİYE FORMU */}
+      {/* ============================================ */}
+      {showDeliveryForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Truck size={20} /> İrsaliye Oluştur - #{selectedOrder.order_number}
+                <Truck size={20} /> Yeni İrsaliye Oluştur
               </h2>
-              <button onClick={() => { setShowDeliveryForm(false); setSelectedOrder(null); }} className="p-1 hover:bg-slate-100 rounded"><X size={20} /></button>
+              <button onClick={() => setShowDeliveryForm(false)} className="p-1 hover:bg-slate-100 rounded"><X size={20} /></button>
             </div>
 
             <form onSubmit={handleDeliverySubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              {/* Temel Bilgiler */}
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">İrsaliye Numarası</label>
                   <input type="text" value={deliveryForm.delivery_number} onChange={(e) => setDeliveryForm({ ...deliveryForm, delivery_number: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" required placeholder="IRS-00001" />
@@ -540,6 +740,15 @@ export default function OrderTracking() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Tarih</label>
                   <input type="date" value={deliveryForm.delivery_date} onChange={(e) => setDeliveryForm({ ...deliveryForm, delivery_date: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" required />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Cari *</label>
+                  <SearchableSelect
+                    options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
+                    value={deliveryForm.cari_id}
+                    onChange={(id) => setDeliveryForm({ ...deliveryForm, cari_id: id })}
+                    placeholder="Cari seçin..."
+                  />
+                </div>
               </div>
 
               <div>
@@ -547,53 +756,108 @@ export default function OrderTracking() {
                 <input type="text" value={deliveryForm.notes} onChange={(e) => setDeliveryForm({ ...deliveryForm, notes: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="Opsiyonel not..." />
               </div>
 
-              <div>
-                <h3 className="font-medium text-slate-800 mb-2">İrsaliye Kalemleri (Kalan miktar)</h3>
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        <th className="text-left py-2 px-3">Ürün</th>
-                        <th className="text-right py-2 px-3">Sipariş</th>
-                        <th className="text-right py-2 px-3">Gönderilen</th>
-                        <th className="text-right py-2 px-3">Kalan</th>
-                        <th className="text-right py-2 px-3 w-28">İrsaliye</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(selectedOrder.items || []).map((item, index) => {
-                        const remaining = item.quantity - item.delivered_quantity;
-                        return (
-                          <tr key={item.id} className="border-t border-slate-100">
-                            <td className="py-2 px-3">{item.product?.name || item.description}</td>
-                            <td className="py-2 px-3 text-right">{item.quantity}</td>
-                            <td className="py-2 px-3 text-right text-green-600">{item.delivered_quantity}</td>
-                            <td className="py-2 px-3 text-right font-medium">{remaining}</td>
-                            <td className="py-2 px-3">
+              {/* F1 Bilgisi */}
+              {deliveryForm.cari_id && pendingDeliveryItems.length === 0 && !loadingPending && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-3">
+                  <Keyboard size={20} className="text-blue-600" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-800">F1 tuşuna basın</p>
+                    <p className="text-xs text-blue-600">Seçili cariye ait tamamlanmamış sipariş kalemleri yüklenecek</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Yükleniyor */}
+              {loadingPending && (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-sm text-slate-500 mt-2">Tamamlanmamış kalemler yükleniyor...</p>
+                </div>
+              )}
+
+              {/* Kalemler Tablosu */}
+              {pendingDeliveryItems.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-medium text-slate-800 flex items-center gap-2">
+                      <Package size={16} /> Tamamlanmamış Sipariş Kalemleri ({pendingDeliveryItems.length})
+                    </h3>
+                    <button type="button" onClick={toggleSelectAllDelivery} className="flex items-center gap-1 px-3 py-1 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
+                      {pendingDeliveryItems.every(i => i.selected) ? <CheckSquare size={14} /> : <Square size={14} />}
+                      {pendingDeliveryItems.every(i => i.selected) ? 'Tümünü Kaldır' : 'Tümünü Seç'}
+                    </button>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="text-center py-2 px-2 w-10">
+                            <input
+                              type="checkbox"
+                              checked={pendingDeliveryItems.every(i => i.selected)}
+                              onChange={toggleSelectAllDelivery}
+                              className="rounded"
+                            />
+                          </th>
+                          <th className="text-left py-2 px-2">Sipariş</th>
+                          <th className="text-left py-2 px-2">Ürün</th>
+                          <th className="text-right py-2 px-2">Sipariş</th>
+                          <th className="text-right py-2 px-2">Gönderilen</th>
+                          <th className="text-right py-2 px-2 font-bold text-blue-700">Kalan</th>
+                          <th className="text-right py-2 px-2 w-28">Girilecek</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendingDeliveryItems.map((item, index) => (
+                          <tr key={item.item_id} className={`border-t border-slate-100 ${item.selected ? 'bg-blue-50' : 'hover:bg-slate-50'}`}>
+                            <td className="py-2 px-2 text-center">
+                              <input
+                                type="checkbox"
+                                checked={item.selected}
+                                onChange={() => toggleItemDelivery(index)}
+                                className="rounded"
+                              />
+                            </td>
+                            <td className="py-2 px-2">
+                              <span className="text-xs font-medium text-slate-600">#{item.order_number}</span>
+                            </td>
+                            <td className="py-2 px-2">{item.product_name}</td>
+                            <td className="py-2 px-2 text-right">{item.total_quantity} {item.unit}</td>
+                            <td className="py-2 px-2 text-right text-green-600">{item.delivered_quantity}</td>
+                            <td className="py-2 px-2 text-right font-bold text-blue-700">{item.remaining_delivery} {item.unit}</td>
+                            <td className="py-2 px-2">
                               <input
                                 type="number"
-                                value={deliveryItems[index]?.quantity || 0}
-                                onChange={(e) => {
-                                  const newItems = [...deliveryItems];
-                                  newItems[index] = { ...newItems[index], quantity: Math.min(remaining, parseFloat(e.target.value) || 0) };
-                                  setDeliveryItems(newItems);
-                                }}
-                                max={remaining}
+                                value={item.entry_quantity || ''}
+                                onChange={(e) => updateEntryQuantityDelivery(index, parseFloat(e.target.value) || 0)}
+                                max={item.remaining_delivery}
                                 min={0}
                                 step="0.001"
-                                className="w-full px-2 py-1 border border-slate-300 rounded text-sm text-right"
+                                placeholder="0"
+                                className="w-full px-2 py-1 border border-slate-300 rounded text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                               />
                             </td>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-50 font-medium">
+                          <td colSpan={6} className="py-2 px-3 text-right">
+                            Seçilen Toplam Tutar:
+                          </td>
+                          <td className="py-2 px-3 text-right text-blue-700">
+                            {formatCurrency(selectedDeliveryTotal)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex gap-2 justify-end pt-4 border-t border-slate-200">
-                <button type="button" onClick={() => { setShowDeliveryForm(false); setSelectedOrder(null); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
+                <button type="button" onClick={() => setShowDeliveryForm(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
                 <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                   <Save size={16} /> Kaydet
                 </button>
@@ -603,19 +867,22 @@ export default function OrderTracking() {
         </div>
       )}
 
-      {/* Fatura Formu */}
-      {showInvoiceForm && selectedOrder && (
+      {/* ============================================ */}
+      {/* FATURA FORMU */}
+      {/* ============================================ */}
+      {showInvoiceForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold flex items-center gap-2">
-                <FileText size={20} /> Fatura Oluştur - #{selectedOrder.order_number}
+                <FileText size={20} /> Yeni Fatura Oluştur
               </h2>
-              <button onClick={() => { setShowInvoiceForm(false); setSelectedOrder(null); }} className="p-1 hover:bg-slate-100 rounded"><X size={20} /></button>
+              <button onClick={() => setShowInvoiceForm(false)} className="p-1 hover:bg-slate-100 rounded"><X size={20} /></button>
             </div>
 
             <form onSubmit={handleInvoiceSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              {/* Temel Bilgiler */}
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Fatura Numarası</label>
                   <input type="text" value={invoiceForm.invoice_number} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoice_number: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" required placeholder="FAT-00001" />
@@ -624,6 +891,15 @@ export default function OrderTracking() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Tarih</label>
                   <input type="date" value={invoiceForm.invoice_date} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoice_date: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" required />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Cari *</label>
+                  <SearchableSelect
+                    options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
+                    value={invoiceForm.cari_id}
+                    onChange={(id) => setInvoiceForm({ ...invoiceForm, cari_id: id })}
+                    placeholder="Cari seçin..."
+                  />
+                </div>
               </div>
 
               <div>
@@ -631,65 +907,114 @@ export default function OrderTracking() {
                 <input type="text" value={invoiceForm.notes} onChange={(e) => setInvoiceForm({ ...invoiceForm, notes: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="Opsiyonel not..." />
               </div>
 
-              <div>
-                <h3 className="font-medium text-slate-800 mb-2">Fatura Kalemleri (Kalan miktar)</h3>
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        <th className="text-left py-2 px-3">Ürün</th>
-                        <th className="text-right py-2 px-3">Sipariş</th>
-                        <th className="text-right py-2 px-3">Faturalanan</th>
-                        <th className="text-right py-2 px-3">Kalan</th>
-                        <th className="text-right py-2 px-3 w-24">Fiyat</th>
-                        <th className="text-right py-2 px-3 w-28">Tutar</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(selectedOrder.items || []).map((item, index) => {
-                        const remaining = item.quantity - item.invoiced_quantity;
-                        return (
-                          <tr key={item.id} className="border-t border-slate-100">
-                            <td className="py-2 px-3">{item.product?.name || item.description}</td>
-                            <td className="py-2 px-3 text-right">{item.quantity}</td>
-                            <td className="py-2 px-3 text-right text-purple-600">{item.invoiced_quantity}</td>
-                            <td className="py-2 px-3 text-right font-medium">{remaining}</td>
-                            <td className="py-2 px-3 text-right">{formatCurrency(item.unit_price)}</td>
-                            <td className="py-2 px-3">
+              {/* F1 Bilgisi */}
+              {invoiceForm.cari_id && pendingInvoiceItems.length === 0 && !loadingPendingInvoice && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-center gap-3">
+                  <Keyboard size={20} className="text-purple-600" />
+                  <div>
+                    <p className="text-sm font-medium text-purple-800">F1 tuşuna basın</p>
+                    <p className="text-xs text-purple-600">Seçili cariye ait faturası kesilmemiş sipariş kalemleri yüklenecek</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Yükleniyor */}
+              {loadingPendingInvoice && (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
+                  <p className="text-sm text-slate-500 mt-2">Faturası kesilmemiş kalemler yükleniyor...</p>
+                </div>
+              )}
+
+              {/* Kalemler Tablosu */}
+              {pendingInvoiceItems.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-medium text-slate-800 flex items-center gap-2">
+                      <Package size={16} /> Faturası Kesilmemiş Sipariş Kalemleri ({pendingInvoiceItems.length})
+                    </h3>
+                    <button type="button" onClick={toggleSelectAllInvoice} className="flex items-center gap-1 px-3 py-1 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
+                      {pendingInvoiceItems.every(i => i.selected) ? <CheckSquare size={14} /> : <Square size={14} />}
+                      {pendingInvoiceItems.every(i => i.selected) ? 'Tümünü Kaldır' : 'Tümünü Seç'}
+                    </button>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="text-center py-2 px-2 w-10">
+                            <input
+                              type="checkbox"
+                              checked={pendingInvoiceItems.every(i => i.selected)}
+                              onChange={toggleSelectAllInvoice}
+                              className="rounded"
+                            />
+                          </th>
+                          <th className="text-left py-2 px-2">Sipariş</th>
+                          <th className="text-left py-2 px-2">Ürün</th>
+                          <th className="text-right py-2 px-2">Sipariş</th>
+                          <th className="text-right py-2 px-2">Faturalanan</th>
+                          <th className="text-right py-2 px-2 font-bold text-purple-700">Kalan</th>
+                          <th className="text-right py-2 px-2 w-24">Birim Fiyat</th>
+                          <th className="text-right py-2 px-2 w-28">Girilecek</th>
+                          <th className="text-right py-2 px-2 w-28">Tutar</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendingInvoiceItems.map((item, index) => (
+                          <tr key={item.item_id} className={`border-t border-slate-100 ${item.selected ? 'bg-purple-50' : 'hover:bg-slate-50'}`}>
+                            <td className="py-2 px-2 text-center">
                               <input
-                                type="number"
-                                value={invoiceItems[index]?.quantity || 0}
-                                onChange={(e) => {
-                                  const newItems = [...invoiceItems];
-                                  const qty = Math.min(remaining, parseFloat(e.target.value) || 0);
-                                  newItems[index] = { ...newItems[index], quantity: qty, amount: qty * item.unit_price };
-                                  setInvoiceItems(newItems);
-                                  // Toplamı güncelle
-                                  const newTotal = newItems.reduce((sum, i) => sum + i.amount, 0);
-                                  setInvoiceForm(prev => ({ ...prev, total_amount: newTotal }));
-                                }}
-                                max={remaining}
-                                min={0}
-                                step="0.001"
-                                className="w-full px-2 py-1 border border-slate-300 rounded text-sm text-right"
+                                type="checkbox"
+                                checked={item.selected}
+                                onChange={() => toggleItemInvoice(index)}
+                                className="rounded"
                               />
                             </td>
+                            <td className="py-2 px-2">
+                              <span className="text-xs font-medium text-slate-600">#{item.order_number}</span>
+                            </td>
+                            <td className="py-2 px-2">{item.product_name}</td>
+                            <td className="py-2 px-2 text-right">{item.total_quantity} {item.unit}</td>
+                            <td className="py-2 px-2 text-right text-purple-600">{item.invoiced_quantity}</td>
+                            <td className="py-2 px-2 text-right font-bold text-purple-700">{item.remaining_invoice} {item.unit}</td>
+                            <td className="py-2 px-2 text-right">{formatCurrency(item.unit_price)}</td>
+                            <td className="py-2 px-2">
+                              <input
+                                type="number"
+                                value={item.entry_quantity || ''}
+                                onChange={(e) => updateEntryQuantityInvoice(index, parseFloat(e.target.value) || 0)}
+                                max={item.remaining_invoice}
+                                min={0}
+                                step="0.001"
+                                placeholder="0"
+                                className="w-full px-2 py-1 border border-slate-300 rounded text-sm text-right focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              />
+                            </td>
+                            <td className="py-2 px-2 text-right font-medium">
+                              {formatCurrency(item.entry_quantity * item.unit_price)}
+                            </td>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-slate-50 font-medium">
-                        <td colSpan={5} className="py-2 px-3 text-right">Toplam Tutar:</td>
-                        <td className="py-2 px-3 text-right">{formatCurrency(invoiceForm.total_amount)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-50 font-medium">
+                          <td colSpan={8} className="py-2 px-3 text-right">
+                            Seçilen Toplam Tutar:
+                          </td>
+                          <td className="py-2 px-3 text-right text-purple-700">
+                            {formatCurrency(selectedInvoiceTotal)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex gap-2 justify-end pt-4 border-t border-slate-200">
-                <button type="button" onClick={() => { setShowInvoiceForm(false); setSelectedOrder(null); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
+                <button type="button" onClick={() => setShowInvoiceForm(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
                 <button type="submit" className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                   <Save size={16} /> Kaydet
                 </button>
