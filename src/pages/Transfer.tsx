@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useFirm } from '../hooks/useFirm';
 import { addRequest, getPendingRequests, approveRequest, rejectRequest, getRequestLabel, type ApprovalRequest } from '../lib/approvals';
 import SearchableSelect from '../components/SearchableSelect';
-import type { Project, Transaction, Product, CashRegister, BankAccount } from '../types';
+import type { Firm, Project, Transaction, Product, CashRegister, BankAccount } from '../types';
 import { ArrowRightLeft, Building2, Package, Wallet, CreditCard, AlertCircle, CheckCircle, AlertTriangle, Send, Clock, Check, X, Shield } from 'lucide-react';
 
 type TransferCategory = 'cari' | 'stok' | 'kasa' | 'banka';
@@ -13,7 +13,8 @@ type TransferCategory = 'cari' | 'stok' | 'kasa' | 'banka';
 export default function Transfer() {
   const { user, userRole } = useAuth();
   const isAdmin = userRole === 'admin';
-  const { firms, selectedFirm } = useFirm();
+  const { selectedFirm } = useFirm();
+  const [cariler, setCariler] = useState<Firm[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [cashRegisters, setCashRegisters] = useState<CashRegister[]>([]);
@@ -67,17 +68,19 @@ export default function Transfer() {
     if (!selectedFirm) return;
     setLoading(true);
 
-    const [projectsRes, productsRes, cashRes, bankRes] = await Promise.all([
+    const [projectsRes, productsRes, cashRes, bankRes, carilerRes] = await Promise.all([
       supabase.from('projects').select('*').eq('firm_id', selectedFirm.id),
       supabase.from('products').select('*').eq('is_active', true).eq('firm_id', selectedFirm.id),
       supabase.from('cash_registers').select('*').eq('is_active', true).eq('firm_id', selectedFirm.id),
       supabase.from('bank_accounts').select('*').eq('is_active', true).eq('firm_id', selectedFirm.id),
+      supabase.from('firms').select('*').eq('is_active', true).in('type', ['customer', 'supplier']).order('code'),
     ]);
 
     if (projectsRes.data) setProjects(projectsRes.data);
     if (productsRes.data) setProducts(productsRes.data);
     if (cashRes.data) setCashRegisters(cashRes.data);
     if (bankRes.data) setBankAccounts(bankRes.data);
+    if (carilerRes.data) setCariler(carilerRes.data);
 
     await fetchTransferHistory();
     setLoading(false);
@@ -233,8 +236,8 @@ export default function Transfer() {
       case 'cari':
         return {
           firm_id: selectedFirm?.id,
-          from_firm: firms.find(f => f.id === cariFromFirmId)?.name,
-          to_firm: firms.find(f => f.id === cariToFirmId)?.name,
+          from_firm: cariler.find(f => f.id === cariFromFirmId)?.name,
+          to_firm: cariler.find(f => f.id === cariToFirmId)?.name,
           from_firm_id: cariFromFirmId,
           to_firm_id: cariToFirmId,
           amount, description, project_id: projectId, transfer_date: transferDate,
@@ -311,12 +314,12 @@ export default function Transfer() {
           if (cariFromFirmId === cariToFirmId) { setMessage({ type: 'error', text: 'Kaynak ve hedef firma aynı olamaz!' }); return; }
           await supabase.from('transactions').insert({
             transaction_date: transferDate, transaction_type: 'expense', firm_id: cariFromFirmId, project_id: projectId, amount,
-            description: `Aktarım → ${firms.find(f => f.id === cariToFirmId)?.name}${description ? ` (${description})` : ''}`,
+            description: `Aktarım → ${cariler.find(f => f.id === cariToFirmId)?.name}${description ? ` (${description})` : ''}`,
             created_by: user?.id,
           });
           await supabase.from('transactions').insert({
             transaction_date: transferDate, transaction_type: 'income', firm_id: cariToFirmId, project_id: projectId, amount,
-            description: `${firms.find(f => f.id === cariFromFirmId)?.name}'ndan aktarıldı${description ? ` (${description})` : ''}`,
+            description: `${cariler.find(f => f.id === cariFromFirmId)?.name}'ndan aktarıldı${description ? ` (${description})` : ''}`,
             created_by: user?.id,
           });
           desc = 'Cari Aktarım';
@@ -529,7 +532,7 @@ export default function Transfer() {
             {activeCategory === 'cari' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <SearchableSelect
-                  options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
+                  options={cariler.map(f => ({ id: f.id, code: f.code, name: f.name }))}
                   value={cariFromFirmId}
                   onChange={(id) => setCariFromFirmId(id)}
                   label="Kaynak Cari"
@@ -537,7 +540,7 @@ export default function Transfer() {
                   required
                 />
                 <SearchableSelect
-                  options={firms.filter(f => f.id !== cariFromFirmId).map(f => ({ id: f.id, code: f.code, name: f.name }))}
+                  options={cariler.filter(f => f.id !== cariFromFirmId).map(f => ({ id: f.id, code: f.code, name: f.name }))}
                   value={cariToFirmId}
                   onChange={(id) => setCariToFirmId(id)}
                   label="Hedef Cari"
