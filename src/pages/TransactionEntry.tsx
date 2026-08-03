@@ -92,7 +92,7 @@ export default function TransactionEntry() {
   const [newFirmName, setNewFirmName] = useState('');
   const [newFirmTaxNumber, setNewFirmTaxNumber] = useState('');
   const [newFirmPhone, setNewFirmPhone] = useState('');
-  const [newFirmType, setNewFirmType] = useState<'customer' | 'supplier' | 'both'>('both');
+  const [newFirmType, setNewFirmType] = useState<'customer' | 'supplier' | 'both'>('customer');
   const [addingFirm, setAddingFirm] = useState(false);
   
   // Excel import
@@ -130,7 +130,7 @@ export default function TransactionEntry() {
     }
 
     const [firmsRes, projectsRes, categoriesRes, typesRes, cashRes, bankRes, productsRes, unitsRes, descriptionsRes] = await Promise.all([
-      supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both'),
+      supabase.from('firms').select('*').eq('is_active', true).in('type', ['customer', 'supplier']),
       projectsQuery,
       supabase.from('expense_categories').select('*').eq('is_active', true),
       supabase.from('transaction_types').select('*').eq('is_active', true).order('sort_order'),
@@ -366,7 +366,7 @@ export default function TransactionEntry() {
       setNewFirmName('');
       setNewFirmTaxNumber('');
       setNewFirmPhone('');
-      setNewFirmType('both');
+      setNewFirmType('customer');
       fetchData();
       
       // Yeni eklenen firmayı seç
