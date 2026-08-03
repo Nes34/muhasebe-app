@@ -99,6 +99,9 @@ export interface Product {
   firm_id?: string;
   is_active: boolean;
   created_at: string;
+  barcode?: string;
+  min_stock_level?: number;
+  category?: string;
 }
 
 export interface Check {

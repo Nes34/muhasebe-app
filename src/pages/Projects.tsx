@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
+import { exportProjectsToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import type { Project, Firm } from '../types';
-import { Plus, Edit2, Trash2, FolderKanban, AlertTriangle, CheckCircle, Search, TrendingUp, TrendingDown, Wallet, DollarSign } from 'lucide-react';
+import { Plus, Edit2, Trash2, FolderKanban, AlertTriangle, CheckCircle, Search, TrendingUp, TrendingDown, Wallet, DollarSign, Download } from 'lucide-react';
 
 interface ProjectSummary {
   project: Project;
@@ -186,16 +187,21 @@ export default function Projects() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Projeler</h1>
-        <button
-          onClick={() => {
-            setEditingProject(null);
-            setFormData({ name: '', description: '', firm_id: selectedFirm?.id || '', start_date: formatDateTR(new Date()), end_date: '', budget: 0, status: 'active' });
-            setShowForm(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={16} />Yeni Proje
-        </button>
+        <div className="flex items-center gap-2">
+          {projectSummaries.length > 0 && (
+            <button onClick={() => exportProjectsToExcel(projectSummaries)} className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"><Download size={16} /> Excel</button>
+          )}
+          <button
+            onClick={() => {
+              setEditingProject(null);
+              setFormData({ name: '', description: '', firm_id: selectedFirm?.id || '', start_date: formatDateTR(new Date()), end_date: '', budget: 0, status: 'active' });
+              setShowForm(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={16} />Yeni Proje
+          </button>
+        </div>
       </div>
 
       {message && (

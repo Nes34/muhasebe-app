@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
+import { exportBankTransactionsToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
 import type { BankAccount, BankTransaction, Cari, Project } from '../types';
-import { Plus, ArrowUpCircle, ArrowDownCircle, Building2 } from 'lucide-react';
+import { Plus, ArrowUpCircle, ArrowDownCircle, Building2, Download } from 'lucide-react';
 
 export default function BankManagement() {
   const { selectedFirm } = useFirm();
@@ -112,7 +113,10 @@ export default function BankManagement() {
         <div className="bg-white rounded-xl border border-slate-200">
           <div className="flex items-center justify-between p-4 border-b border-slate-200">
             <h2 className="font-semibold text-slate-800">Son Hareketler</h2>
-            <button onClick={() => setShowTransactionForm(true)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"><Plus size={16} />Hareket Ekle</button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => exportBankTransactionsToExcel(transactions)} className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"><Download size={16} /> Excel</button>
+              <button onClick={() => setShowTransactionForm(true)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"><Plus size={16} />Hareket Ekle</button>
+            </div>
           </div>
           <table className="w-full text-sm">
             <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Tarih</th><th className="text-left py-3 px-4">Tür</th><th className="text-left py-3 px-4">Cari</th><th className="text-left py-3 px-4">Proje</th><th className="text-right py-3 px-4">Tutar</th><th className="text-left py-3 px-4">Açıklama</th></tr></thead>

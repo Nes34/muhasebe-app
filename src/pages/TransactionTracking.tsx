@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDateTR } from '../lib/utils';
+import { exportTransactionsToExcel } from '../lib/excel';
+import { generateInvoicePDF } from '../lib/pdf';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import type { Transaction, TransactionType, Firm, Project } from '../types';
-import { Search, Edit2, Trash2, ArrowRightLeft, ChevronDown, ChevronRight, Save, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { Search, Edit2, Trash2, ArrowRightLeft, ChevronDown, ChevronRight, Save, X, AlertCircle, CheckCircle, Download, FileText } from 'lucide-react';
 
 export default function TransactionTracking() {
   const { selectedFirm } = useFirm();
@@ -188,6 +190,7 @@ export default function TransactionTracking() {
           İşlem Takibi
         </h1>
         <div className="flex gap-2">
+          <button onClick={() => exportTransactionsToExcel(Object.values(filteredGrouped).flat())} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"><Download size={16} /> Excel</button>
           <button onClick={expandAll} className="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
             Tümünü Aç
           </button>
@@ -300,6 +303,11 @@ export default function TransactionTracking() {
                           <td className="py-3 px-4 text-right font-medium">{formatCurrency(t.amount)}</td>
                           <td className="py-3 px-4 text-center">
                             <div className="flex items-center justify-center gap-1">
+                              {(t.transaction_type === 'invoice' || t.transaction_type === 'delivery_note') && (
+                                <button onClick={() => generateInvoicePDF(t)} className="p-1 text-green-600 hover:bg-green-50 rounded" title="PDF İndir">
+                                  <FileText size={14} />
+                                </button>
+                              )}
                               <button onClick={() => handleEdit(t)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Düzenle">
                                 <Edit2 size={14} />
                               </button>

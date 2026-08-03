@@ -97,12 +97,68 @@ export function exportAccountStatementToExcel(transactions: Transaction[], firmN
   exportToExcel(data, `cari-hesap-${firmName}`, 'Cari Hesap Ekstresi');
 }
 
+export function exportChecksToExcel(checks: any[]) {
+  const data = checks.map(c => ({
+    'Çek No': c.check_number,
+    'Tür': c.check_type === 'received' ? 'Alınan' : 'Verilen',
+    'Cari': c.cari?.name || c.firm?.name || '-',
+    'Banka': c.bank_name || '-',
+    'Şube': c.bank_branch || '-',
+    'Tutar': c.amount,
+    'Düzenleme Tarihi': c.issue_date,
+    'Vade Tarihi': c.due_date,
+    'Durum': getStatusLabel(c.status),
+  }));
+  exportToExcel(data, 'cekler', 'Çekler');
+}
+
+export function exportCashTransactionsToExcel(transactions: any[]) {
+  const data = transactions.map(t => ({
+    'Tarih': t.created_at,
+    'Tür': t.transaction_type === 'in' ? 'Giriş' : 'Çıkış',
+    'Tutar': t.amount,
+    'Cari': t.cari?.name || '-',
+    'Proje': t.project?.name || '-',
+    'Açıklama': t.description || '-',
+  }));
+  exportToExcel(data, 'kasa-hareketleri', 'Kasa Hareketleri');
+}
+
+export function exportBankTransactionsToExcel(transactions: any[]) {
+  const data = transactions.map(t => ({
+    'Tarih': t.created_at,
+    'Tür': t.transaction_type === 'in' ? 'Giriş' : 'Çıkış',
+    'Tutar': t.amount,
+    'Cari': t.cari?.name || '-',
+    'Proje': t.project?.name || '-',
+    'Açıklama': t.description || '-',
+  }));
+  exportToExcel(data, 'banka-hareketleri', 'Banka Hareketleri');
+}
+
+export function exportProjectsToExcel(projects: any[]) {
+  const data = projects.map(p => ({
+    'Proje Adı': p.name,
+    'Firma': p.firm?.name || '-',
+    'Durum': p.status === 'active' ? 'Aktif' : p.status === 'completed' ? 'Tamamlandı' : 'İptal',
+    'Bütçe': p.budget || 0,
+    'Gider': p.expense || 0,
+    'Kalan': (p.budget || 0) - (p.expense || 0),
+    'Tamamlanma': `%${p.completionRate || 0}`,
+  }));
+  exportToExcel(data, 'projeler', 'Projeler');
+}
+
+function getStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending: 'Bekliyor', collected: 'Tahsil', paid: 'Ödendi', endorsed: 'Ciro', cancelled: 'İptal',
+  };
+  return labels[status] || status;
+}
+
 function getTransactionTypeLabel(type: string): string {
   const labels: Record<string, string> = {
-    income: 'Gelir',
-    expense: 'Gider',
-    invoice: 'Fatura',
-    delivery_note: 'İrsaliye',
+    income: 'Gelir', expense: 'Gider', invoice: 'Fatura', delivery_note: 'İrsaliye',
   };
   return labels[type] || type;
 }

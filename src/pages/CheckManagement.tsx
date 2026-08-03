@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency, toISODate, parseDateTR, todayISO } from '../lib/utils';
+import { exportChecksToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import type { Check, Cari, BankAccount } from '../types';
-import { Plus, Edit2, Trash2, Search, AlertTriangle, Send } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, AlertTriangle, Send, Download } from 'lucide-react';
 
 export default function CheckManagement() {
   const { selectedFirm } = useFirm();
@@ -230,6 +231,7 @@ export default function CheckManagement() {
           {[{ value: 'all', label: 'Tümü' }, { value: 'received', label: 'Alınan' }, { value: 'given', label: 'Verilen' }].map((option) => (
             <button key={option.value} onClick={() => setFilterType(option.value as typeof filterType)} className={`px-4 py-2 rounded-lg transition-colors ${filterType === option.value ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{option.label}</button>
           ))}
+          <button onClick={() => exportChecksToExcel(filteredChecks)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"><Download size={18} /> Excel</button>
         </div>
       </div>
 
