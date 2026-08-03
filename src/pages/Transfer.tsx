@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useFirm } from '../hooks/useFirm';
 import { addRequest, getPendingRequests, approveRequest, rejectRequest, getRequestLabel, type ApprovalRequest } from '../lib/approvals';
 import SearchableSelect from '../components/SearchableSelect';
-import type { Firm, Project, Transaction, Product, CashRegister, BankAccount } from '../types';
+import type { Cari, Project, Transaction, Product, CashRegister, BankAccount } from '../types';
 import { ArrowRightLeft, Building2, Package, Wallet, CreditCard, AlertCircle, CheckCircle, AlertTriangle, Send, Clock, Check, X, Shield } from 'lucide-react';
 
 type TransferCategory = 'cari' | 'stok' | 'kasa' | 'banka';
@@ -14,7 +14,7 @@ export default function Transfer() {
   const { user, userRole } = useAuth();
   const isAdmin = userRole === 'admin';
   const { selectedFirm } = useFirm();
-  const [cariler, setCariler] = useState<Firm[]>([]);
+  const [cariler, setCariler] = useState<Cari[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [cashRegisters, setCashRegisters] = useState<CashRegister[]>([]);
@@ -73,7 +73,7 @@ export default function Transfer() {
       supabase.from('products').select('*').eq('is_active', true).eq('firm_id', selectedFirm.id),
       supabase.from('cash_registers').select('*').eq('is_active', true).eq('firm_id', selectedFirm.id),
       supabase.from('bank_accounts').select('*').eq('is_active', true).eq('firm_id', selectedFirm.id),
-      supabase.from('firms').select('*').eq('is_active', true).in('type', ['customer', 'supplier']).order('code'),
+      supabase.from('cariler').select('*').eq('is_active', true).order('code'),
     ]);
 
     if (projectsRes.data) setProjects(projectsRes.data);

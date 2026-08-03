@@ -3,10 +3,10 @@ import { supabase } from '../lib/supabase';
 import { importFromExcel } from '../lib/excel';
 import { generateNextCode, findSimilar, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
-import type { Firm, Project } from '../types';
+import type { Cari, Firm, Project } from '../types';
 import { Plus, Edit2, Trash2, Search, Users, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle, Filter } from 'lucide-react';
 
-interface CariWithBalance extends Firm {
+interface CariWithBalance extends Cari {
   balance?: number;
   totalIncome?: number;
   totalExpense?: number;
@@ -53,7 +53,7 @@ export default function Cariler() {
 
   const fetchMeta = async () => {
     const [firmsRes, projectsRes] = await Promise.all([
-      supabase.from('firms').select('*').eq('is_active', true).in('type', ['customer', 'supplier']).order('code'),
+      supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both').order('code'),
       supabase.from('projects').select('*').order('name'),
     ]);
     if (firmsRes.data) setAllFirms(firmsRes.data);
@@ -62,65 +62,65 @@ export default function Cariler() {
 
   const fetchCariler = async () => {
     setLoading(true);
-    const { data: firms } = await supabase.from('firms').select('*').eq('is_active', true).in('type', ['customer', 'supplier']).order('code');
-    if (!firms) { setLoading(false); return; }
+    const { data: cariData } = await supabase.from('cariler').select('*').eq('is_active', true).order('code');
+    if (!cariData) { setLoading(false); return; }
 
-    const cariIds = firms.map(f => f.id);
-    
-    // İşlemleri çek - selectedFirm veya filterFirmId filtresi uygula
-    let txQuery = supabase.from('transactions').select('firm_id, amount, transaction_type, invoice_number, project_id').in('firm_id', cariIds);
+    const cariIds = cariData.map(c => c.id);
+
+    // İşlemleri çek - cari_id üzerinden
+    let txQuery = supabase.from('transactions').select('cari_id, amount, transaction_type, invoice_number, project_id').in('cari_id', cariIds);
     if (filterFirmId) txQuery = txQuery.eq('firm_id', filterFirmId);
     else if (selectedFirm) txQuery = txQuery.eq('firm_id', selectedFirm.id);
     if (filterProjectId) txQuery = txQuery.eq('project_id', filterProjectId);
     const { data: transactions } = await txQuery;
 
-    // Çekleri çek - selectedFirm veya filterFirmId filtresi uygula
-    let checkQuery = supabase.from('checks').select('firm_id, amount, check_type').in('firm_id', cariIds);
+    // Çekleri çek
+    let checkQuery = supabase.from('checks').select('cari_id, amount, check_type').in('cari_id', cariIds);
     if (filterFirmId) checkQuery = checkQuery.eq('firm_id', filterFirmId);
     else if (selectedFirm) checkQuery = checkQuery.eq('firm_id', selectedFirm.id);
     const { data: checks } = await checkQuery;
 
     // Her cari için verileri hesapla
-    const withBalance: CariWithBalance[] = firms.map(f => {
-      const firmTransactions = transactions?.filter(t => t.firm_id === f.id) || [];
-      const firmChecks = checks?.filter(c => c.firm_id === f.id) || [];
+    const withBalance: CariWithBalance[] = cariData.map(c => {
+      const cariTransactions = transactions?.filter(t => t.cari_id === c.id) || [];
+      const cariChecks = checks?.filter(ch => ch.cari_id === c.id) || [];
 
-      const totalIncome = firmTransactions
+      const totalIncome = cariTransactions
         .filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const totalExpense = firmTransactions
+      const totalExpense = cariTransactions
         .filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const issuedInvoices = firmTransactions
+      const issuedInvoices = cariTransactions
         .filter(t => t.transaction_type === 'invoice')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const pendingInvoices = firmTransactions
+      const pendingInvoices = cariTransactions
         .filter(t => t.transaction_type === 'expense' && !t.invoice_number)
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const debt = firmTransactions
+      const debt = cariTransactions
         .filter(t => t.transaction_type === 'expense' || t.transaction_type === 'invoice')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const credit = firmTransactions
+      const credit = cariTransactions
         .filter(t => t.transaction_type === 'income')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const receivedChecks = firmChecks
-        .filter(c => c.check_type === 'received')
-        .reduce((sum, c) => sum + c.amount, 0);
+      const receivedChecks = cariChecks
+        .filter(ch => ch.check_type === 'received')
+        .reduce((sum, ch) => sum + ch.amount, 0);
 
-      const issuedChecks = firmChecks
-        .filter(c => c.check_type === 'given')
-        .reduce((sum, c) => sum + c.amount, 0);
+      const issuedChecks = cariChecks
+        .filter(ch => ch.check_type === 'given')
+        .reduce((sum, ch) => sum + ch.amount, 0);
 
       const balance = totalIncome - totalExpense;
 
       return {
-        ...f,
+        ...c,
         balance,
         totalIncome,
         totalExpense,
@@ -141,13 +141,13 @@ export default function Cariler() {
     e.preventDefault();
 
     if (editingCari) {
-      await supabase.from('firms').update({ name: formData.name, tax_number: formData.tax_number, address: formData.address, phone: formData.phone, email: formData.email, type: formData.type }).eq('id', editingCari.id);
+      await supabase.from('cariler').update({ name: formData.name, tax_number: formData.tax_number, address: formData.address, phone: formData.phone, email: formData.email, type: formData.type }).eq('id', editingCari.id);
       setMessage({ type: 'success', text: 'Cari başarıyla güncellendi!' });
     } else {
       const codes = cariler.map(c => c.code || '').filter(Boolean);
       const newCode = generateNextCode(codes, formData.name);
 
-      const { error } = await supabase.from('firms').insert({
+      const { error } = await supabase.from('cariler').insert({
         code: newCode,
         name: formData.name,
         tax_number: formData.tax_number,
@@ -177,7 +177,7 @@ export default function Cariler() {
 
   const handleDelete = async (id: string) => {
     if (confirm('Bu cariyi silmek istediğinizden emin misiniz?')) {
-      await supabase.from('firms').update({ is_active: false }).eq('id', id);
+      await supabase.from('cariler').update({ is_active: false }).eq('id', id);
       fetchCariler();
     }
   };
@@ -225,7 +225,7 @@ export default function Cariler() {
         const newCode = generateNextCode(currentCodes, name);
         currentCodes.push(newCode);
 
-        const { error } = await supabase.from('firms').insert({
+        const { error } = await supabase.from('cariler').insert({
           code: newCode,
           name: name.trim(),
           tax_number: taxNumber.trim() || null,
@@ -293,10 +293,10 @@ export default function Cariler() {
             </div>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Firma / Cari Filtresi</label>
+            <label className="block text-xs text-slate-500 mb-1">Firma Filtresi</label>
             <select value={filterFirmId} onChange={(e) => { setFilterFirmId(e.target.value); setFilterProjectId(''); }} className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm">
               <option value="">Tüm Firmalar</option>
-              {allFirms.filter(f => f.type === 'both').map(f => <option key={f.id} value={f.id}>{f.code ? `${f.code} - ` : ''}{f.name}</option>)}
+              {allFirms.map(f => <option key={f.id} value={f.id}>{f.code ? `${f.code} - ` : ''}{f.name}</option>)}
             </select>
           </div>
           <div>

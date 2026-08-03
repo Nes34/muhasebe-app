@@ -3,13 +3,13 @@ import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
-import type { Check, Firm, BankAccount } from '../types';
+import type { Check, Cari, BankAccount } from '../types';
 import { Plus, Edit2, Trash2, Search, AlertTriangle, Send } from 'lucide-react';
 
 export default function CheckManagement() {
   const { selectedFirm } = useFirm();
   const [checks, setChecks] = useState<Check[]>([]);
-  const [firms, setFirms] = useState<Firm[]>([]);
+  const [cariler, setCariler] = useState<Cari[]>([]);
   const [firmBankAccounts, setFirmBankAccounts] = useState<BankAccount[]>([]);
   const [_loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -18,10 +18,9 @@ export default function CheckManagement() {
   const [editingCheck, setEditingCheck] = useState<Check | null>(null);
   
   const [formData, setFormData] = useState({
-    check_number: '', check_type: 'received' as 'received' | 'given', firm_id: '', bank_name: '', bank_branch: '', amount: 0, issue_date: formatDateTR(new Date()), due_date: '', notes: '',
+    check_number: '', check_type: 'received' as 'received' | 'given', cari_id: '', bank_name: '', bank_branch: '', amount: 0, issue_date: formatDateTR(new Date()), due_date: '', notes: '',
   });
 
-  // Ciro modal
   const [showEndorseModal, setShowEndorseModal] = useState(false);
   const [endorsingCheck, setEndorsingCheck] = useState<Check | null>(null);
   const [endorseData, setEndorseData] = useState({
@@ -31,24 +30,21 @@ export default function CheckManagement() {
     notes: '',
   });
 
-  useEffect(() => { fetchChecks(); fetchFirms(); }, [selectedFirm]);
+  useEffect(() => { fetchChecks(); fetchMeta(); }, [selectedFirm]);
 
   const fetchChecks = async () => {
-    let query = supabase.from('checks').select('*, firm:firms(*)').order('due_date', { ascending: true });
-    
-    // Header'da firma seçiliyse sadece o firmaya ait çekleri göster
+    let query = supabase.from('checks').select('*').order('due_date', { ascending: true });
     if (selectedFirm) {
       query = query.eq('firm_id', selectedFirm.id);
     }
-    
     const { data } = await query;
     if (data) setChecks(data);
     setLoading(false);
   };
 
-  const fetchFirms = async () => {
-    const { data } = await supabase.from('firms').select('*').eq('is_active', true).in('type', ['customer', 'supplier']);
-    if (data) setFirms(data);
+  const fetchMeta = async () => {
+    const { data } = await supabase.from('cariler').select('*').eq('is_active', true).order('code');
+    if (data) setCariler(data);
   };
 
   const fetchFirmBankAccounts = async (firmId: string) => {
@@ -60,19 +56,18 @@ export default function CheckManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingCheck) {
-      await supabase.from('checks').update(formData).eq('id', editingCheck.id);
+      await supabase.from('checks').update({ check_number: formData.check_number, check_type: formData.check_type, cari_id: formData.cari_id, bank_name: formData.bank_name, bank_branch: formData.bank_branch, amount: formData.amount, issue_date: formData.issue_date, due_date: formData.due_date, notes: formData.notes }).eq('id', editingCheck.id);
     } else {
-      await supabase.from('checks').insert(formData);
+      await supabase.from('checks').insert({ check_number: formData.check_number, check_type: formData.check_type, cari_id: formData.cari_id, firm_id: selectedFirm?.id, bank_name: formData.bank_name, bank_branch: formData.bank_branch, amount: formData.amount, issue_date: formData.issue_date, due_date: formData.due_date, notes: formData.notes });
     }
     setShowForm(false); setEditingCheck(null);
-    setFormData({ check_number: '', check_type: 'received', firm_id: '', bank_name: '', bank_branch: '', amount: 0, issue_date: formatDateTR(new Date()), due_date: '', notes: '' });
+    setFormData({ check_number: '', check_type: 'received', cari_id: '', bank_name: '', bank_branch: '', amount: 0, issue_date: formatDateTR(new Date()), due_date: '', notes: '' });
     fetchChecks();
   };
 
   const handleEdit = (check: Check) => {
     setEditingCheck(check);
-    setFormData({ check_number: check.check_number, check_type: check.check_type, firm_id: check.firm_id, bank_name: check.bank_name || '', bank_branch: check.bank_branch || '', amount: check.amount, issue_date: check.issue_date, due_date: check.due_date, notes: check.notes || '' });
-    if (check.firm_id) fetchFirmBankAccounts(check.firm_id);
+    setFormData({ check_number: check.check_number, check_type: check.check_type, cari_id: check.cari_id || '', bank_name: check.bank_name || '', bank_branch: check.bank_branch || '', amount: check.amount, issue_date: check.issue_date, due_date: check.due_date, notes: check.notes || '' });
     setShowForm(true);
   };
 
@@ -104,11 +99,12 @@ export default function CheckManagement() {
   };
 
   const openEndorseModal = (check: Check) => {
+    const cari = cariler.find(c => c.id === check.cari_id);
     setEndorsingCheck(check);
     setEndorseData({
       endorsed_to: '',
       endorsed_date: formatDateTR(new Date()),
-      endorsed_by: check.firm?.name || '',
+      endorsed_by: cari?.name || '',
       notes: '',
     });
     setShowEndorseModal(true);
@@ -130,7 +126,8 @@ export default function CheckManagement() {
   };
 
   const filteredChecks = checks.filter((check) => {
-    const matchesSearch = check.check_number.toLowerCase().includes(searchTerm.toLowerCase()) || check.firm?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const cariName = cariler.find(c => c.id === check.cari_id)?.name || '';
+    const matchesSearch = check.check_number.toLowerCase().includes(searchTerm.toLowerCase()) || cariName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || check.check_type === filterType;
     return matchesSearch && matchesType && (check.status === 'pending' || check.status === 'endorsed');
   });
@@ -142,7 +139,7 @@ export default function CheckManagement() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Çek Yönetimi{selectedFirm ? ` - ${selectedFirm.name}` : ''}</h1>
-        <button onClick={() => { setEditingCheck(null); setFormData({ check_number: '', check_type: 'received', firm_id: selectedFirm.id, bank_name: '', bank_branch: '', amount: 0, issue_date: formatDateTR(new Date()), due_date: '', notes: '' }); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button onClick={() => { setEditingCheck(null); setFormData({ check_number: '', check_type: 'received', cari_id: '', bank_name: '', bank_branch: '', amount: 0, issue_date: formatDateTR(new Date()), due_date: '', notes: '' }); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
           <Plus size={16} />Yeni Çek
         </button>
       </div>
@@ -175,15 +172,16 @@ export default function CheckManagement() {
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Çek No</th><th className="text-left py-3 px-4">Tür</th><th className="text-left py-3 px-4">Firma</th><th className="text-left py-3 px-4">Banka</th><th className="text-right py-3 px-4">Tutar</th><th className="text-left py-3 px-4">Vade</th><th className="text-center py-3 px-4">Kalan</th><th className="text-center py-3 px-4">Durum</th><th className="text-center py-3 px-4">İşlem</th></tr></thead>
+            <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Çek No</th><th className="text-left py-3 px-4">Tür</th><th className="text-left py-3 px-4">Cari</th><th className="text-left py-3 px-4">Banka</th><th className="text-right py-3 px-4">Tutar</th><th className="text-left py-3 px-4">Vade</th><th className="text-center py-3 px-4">Kalan</th><th className="text-center py-3 px-4">Durum</th><th className="text-center py-3 px-4">İşlem</th></tr></thead>
             <tbody>
               {filteredChecks.map((check) => {
                 const dueStatus = getDueStatus(check.due_date);
+                const cari = cariler.find(c => c.id === check.cari_id);
                 return (
                   <tr key={check.id} className="border-t border-slate-100 hover:bg-slate-50">
                     <td className="py-3 px-4 font-medium">{check.check_number}</td>
                     <td className="py-3 px-4"><span className={`px-2 py-1 rounded-full text-xs font-medium ${check.check_type === 'received' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{check.check_type === 'received' ? 'Alınan' : 'Verilen'}</span></td>
-                    <td className="py-3 px-4">{check.firm?.name || '-'}</td>
+                    <td className="py-3 px-4">{cari?.name || '-'}</td>
                     <td className="py-3 px-4">{check.bank_name || '-'}</td>
                     <td className="py-3 px-4 text-right">{formatCurrency(check.amount)}</td>
                     <td className="py-3 px-4">{formatDateTR(check.due_date)}</td>
@@ -220,16 +218,16 @@ export default function CheckManagement() {
             <h2 className="text-lg font-semibold mb-4">{editingCheck ? 'Çek Düzenle' : 'Yeni Çek'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Çek Numarası</label><input type="text" value={formData.check_number} onChange={(e) => setFormData({ ...formData, check_number: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Çek Türü</label><select value={formData.check_type} onChange={(e) => { const newType = e.target.value as 'received' | 'given'; setFormData({ ...formData, check_type: newType, bank_name: '' }); if (newType === 'given' && formData.firm_id) fetchFirmBankAccounts(formData.firm_id); }} className="w-full px-4 py-2 border border-slate-300 rounded-lg"><option value="received">Alınan Çek</option><option value="given">Verilen Çek</option></select></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Çek Türü</label><select value={formData.check_type} onChange={(e) => setFormData({ ...formData, check_type: e.target.value as 'received' | 'given', bank_name: '' })} className="w-full px-4 py-2 border border-slate-300 rounded-lg"><option value="received">Alınan Çek</option><option value="given">Verilen Çek</option></select></div>
               <SearchableSelect
-                options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
-                value={formData.firm_id}
-                onChange={(id) => { setFormData({ ...formData, firm_id: id, bank_name: '' }); fetchFirmBankAccounts(id); }}
+                options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
+                value={formData.cari_id}
+                onChange={(id) => { setFormData({ ...formData, cari_id: id, bank_name: '' }); fetchFirmBankAccounts(selectedFirm?.id || ''); }}
                 label="Cari"
                 placeholder="Kod veya isim ile cari ara..."
                 required
               />
-              {formData.check_type === 'given' && formData.firm_id ? (
+              {formData.check_type === 'given' && selectedFirm ? (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Banka Hesabı *</label>
                   <select
@@ -258,7 +256,6 @@ export default function CheckManagement() {
         </div>
       )}
 
-      {/* Ciro Modal */}
       {showEndorseModal && endorsingCheck && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
@@ -266,46 +263,24 @@ export default function CheckManagement() {
             <div className="bg-slate-50 rounded-lg p-3 mb-4">
               <p className="text-sm text-slate-600">Çek No: <span className="font-medium">{endorsingCheck.check_number}</span></p>
               <p className="text-sm text-slate-600">Tutar: <span className="font-medium">{formatCurrency(endorsingCheck.amount)}</span></p>
-              <p className="text-sm text-slate-600">Firma: <span className="font-medium">{endorsingCheck.firm?.name || '-'}</span></p>
+              <p className="text-sm text-slate-600">Cari: <span className="font-medium">{cariler.find(c => c.id === endorsingCheck.cari_id)?.name || '-'}</span></p>
             </div>
             <form onSubmit={handleEndorse} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Ciro Edilen Firma/Şahıs</label>
-                <input
-                  type="text"
-                  value={endorseData.endorsed_to}
-                  onChange={(e) => setEndorseData({ ...endorseData, endorsed_to: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                  required
-                />
+                <input type="text" value={endorseData.endorsed_to} onChange={(e) => setEndorseData({ ...endorseData, endorsed_to: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Ciro Eden (Kimden)</label>
-                <input
-                  type="text"
-                  value={endorseData.endorsed_by}
-                  onChange={(e) => setEndorseData({ ...endorseData, endorsed_by: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                />
+                <input type="text" value={endorseData.endorsed_by} onChange={(e) => setEndorseData({ ...endorseData, endorsed_by: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Tarih</label>
-                <input
-                  type="text"
-                  value={endorseData.endorsed_date}
-                  onChange={(e) => setEndorseData({ ...endorseData, endorsed_date: e.target.value })}
-                  placeholder="gg.aa.yyyy"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                />
+                <input type="text" value={endorseData.endorsed_date} onChange={(e) => setEndorseData({ ...endorseData, endorsed_date: e.target.value })} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Not</label>
-                <input
-                  type="text"
-                  value={endorseData.notes}
-                  onChange={(e) => setEndorseData({ ...endorseData, notes: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                />
+                <input type="text" value={endorseData.notes} onChange={(e) => setEndorseData({ ...endorseData, notes: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" />
               </div>
               <div className="flex gap-2 justify-end">
                 <button type="button" onClick={() => { setShowEndorseModal(false); setEndorsingCheck(null); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>

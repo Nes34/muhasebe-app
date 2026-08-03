@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
-import type { BankAccount, BankTransaction, Firm, Project } from '../types';
+import type { BankAccount, BankTransaction, Cari, Project } from '../types';
 import { Plus, ArrowUpCircle, ArrowDownCircle, Building2 } from 'lucide-react';
 
 export default function BankManagement() {
   const { selectedFirm } = useFirm();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
-  const [firms, setFirms] = useState<Firm[]>([]);
+  const [cariler, setCariler] = useState<Cari[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [_loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -17,24 +17,20 @@ export default function BankManagement() {
   const [selectedAccount, setSelectedAccount] = useState('');
   
   const [formData, setFormData] = useState({ bank_name: '', branch: '', account_number: '', iban: '', currency: 'TRY', opening_balance: 0 });
-  const [transactionData, setTransactionData] = useState<{ transaction_type: 'in' | 'out'; amount: number; description: string; firm_id: string; project_id: string }>({ transaction_type: 'in', amount: 0, description: '', firm_id: '', project_id: '' });
+  const [transactionData, setTransactionData] = useState<{ transaction_type: 'in' | 'out'; amount: number; description: string; cari_id: string; project_id: string }>({ transaction_type: 'in', amount: 0, description: '', cari_id: '', project_id: '' });
   const [editModal, setEditModal] = useState<BankAccount | null>(null);
   const [editBalance, setEditBalance] = useState(0);
 
   useEffect(() => { fetchMeta(); }, []);
 
-  useEffect(() => {
-    if (selectedFirm) setTransactionData(prev => ({ ...prev, firm_id: selectedFirm.id }));
-  }, [selectedFirm]);
-
   useEffect(() => { fetchAccounts(); }, [selectedFirm]);
 
   const fetchMeta = async () => {
-    const [firmsRes, projectsRes] = await Promise.all([
-      supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both').order('code'),
+    const [carilerRes, projectsRes] = await Promise.all([
+      supabase.from('cariler').select('*').eq('is_active', true).order('code'),
       supabase.from('projects').select('*').eq('status', 'active').order('name'),
     ]);
-    if (firmsRes.data) setFirms(firmsRes.data);
+    if (carilerRes.data) setCariler(carilerRes.data);
     if (projectsRes.data) setProjects(projectsRes.data);
     setLoading(false);
   };
@@ -66,12 +62,12 @@ export default function BankManagement() {
 
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!transactionData.firm_id) { alert('Cari seçimi zorunludur!'); return; }
+    if (!transactionData.cari_id) { alert('Cari seçimi zorunludur!'); return; }
     if (!transactionData.project_id) { alert('Proje seçimi zorunludur!'); return; }
 
     await supabase.from('bank_transactions').insert({
       bank_account_id: selectedAccount,
-      firm_id: transactionData.firm_id,
+      cari_id: transactionData.cari_id,
       project_id: transactionData.project_id,
       transaction_type: transactionData.transaction_type,
       amount: transactionData.amount,
@@ -82,11 +78,11 @@ export default function BankManagement() {
       const newBalance = transactionData.transaction_type === 'in' ? account.current_balance + transactionData.amount : account.current_balance - transactionData.amount;
       await supabase.from('bank_accounts').update({ current_balance: newBalance }).eq('id', selectedAccount);
     }
-    setShowTransactionForm(false); setTransactionData({ transaction_type: 'in', amount: 0, description: '', firm_id: selectedFirm?.id || '', project_id: '' });
+    setShowTransactionForm(false); setTransactionData({ transaction_type: 'in', amount: 0, description: '', cari_id: '', project_id: '' });
     fetchAccounts(); if (selectedAccount) fetchTransactions(selectedAccount);
   };
 
-  const filteredProjects = projects.filter(p => !transactionData.firm_id || p.firm_id === transactionData.firm_id);
+  const filteredProjects = projects.filter(p => !selectedFirm || p.firm_id === selectedFirm.id);
 
   return (
     <div>
@@ -138,7 +134,7 @@ export default function BankManagement() {
                       <tr key={t.id} className="border-t border-slate-100">
                         <td className="py-3 px-4">{formatDateTR(t.created_at)}</td>
                         <td className="py-3 px-4"><span className={`flex items-center gap-1 ${t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}`}>{t.transaction_type === 'in' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}{t.transaction_type === 'in' ? 'Giriş' : 'Çıkış'}</span></td>
-                        <td className="py-3 px-4 text-slate-600">{firms.find(f => f.id === t.firm_id)?.name || '-'}</td>
+                        <td className="py-3 px-4 text-slate-600">{cariler.find(c => c.id === t.cari_id)?.name || '-'}</td>
                         <td className="py-3 px-4 text-slate-600">{projects.find(p => p.id === t.project_id)?.name || '-'}</td>
                         <td className="py-3 px-4 text-right font-medium"><span className={t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}>{t.transaction_type === 'in' ? '+' : '-'}{formatCurrency(t.amount)}</span></td>
                         <td className="py-3 px-4 text-slate-600">{t.description || '-'}</td>
@@ -185,9 +181,9 @@ export default function BankManagement() {
                 <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="bt" value="out" checked={transactionData.transaction_type === 'out'} onChange={(e) => setTransactionData({ ...transactionData, transaction_type: e.target.value as 'in' | 'out' })} className="text-red-600" /><span className="text-red-600 font-medium">Çıkış</span></label>
               </div></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Cari <span className="text-red-500">*</span></label>
-                <select value={transactionData.firm_id} onChange={(e) => setTransactionData({ ...transactionData, firm_id: e.target.value, project_id: '' })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required>
+                <select value={transactionData.cari_id} onChange={(e) => setTransactionData({ ...transactionData, cari_id: e.target.value, project_id: '' })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required>
                   <option value="">Cari Seçin</option>
-                  {firms.map(f => <option key={f.id} value={f.id}>{f.code ? `${f.code} - ` : ''}{f.name}</option>)}
+                  {cariler.map(c => <option key={c.id} value={c.id}>{c.code ? `${c.code} - ` : ''}{c.name}</option>)}
                 </select>
               </div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Proje <span className="text-red-500">*</span></label>

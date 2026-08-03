@@ -11,6 +11,19 @@ export interface Firm {
   created_at: string;
 }
 
+export interface Cari {
+  id: string;
+  code?: string;
+  name: string;
+  tax_number?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  type: 'customer' | 'supplier' | 'both';
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Project {
   id: string;
   firm_id: string;
@@ -37,6 +50,7 @@ export interface Transaction {
   transaction_date: string;
   transaction_type: 'income' | 'expense' | 'invoice' | 'delivery_note' | 'transfer' | 'stock_transfer' | 'cash_transfer' | 'bank_transfer';
   firm_id?: string;
+  cari_id?: string;
   expense_category_id?: string;
   project_id?: string;
   amount: number;
@@ -51,6 +65,7 @@ export interface Transaction {
   created_by?: string;
   created_at: string;
   firm?: Firm;
+  cari?: Cari;
   project?: Project;
   expense_category?: ExpenseCategory;
   items?: TransactionItem[];
@@ -91,6 +106,7 @@ export interface Check {
   check_number: string;
   check_type: 'received' | 'given';
   firm_id: string;
+  cari_id?: string;
   bank_name?: string;
   bank_branch?: string;
   amount: number;
@@ -104,6 +120,7 @@ export interface Check {
   notes?: string;
   created_at: string;
   firm?: Firm;
+  cari?: Cari;
 }
 
 export interface CashRegister {
@@ -124,11 +141,13 @@ export interface CashTransaction {
   transaction_id?: string;
   transaction_type: 'in' | 'out';
   firm_id?: string;
+  cari_id?: string;
   project_id?: string;
   amount: number;
   description?: string;
   created_at: string;
   cash_register?: CashRegister;
+  cari?: Cari;
 }
 
 export interface BankAccount {
@@ -151,11 +170,13 @@ export interface BankTransaction {
   transaction_id?: string;
   transaction_type: 'in' | 'out';
   firm_id?: string;
+  cari_id?: string;
   project_id?: string;
   amount: number;
   description?: string;
   created_at: string;
   bank_account?: BankAccount;
+  cari?: Cari;
 }
 
 export interface UserProfile {
@@ -202,6 +223,7 @@ export interface TransactionInput {
   transaction_date: string;
   transaction_type: 'income' | 'expense' | 'invoice' | 'delivery_note' | 'transfer' | 'stock_transfer' | 'cash_transfer' | 'bank_transfer';
   firm_id?: string;
+  cari_id?: string;
   expense_category_id?: string;
   project_id?: string;
   amount: number;
@@ -237,6 +259,7 @@ export interface CheckInput {
   check_number: string;
   check_type: 'received' | 'given';
   firm_id: string;
+  cari_id?: string;
   bank_name?: string;
   bank_branch?: string;
   amount: number;

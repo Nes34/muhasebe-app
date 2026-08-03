@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
-import type { CashRegister, CashTransaction, Firm, Project } from '../types';
+import type { CashRegister, CashTransaction, Firm, Cari, Project } from '../types';
 import { Plus, ArrowUpCircle, ArrowDownCircle, Building2 } from 'lucide-react';
 
 interface CashRegisterWithFirms extends CashRegister {
@@ -14,23 +14,18 @@ export default function CashManagement() {
   const [registers, setRegisters] = useState<CashRegisterWithFirms[]>([]);
   const [transactions, setTransactions] = useState<CashTransaction[]>([]);
   const [firms, setFirms] = useState<Firm[]>([]);
+  const [cariler, setCariler] = useState<Cari[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [_loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [selectedRegister, setSelectedRegister] = useState('');
   const [formData, setFormData] = useState({ name: '', currency: 'TRY', opening_balance: 0, firm_ids: [] as string[] });
-  const [transactionData, setTransactionData] = useState<{ transaction_type: 'in' | 'out'; amount: number; description: string; firm_id: string; project_id: string }>({ transaction_type: 'in', amount: 0, description: '', firm_id: '', project_id: '' });
+  const [transactionData, setTransactionData] = useState<{ transaction_type: 'in' | 'out'; amount: number; description: string; cari_id: string; project_id: string }>({ transaction_type: 'in', amount: 0, description: '', cari_id: '', project_id: '' });
   const [editModal, setEditModal] = useState<CashRegisterWithFirms | null>(null);
   const [editBalance, setEditBalance] = useState(0);
 
   useEffect(() => { fetchData(); }, []);
-
-  useEffect(() => {
-    if (selectedFirm) {
-      setTransactionData(prev => ({ ...prev, firm_id: selectedFirm.id }));
-    }
-  }, [selectedFirm]);
 
   useEffect(() => {
     fetchRegisters();
@@ -39,21 +34,21 @@ export default function CashManagement() {
   }, [selectedFirm]);
 
   const fetchData = async () => {
-    const [firmsRes, projectsRes] = await Promise.all([
+    const [firmsRes, carilerRes, projectsRes] = await Promise.all([
       supabase.from('firms').select('*').eq('is_active', true).order('code'),
+      supabase.from('cariler').select('*').eq('is_active', true).order('code'),
       supabase.from('projects').select('*').eq('status', 'active').order('name'),
     ]);
     if (firmsRes.data) setFirms(firmsRes.data);
+    if (carilerRes.data) setCariler(carilerRes.data);
     if (projectsRes.data) setProjects(projectsRes.data);
     setLoading(false);
   };
 
   const fetchRegisters = async () => {
-    // Tüm kasaları çek
     const { data: regs } = await supabase.from('cash_registers').select('*').eq('is_active', true).order('name');
     if (!regs) { setRegisters([]); return; }
 
-    // Her kasanın firmalarını çek
     const regIds = regs.map(r => r.id);
     const { data: crfLinks } = await supabase.from('cash_register_firms').select('cash_register_id, firm_id').in('cash_register_id', regIds);
 
@@ -63,7 +58,6 @@ export default function CashManagement() {
       return { ...reg, firms: regFirms };
     });
 
-    // Firma filtresi uygula
     if (selectedFirm) {
       setRegisters(enriched.filter(r => r.firms.some(f => f.id === selectedFirm.id)));
     } else {
@@ -83,7 +77,6 @@ export default function CashManagement() {
       if (error.code === '23505') { alert('Bu isimde bir kasa zaten mevcut!'); return; }
       alert('Kasa oluşturulurken hata: ' + error.message); return;
     }
-    // Firmaları bağla
     if (newReg && formData.firm_ids.length > 0) {
       const links = formData.firm_ids.map(fid => ({ cash_register_id: newReg.id, firm_id: fid }));
       await supabase.from('cash_register_firms').insert(links);
@@ -100,12 +93,12 @@ export default function CashManagement() {
 
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!transactionData.firm_id) { alert('Cari seçimi zorunludur!'); return; }
+    if (!transactionData.cari_id) { alert('Cari seçimi zorunludur!'); return; }
     if (!transactionData.project_id) { alert('Proje seçimi zorunludur!'); return; }
 
     await supabase.from('cash_transactions').insert({
       cash_register_id: selectedRegister,
-      firm_id: transactionData.firm_id,
+      cari_id: transactionData.cari_id,
       project_id: transactionData.project_id,
       transaction_type: transactionData.transaction_type,
       amount: transactionData.amount,
@@ -117,7 +110,7 @@ export default function CashManagement() {
       const newBalance = transactionData.transaction_type === 'in' ? register.current_balance + transactionData.amount : register.current_balance - transactionData.amount;
       await supabase.from('cash_registers').update({ current_balance: newBalance }).eq('id', selectedRegister);
     }
-    setShowTransactionForm(false); setTransactionData({ transaction_type: 'in', amount: 0, description: '', firm_id: selectedFirm?.id || '', project_id: '' });
+    setShowTransactionForm(false); setTransactionData({ transaction_type: 'in', amount: 0, description: '', cari_id: '', project_id: '' });
     fetchRegisters(); if (selectedRegister) fetchTransactions(selectedRegister);
   };
 
@@ -128,9 +121,8 @@ export default function CashManagement() {
     }));
   };
 
-  const filteredProjects = projects.filter(p => !transactionData.firm_id || p.firm_id === transactionData.firm_id);
+  const filteredProjects = projects.filter(p => !selectedFirm || p.firm_id === selectedFirm.id);
 
-  // Hareketleri çek
   useEffect(() => {
     const fetchTx = async () => {
       if (selectedFirm) {
@@ -153,7 +145,6 @@ export default function CashManagement() {
         <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><Plus size={16} />Yeni Kasa</button>
       </div>
 
-      {/* Kasa Kartları */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {registers.map(register => (
           <div key={register.id} onClick={() => { setSelectedRegister(register.id); fetchTransactions(register.id); }} className={`bg-white rounded-xl p-6 border-2 cursor-pointer transition-all ${selectedRegister === register.id ? 'border-blue-500 shadow-lg' : 'border-slate-200 hover:border-slate-300'}`}>
@@ -182,7 +173,6 @@ export default function CashManagement() {
         )}
       </div>
 
-      {/* Hareketler Tablosu */}
       <div className="bg-white rounded-xl border border-slate-200">
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <h2 className="font-semibold text-slate-800">
@@ -200,7 +190,7 @@ export default function CashManagement() {
                 <td className="py-3 px-4">{formatDateTR(t.created_at)}</td>
                 <td className="py-3 px-4"><span className={`flex items-center gap-1 ${t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}`}>{t.transaction_type === 'in' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}{t.transaction_type === 'in' ? 'Giriş' : 'Çıkış'}</span></td>
                 <td className="py-3 px-4 text-slate-600">{registers.find(r => r.id === t.cash_register_id)?.name || '-'}</td>
-                <td className="py-3 px-4 text-slate-600">{firms.find(f => f.id === t.firm_id)?.name || '-'}</td>
+                <td className="py-3 px-4 text-slate-600">{cariler.find(c => c.id === t.cari_id)?.name || '-'}</td>
                 <td className="py-3 px-4 text-slate-600">{projects.find(p => p.id === t.project_id)?.name || '-'}</td>
                 <td className="py-3 px-4 text-right font-medium"><span className={t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}>{t.transaction_type === 'in' ? '+' : '-'}{formatCurrency(t.amount)}</span></td>
                 <td className="py-3 px-4 text-slate-600">{t.description || '-'}</td>
@@ -215,7 +205,6 @@ export default function CashManagement() {
         )}
       </div>
 
-      {/* Yeni Kasa Formu */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
@@ -242,7 +231,6 @@ export default function CashManagement() {
         </div>
       )}
 
-      {/* Hareket Ekleme Formu */}
       {showTransactionForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
@@ -253,9 +241,9 @@ export default function CashManagement() {
                 <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="tt" value="out" checked={transactionData.transaction_type === 'out'} onChange={(e) => setTransactionData({ ...transactionData, transaction_type: e.target.value as 'in' | 'out' })} className="text-red-600" /><span className="text-red-600 font-medium">Çıkış</span></label>
               </div></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Cari <span className="text-red-500">*</span></label>
-                <select value={transactionData.firm_id} onChange={(e) => setTransactionData({ ...transactionData, firm_id: e.target.value, project_id: '' })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required>
+                <select value={transactionData.cari_id} onChange={(e) => setTransactionData({ ...transactionData, cari_id: e.target.value, project_id: '' })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required>
                   <option value="">Cari Seçin</option>
-                  {firms.map(f => <option key={f.id} value={f.id}>{f.code ? `${f.code} - ` : ''}{f.name}</option>)}
+                  {cariler.map(c => <option key={c.id} value={c.id}>{c.code ? `${c.code} - ` : ''}{c.name}</option>)}
                 </select>
               </div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Proje <span className="text-red-500">*</span></label>
@@ -272,7 +260,6 @@ export default function CashManagement() {
         </div>
       )}
 
-      {/* Açılış Bakiyesi Düzenleme */}
       {editModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
