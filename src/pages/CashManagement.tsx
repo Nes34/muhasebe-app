@@ -46,7 +46,9 @@ export default function CashManagement() {
   };
 
   const fetchRegisters = async () => {
-    const { data } = await supabase.from('cash_registers').select('*').eq('is_active', true).order('name');
+    let query = supabase.from('cash_registers').select('*').eq('is_active', true).order('name');
+    if (selectedFirm) query = query.eq('firm_id', selectedFirm.id);
+    const { data } = await query;
     if (data) setRegisters(data);
   };
 
@@ -93,32 +95,24 @@ export default function CashManagement() {
 
   const filteredProjects = projects.filter(p => !transactionData.firm_id || p.firm_id === transactionData.firm_id);
 
-  // Seçili firmaya ait kasalar
-  const filteredRegisters = selectedFirm
-    ? registers.filter(r => r.firm_id === selectedFirm.id)
-    : [];
-
   // Tüm kasaların toplam bakiyesi (firma seçilmediğinde)
   const totalBalance = registers.reduce((sum, r) => sum + (r.current_balance || 0), 0);
   const totalOpening = registers.reduce((sum, r) => sum + (r.opening_balance || 0), 0);
 
-  // Seçili kasanın firmadaki hareketleri (firma seçilmediğinde tüm firmaların hareketleri)
-  const fetchAllTransactions = async () => {
-    if (selectedFirm) {
-      // Firma seçiliyse sadece o firmadaki kasaların hareketlerini çek
-      const regIds = filteredRegisters.map(r => r.id);
-      if (regIds.length === 0) { setTransactions([]); return; }
-      const { data } = await supabase.from('cash_transactions').select('*').in('cash_register_id', regIds).order('created_at', { ascending: false }).limit(50);
-      if (data) setTransactions(data);
-    } else {
-      // Firma seçilmediyse tüm hareketleri çek
-      const { data } = await supabase.from('cash_transactions').select('*').order('created_at', { ascending: false }).limit(50);
-      if (data) setTransactions(data);
-    }
-  };
-
+  // Hareketleri çek
   useEffect(() => {
-    fetchAllTransactions();
+    const fetchTx = async () => {
+      if (selectedFirm) {
+        const regIds = registers.map(r => r.id);
+        if (regIds.length === 0) { setTransactions([]); return; }
+        const { data } = await supabase.from('cash_transactions').select('*').in('cash_register_id', regIds).order('created_at', { ascending: false }).limit(50);
+        if (data) setTransactions(data);
+      } else {
+        const { data } = await supabase.from('cash_transactions').select('*').order('created_at', { ascending: false }).limit(50);
+        if (data) setTransactions(data);
+      }
+    };
+    fetchTx();
   }, [selectedFirm, registers]);
 
   return (
@@ -150,7 +144,7 @@ export default function CashManagement() {
       ) : (
         // Firma seçiliyse → o firmaya ait kasalar
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {filteredRegisters.map(register => (
+          {registers.map(register => (
             <div key={register.id} onClick={() => { setSelectedRegister(register.id); fetchTransactions(register.id); }} className={`bg-white rounded-xl p-6 border-2 cursor-pointer transition-all ${selectedRegister === register.id ? 'border-blue-500 shadow-lg' : 'border-slate-200 hover:border-slate-300'}`}>
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-slate-800">{register.name}</h3>
@@ -161,7 +155,7 @@ export default function CashManagement() {
               <p className="text-xs text-slate-400 mt-1">Açılış: {formatCurrency(register.opening_balance || 0)}</p>
             </div>
           ))}
-          {filteredRegisters.length === 0 && (
+          {registers.length === 0 && (
             <div className="bg-white rounded-xl p-6 border border-slate-200 text-center">
               <p className="text-slate-500">Bu firmaya ait kasa bulunamadı.</p>
             </div>
