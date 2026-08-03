@@ -138,20 +138,10 @@ export default function CheckManagement() {
   const receivedTotal = filteredChecks.filter(c => c.check_type === 'received').reduce((sum, c) => sum + c.amount, 0);
   const givenTotal = filteredChecks.filter(c => c.check_type === 'given').reduce((sum, c) => sum + c.amount, 0);
 
-  if (!selectedFirm) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96">
-        <AlertTriangle size={48} className="text-amber-500 mb-4" />
-        <h2 className="text-xl font-semibold text-slate-800 mb-2">Firma Seçimi Zorunlu</h2>
-        <p className="text-slate-500">Lütfen üst kısımdan bir firma seçin.</p>
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Çek Yönetimi</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Çek Yönetimi{selectedFirm ? ` - ${selectedFirm.name}` : ''}</h1>
         <button onClick={() => { setEditingCheck(null); setFormData({ check_number: '', check_type: 'received', firm_id: selectedFirm.id, bank_name: '', bank_branch: '', amount: 0, issue_date: formatDateTR(new Date()), due_date: '', notes: '' }); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
           <Plus size={16} />Yeni Çek
         </button>
