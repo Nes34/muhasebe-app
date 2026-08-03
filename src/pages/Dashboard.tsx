@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { formatCurrency, formatDateTR } from '../lib/utils';
+import { formatCurrency, formatDateTR, parseDateTR } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import {
   TrendingUp, TrendingDown, Wallet, Building2, FileCheck, AlertTriangle,
@@ -26,6 +27,7 @@ interface DailyData {
 
 export default function Dashboard() {
   const { selectedFirm } = useFirm();
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({ totalIncome: 0, totalExpense: 0, totalCash: 0, totalBank: 0, pendingChecks: 0, urgentChecks: 0 });
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +134,10 @@ export default function Dashboard() {
 
       const fiveDaysLater = new Date(today);
       fiveDaysLater.setDate(today.getDate() + 5);
-      const urgent = (pendingChecks || []).filter((c: any) => new Date(c.due_date) <= fiveDaysLater);
+      const urgent = (pendingChecks || []).filter((c: any) => {
+        const dueDate = parseDateTR(c.due_date) || new Date(c.due_date);
+        return dueDate <= fiveDaysLater;
+      });
 
       setPendingCheckData(pendingChecks || []);
       setUrgentCheckData(urgent);
@@ -312,9 +317,10 @@ export default function Dashboard() {
 
               {/* Çek Filtresi */}
               {(activeFilter === 'pending_checks' || activeFilter === 'urgent_checks') && filterData.map((c: any) => {
-                const daysUntil = Math.ceil((new Date(c.due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                const dueDate = parseDateTR(c.due_date) || new Date(c.due_date);
+                const daysUntil = Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
                 return (
-                  <div key={c.id} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200">
+                  <div key={c.id} onClick={() => navigate('/cekler')} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200 hover:bg-orange-100 cursor-pointer transition-colors">
                     <div>
                       <p className="text-sm font-medium text-slate-800">{c.check_number}</p>
                       <p className="text-xs text-slate-500">{c.firm?.name || '-'} • {formatDateTR(c.due_date)}</p>

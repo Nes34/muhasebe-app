@@ -27,7 +27,12 @@ export default function FirmMerge() {
 
   useEffect(() => { fetchFirms(); }, []);
   useEffect(() => { if (oldFirmId) fetchStats(oldFirmId); }, [oldFirmId]);
-  useEffect(() => { setPendingRequests(getPendingRequests()); }, [message]);
+  useEffect(() => { fetchPendingRequests(); }, [message]);
+
+  const fetchPendingRequests = async () => {
+    const requests = await getPendingRequests();
+    setPendingRequests(requests);
+  };
 
   const fetchFirms = async () => {
     setLoading(true);
@@ -53,16 +58,16 @@ export default function FirmMerge() {
 
   const oldFirm = firms.find(f => f.id === oldFirmId);
 
-  const handleApprove = (req: ApprovalRequest) => {
-    approveRequest(req.id, user?.id || '');
-    setPendingRequests(getPendingRequests());
+  const handleApprove = async (req: ApprovalRequest) => {
+    await approveRequest(req.id, user?.id || '');
+    await fetchPendingRequests();
     setMessage({ type: 'success', text: 'Birleştirme talebi onaylandı!' });
     setTimeout(() => setMessage(null), 3000);
   };
 
-  const handleReject = (req: ApprovalRequest) => {
-    rejectRequest(req.id, user?.id || '', rejectReason);
-    setPendingRequests(getPendingRequests());
+  const handleReject = async (req: ApprovalRequest) => {
+    await rejectRequest(req.id, user?.id || '', rejectReason);
+    await fetchPendingRequests();
     setRejectModal(null);
     setRejectReason('');
     setMessage({ type: 'success', text: 'Birleştirme talebi reddedildi!' });
@@ -82,7 +87,7 @@ export default function FirmMerge() {
 
     // Non-admin → talep gönder
     if (!isAdmin) {
-      addRequest({
+      await addRequest({
         type: 'firm_merge',
         requested_by: user?.id || '',
         requested_by_name: user?.email || '',
@@ -95,7 +100,7 @@ export default function FirmMerge() {
           stats,
         },
       });
-      setPendingRequests(getPendingRequests());
+      await fetchPendingRequests();
       setMessage({ type: 'success', text: 'Birleştirme talebiniz admin onayına gönderildi!' });
       setOldFirmId(''); setNewFirmName(''); setConfirmText(''); setCreateNew(false);
       setTimeout(() => setMessage(null), 3000);
