@@ -3,44 +3,67 @@ import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { exportBankTransactionsToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
-import type { BankAccount, BankTransaction, Cari, Project } from '../types';
+import type { BankAccount, BankTransaction, Firm, Cari, Project } from '../types';
 import { Plus, ArrowUpCircle, ArrowDownCircle, Building2, Download } from 'lucide-react';
+
+interface BankAccountWithFirms extends BankAccount {
+  firms: Firm[];
+}
 
 export default function BankManagement() {
   const { selectedFirm } = useFirm();
-  const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const [accounts, setAccounts] = useState<BankAccountWithFirms[]>([]);
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
+  const [firms, setFirms] = useState<Firm[]>([]);
   const [cariler, setCariler] = useState<Cari[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [_loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState('');
-  
-  const [formData, setFormData] = useState({ bank_name: '', branch: '', account_number: '', iban: '', currency: 'TRY', opening_balance: 0 });
+  const [formData, setFormData] = useState({ bank_name: '', branch: '', account_number: '', iban: '', currency: 'TRY', opening_balance: 0, firm_ids: [] as string[] });
   const [transactionData, setTransactionData] = useState<{ transaction_type: 'in' | 'out'; amount: number; description: string; cari_id: string; project_id: string }>({ transaction_type: 'in', amount: 0, description: '', cari_id: '', project_id: '' });
-  const [editModal, setEditModal] = useState<BankAccount | null>(null);
+  const [editModal, setEditModal] = useState<BankAccountWithFirms | null>(null);
   const [editBalance, setEditBalance] = useState(0);
 
-  useEffect(() => { fetchMeta(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
-  useEffect(() => { fetchAccounts(); }, [selectedFirm]);
+  useEffect(() => {
+    fetchAccounts();
+    setSelectedAccount('');
+    setTransactions([]);
+  }, [selectedFirm]);
 
-  const fetchMeta = async () => {
-    const [carilerRes, projectsRes] = await Promise.all([
+  const fetchData = async () => {
+    const [firmsRes, carilerRes, projectsRes] = await Promise.all([
+      supabase.from('firms').select('*').eq('is_active', true).order('code'),
       supabase.from('cariler').select('*').eq('is_active', true).order('code'),
       supabase.from('projects').select('*').eq('status', 'active').order('name'),
     ]);
+    if (firmsRes.data) setFirms(firmsRes.data);
     if (carilerRes.data) setCariler(carilerRes.data);
     if (projectsRes.data) setProjects(projectsRes.data);
     setLoading(false);
   };
 
   const fetchAccounts = async () => {
-    let query = supabase.from('bank_accounts').select('*').eq('is_active', true).order('bank_name');
-    if (selectedFirm) query = query.eq('firm_id', selectedFirm.id);
-    const { data } = await query;
-    if (data) setAccounts(data);
+    const { data: accs } = await supabase.from('bank_accounts').select('*').eq('is_active', true).order('bank_name');
+    if (!accs) { setAccounts([]); return; }
+
+    const accIds = accs.map(a => a.id);
+    const { data: bafLinks } = await supabase.from('bank_account_firms').select('bank_account_id, firm_id').in('bank_account_id', accIds);
+
+    const enriched: BankAccountWithFirms[] = accs.map(acc => {
+      const firmIds = bafLinks?.filter(l => l.bank_account_id === acc.id).map(l => l.firm_id) || [];
+      const accFirms = firms.filter(f => firmIds.includes(f.id));
+      return { ...acc, firms: accFirms };
+    });
+
+    if (selectedFirm) {
+      setAccounts(enriched.filter(a => a.firms.some(f => f.id === selectedFirm.id)));
+    } else {
+      setAccounts(enriched);
+    }
   };
 
   const fetchTransactions = async (accountId: string) => {
@@ -48,10 +71,41 @@ export default function BankManagement() {
     if (data) setTransactions(data);
   };
 
+  const toggleFirmId = (fid: string) => {
+    setFormData(prev => ({
+      ...prev,
+      firm_ids: prev.firm_ids.includes(fid)
+        ? prev.firm_ids.filter(id => id !== fid)
+        : [...prev.firm_ids, fid],
+    }));
+  };
+
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    await supabase.from('bank_accounts').insert({ ...formData, firm_id: selectedFirm?.id, current_balance: formData.opening_balance, is_active: true });
-    setShowForm(false); setFormData({ bank_name: '', branch: '', account_number: '', iban: '', currency: 'TRY', opening_balance: 0 }); fetchAccounts();
+    const { data: newAcc, error } = await supabase.from('bank_accounts').insert({
+      bank_name: formData.bank_name,
+      branch: formData.branch,
+      account_number: formData.account_number,
+      iban: formData.iban,
+      currency: formData.currency,
+      opening_balance: formData.opening_balance,
+      current_balance: formData.opening_balance,
+      is_active: true,
+    }).select().single();
+
+    if (error) {
+      if (error.code === '23505') { alert('Bu isimde bir banka hesabı zaten mevcut!'); return; }
+      alert('Hesap oluşturulurken hata: ' + error.message); return;
+    }
+
+    if (newAcc && formData.firm_ids.length > 0) {
+      const links = formData.firm_ids.map(fid => ({ bank_account_id: newAcc.id, firm_id: fid }));
+      await supabase.from('bank_account_firms').insert(links);
+    }
+
+    setShowForm(false);
+    setFormData({ bank_name: '', branch: '', account_number: '', iban: '', currency: 'TRY', opening_balance: 0, firm_ids: [] });
+    fetchAccounts();
   };
 
   const handleUpdateOpeningBalance = async () => {
@@ -74,13 +128,19 @@ export default function BankManagement() {
       amount: transactionData.amount,
       description: transactionData.description,
     });
+
     const account = accounts.find(a => a.id === selectedAccount);
     if (account) {
-      const newBalance = transactionData.transaction_type === 'in' ? account.current_balance + transactionData.amount : account.current_balance - transactionData.amount;
+      const newBalance = transactionData.transaction_type === 'in'
+        ? account.current_balance + transactionData.amount
+        : account.current_balance - transactionData.amount;
       await supabase.from('bank_accounts').update({ current_balance: newBalance }).eq('id', selectedAccount);
     }
-    setShowTransactionForm(false); setTransactionData({ transaction_type: 'in', amount: 0, description: '', cari_id: '', project_id: '' });
-    fetchAccounts(); if (selectedAccount) fetchTransactions(selectedAccount);
+
+    setShowTransactionForm(false);
+    setTransactionData({ transaction_type: 'in', amount: 0, description: '', cari_id: '', project_id: '' });
+    fetchAccounts();
+    if (selectedAccount) fetchTransactions(selectedAccount);
   };
 
   const filteredProjects = projects.filter(p => !selectedFirm || p.firm_id === selectedFirm.id);
@@ -105,8 +165,22 @@ export default function BankManagement() {
             <p className="text-2xl font-bold text-blue-600 mt-4">{formatCurrency(account.current_balance, account.currency)}</p>
             <p className="text-sm text-slate-500 mt-1">{account.iban ? `****${account.iban.slice(-4)}` : account.account_number || '-'}</p>
             <p className="text-xs text-slate-400 mt-1">Açılış: {formatCurrency(account.opening_balance || 0)}</p>
+            {account.firms.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {account.firms.map(f => (
+                  <span key={f.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">
+                    <Building2 size={10} />{f.name}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         ))}
+        {accounts.length === 0 && (
+          <div className="col-span-full bg-white rounded-xl p-6 border border-slate-200 text-center">
+            <p className="text-slate-500">{selectedFirm ? 'Bu firmaya ait banka hesabı bulunamadı.' : 'Henüz banka hesabı bulunamadı.'}</p>
+          </div>
+        )}
       </div>
 
       {selectedAccount && (
@@ -132,7 +206,7 @@ export default function BankManagement() {
                       <td className="py-3 px-4">-</td>
                       <td className="py-3 px-4">-</td>
                       <td className="py-3 px-4 text-right font-medium text-blue-600">{formatCurrency(openingBalance)}</td>
-                      <td className="py-3 px-4 text-blue-500 italic">Açılış Bakiyesi</td>
+                      <td className="py-3 px-4 text-slate-500">Hesap açılış bakiyesi</td>
                     </tr>
                     {transactions.map(t => (
                       <tr key={t.id} className="border-t border-slate-100">
@@ -152,7 +226,6 @@ export default function BankManagement() {
           {transactions.length === 0 && (
             <div className="text-center py-8">
               <p className="text-slate-500">Henüz hareket yok.</p>
-              <p className="text-sm text-blue-500 mt-2">Açılış Bakiyesi: {formatCurrency(accounts.find(a => a.id === selectedAccount)?.opening_balance || 0)}</p>
             </div>
           )}
         </div>
@@ -169,6 +242,18 @@ export default function BankManagement() {
               <div><label className="block text-sm font-medium text-slate-700 mb-1">IBAN</label><input type="text" value={formData.iban} onChange={(e) => setFormData({ ...formData, iban: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" placeholder="TR00 0000 0000 0000 0000 0000 00" /></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Para Birimi</label><select value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg"><option value="TRY">TRY</option><option value="USD">USD</option><option value="EUR">EUR</option></select></div>
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Açılış Bakiyesi</label><input type="number" value={formData.opening_balance} onChange={(e) => setFormData({ ...formData, opening_balance: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Firmalar</label>
+                <div className="space-y-1 max-h-40 overflow-y-auto border border-slate-200 rounded-lg p-2">
+                  {firms.map(f => (
+                    <label key={f.id} className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded cursor-pointer">
+                      <input type="checkbox" checked={formData.firm_ids.includes(f.id)} onChange={() => toggleFirmId(f.id)} className="rounded text-blue-600" />
+                      <span className="text-sm">{f.code ? `${f.code} - ` : ''}{f.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Birden fazla firmaya bağlayabilirsiniz</p>
+              </div>
               <div className="flex gap-2 justify-end"><button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button><button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Oluştur</button></div>
             </form>
           </div>
@@ -208,15 +293,9 @@ export default function BankManagement() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <h2 className="text-lg font-semibold mb-4">Açılış Bakiyesi Düzenle</h2>
-            <p className="text-sm text-slate-600 mb-4">{editModal.bank_name} - {editModal.branch || ''}</p>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Açılış Bakiyesi</label>
-              <input type="number" value={editBalance} onChange={(e) => setEditBalance(parseFloat(e.target.value) || 0)} className="w-full px-4 py-2 border border-slate-300 rounded-lg" />
-              <p className="text-xs text-slate-500 mt-1">Not: Bu değişiklik mevcut bakiyeyi de sıfırlar</p>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setEditModal(null)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
-              <button onClick={handleUpdateOpeningBalance} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button>
+            <div className="space-y-4">
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Yeni Açılış Bakiyesi</label><input type="number" value={editBalance} onChange={(e) => setEditBalance(parseFloat(e.target.value) || 0)} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
+              <div className="flex gap-2 justify-end"><button type="button" onClick={() => setEditModal(null)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button><button type="button" onClick={handleUpdateOpeningBalance} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button></div>
             </div>
           </div>
         </div>
