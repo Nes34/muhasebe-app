@@ -70,6 +70,9 @@ export default function UserManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingUser) {
+      if (formData.email !== editingUser.email) {
+        await supabase.rpc('update_auth_user_email', { target_user_id: editingUser.id, new_email: formData.email });
+      }
       await supabase.from('user_profiles').update({ email: formData.email, full_name: formData.full_name, role: formData.role, firm_id: formData.firm_id || null }).eq('id', editingUser.id);
     } else {
       const { data: authData, error: authError } = await supabase.auth.signUp({ email: formData.email, password: formData.password });
