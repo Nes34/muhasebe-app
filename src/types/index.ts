@@ -159,6 +159,7 @@ export interface BankTransaction {
 
 export interface UserProfile {
   id: string;
+  email?: string;
   full_name?: string;
   role: 'admin' | 'accountant' | 'viewer';
   firm_id?: string;

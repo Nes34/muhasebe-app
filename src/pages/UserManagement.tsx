@@ -75,7 +75,7 @@ export default function UserManagement() {
       const { data: authData, error: authError } = await supabase.auth.signUp({ email: formData.email, password: formData.password });
       if (authError) { alert('Hata: ' + authError.message); return; }
       if (authData.user) {
-        await supabase.from('user_profiles').insert({ id: authData.user.id, full_name: formData.full_name, role: formData.role, firm_id: formData.firm_id || null, is_active: true });
+        await supabase.from('user_profiles').insert({ id: authData.user.id, email: formData.email, full_name: formData.full_name, role: formData.role, firm_id: formData.firm_id || null, is_active: true });
       }
     }
     setShowForm(false); setEditingUser(null);
@@ -85,7 +85,7 @@ export default function UserManagement() {
 
   const handleEdit = (user: UserProfile) => {
     setEditingUser(user);
-    setFormData({ email: '', password: '', full_name: user.full_name || '', role: user.role, firm_id: user.firm_id || '' });
+    setFormData({ email: user.email || '', password: '', full_name: user.full_name || '', role: user.role, firm_id: user.firm_id || '' });
     setShowForm(true);
   };
 
@@ -100,8 +100,8 @@ export default function UserManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Bu kullanıcıyı silmek istediğinizden emin misiniz?')) {
-      await supabase.from('user_profiles').update({ is_active: false }).eq('id', id);
+    if (confirm('Bu kullanıcıyı kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz!')) {
+      await supabase.from('user_profiles').delete().eq('id', id);
       fetchUsers();
     }
   };
@@ -158,7 +158,7 @@ export default function UserManagement() {
                         <span className="font-medium">{user.full_name || '-'}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-slate-600">-</td>
+                    <td className="py-3 px-4 text-slate-600">{user.email || '-'}</td>
                     <td className="py-3 px-4">
                       <button
                         onClick={() => setShowPermissions(showPermissions === user.id ? null : user.id)}
@@ -294,10 +294,10 @@ export default function UserManagement() {
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <h2 className="text-lg font-semibold mb-4">{editingUser ? 'Kullanıcı Düzenle' : 'Yeni Kullanıcı'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {!editingUser && (<>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">E-posta</label><input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">E-posta</label><input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required disabled={!!editingUser} /></div>
+              {!editingUser && (
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Şifre</label><input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required minLength={6} /></div>
-              </>)}
+              )}
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Ad Soyad</label><input type="text" value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Rol</label>
