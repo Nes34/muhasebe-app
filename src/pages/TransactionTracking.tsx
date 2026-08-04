@@ -145,7 +145,8 @@ export default function TransactionTracking() {
       id: t.id,
       type: t.transaction_type,
       date: t.transaction_date,
-      firm: t.cari?.name || t.firm?.name || '-',
+      cari: t.cari?.name || '-',
+      firm: t.firm?.name || '-',
       project: t.project?.name || '-',
       description: t.description || '-',
       amount: t.amount,
@@ -157,9 +158,10 @@ export default function TransactionTracking() {
       id: t.id,
       type: t.transaction_type === 'in' ? 'cash_in' : 'cash_out',
       date: t.created_at?.split('T')[0] || '',
+      cari: t.cari?.name || '-',
       firm: '-',
       project: t.project?.name || '-',
-      description: `Kasa - ${t.cari?.name || t.cash_register?.name || '-'}`,
+      description: `Kasa - ${t.cash_register?.name || '-'}`,
       amount: t.amount,
       invoice_number: '',
       created_at: t.created_at,
@@ -169,9 +171,10 @@ export default function TransactionTracking() {
       id: t.id,
       type: t.transaction_type === 'in' ? 'bank_in' : 'bank_out',
       date: t.created_at?.split('T')[0] || '',
+      cari: t.cari?.name || '-',
       firm: '-',
       project: t.project?.name || '-',
-      description: `Banka - ${t.cari?.name || t.bank_account?.bank_name || '-'}`,
+      description: `Banka - ${t.bank_account?.bank_name || '-'}`,
       amount: t.amount,
       invoice_number: '',
       created_at: t.created_at,
@@ -181,6 +184,7 @@ export default function TransactionTracking() {
       id: t.id,
       type: t.check_type === 'received' ? 'check_received' : 'check_given',
       date: t.issue_date || t.created_at?.split('T')[0] || '',
+      cari: '-',
       firm: t.firm?.name || '-',
       project: t.project?.name || '-',
       description: `Çek No: ${t.check_number || '-'} (${t.status === 'pending' ? 'Bekleyen' : t.status === 'collected' ? 'Tahsil' : t.status === 'paid' ? 'Ödenen' : t.status})`,
@@ -397,6 +401,7 @@ export default function TransactionTracking() {
                       <tr>
                         <ResizableTh columnId="islem-tarih" className="text-left py-2 px-4">Tarih</ResizableTh>
                         <ResizableTh columnId="islem-firma" className="text-left py-2 px-4">Cari</ResizableTh>
+                        <ResizableTh columnId="islem-firma-adi" className="text-left py-2 px-4">Firma</ResizableTh>
                         <ResizableTh columnId="islem-proje" className="text-left py-2 px-4">Proje</ResizableTh>
                         <ResizableTh columnId="islem-aciklama" className="text-left py-2 px-4">Açıklama</ResizableTh>
                         <ResizableTh columnId="islem-tutar" className="text-right py-2 px-4">Tutar</ResizableTh>
