@@ -22,6 +22,7 @@ import {
   FileText,
   Clock,
   TrendingUp,
+  ClipboardCheck,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -93,6 +94,7 @@ const menuGroups: MenuGroup[] = [
     icon: Package,
     items: [
       { to: '/stok', icon: Package, label: 'Stok Yönetimi' },
+      { to: '/stok-sayim', icon: ClipboardCheck, label: 'Stok Sayım' },
       { to: '/stok-birimleri', icon: Ruler, label: 'Stok Birimleri' },
       { to: '/stok-birlesme', icon: GitMerge, label: 'Stok Birleştirme' },
     ],

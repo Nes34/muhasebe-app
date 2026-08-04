@@ -30,6 +30,7 @@ import AttendancePage from './pages/Attendance';
 import PayrollPage from './pages/Payroll';
 import LeaveManagement from './pages/LeaveManagement';
 import SeverancePage from './pages/Severance';
+import StockCount from './pages/StockCount';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -87,6 +88,7 @@ function AppLayout() {
             <Route path="/bordro" element={<PayrollPage />} />
             <Route path="/izin" element={<LeaveManagement />} />
             <Route path="/kidem-ihbar" element={<SeverancePage />} />
+            <Route path="/stok-sayim" element={<StockCount />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>

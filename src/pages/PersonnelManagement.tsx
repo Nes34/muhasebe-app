@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import type { Personnel } from '../types';
-import { Plus, Edit2, Trash2, Search, Users, Upload, AlertTriangle, CheckCircle, X, Shield, FileSpreadsheet } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Users, Upload, Download, AlertTriangle, CheckCircle, X, Shield, FileSpreadsheet } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 
 export default function PersonnelManagement() {
@@ -168,6 +168,18 @@ export default function PersonnelManagement() {
       is_protected: false,
       firm_id: '',
     });
+  };
+
+  const downloadExampleCSV = () => {
+    const csvContent = `TC No,Ad,Soyad,Taşeron,Pozisyon,Brüt Maaş,Net Maaş
+12345678901,Ali,Yılmaz,ABC İnşaat,Mühendis,35000,25000
+98765432102,Mehmet,Demir,XYZ Taahhüt,İşçi,20000,15000
+11122233344,Ayşe,Kaya,ABC İnşaat,Muhasebeci,30000,22000`;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'personel-ornek.csv';
+    link.click();
   };
 
   const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -335,6 +347,9 @@ export default function PersonnelManagement() {
           Personel Yönetimi{selectedFirm ? ` - ${selectedFirm.name}` : ''}
         </h1>
         <div className="flex gap-2">
+          <button onClick={downloadExampleCSV} className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors">
+            <Download size={16} />Örnek CSV
+          </button>
           <button onClick={() => { setImportMode('add'); setShowExcelImport(true); }} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
             <Upload size={16} />Excel ile Ekle
           </button>

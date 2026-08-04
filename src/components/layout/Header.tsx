@@ -103,8 +103,8 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-6">
-      <div className="flex items-center gap-4">
+    <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-3 lg:px-6">
+      <div className="flex items-center gap-2">
         <button
           onClick={onMenuClick}
           className="lg:hidden p-2 rounded-lg hover:bg-slate-100"
@@ -112,28 +112,28 @@ export function Header({ onMenuClick }: HeaderProps) {
           <Menu size={20} />
         </button>
         
-        <div className="hidden md:flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-2">
+        <div className="hidden sm:flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-2">
           <Search size={18} className="text-slate-400" />
           <input
             type="text"
             placeholder="Ara..."
-            className="bg-transparent border-none outline-none w-64 text-sm"
+            className="bg-transparent border-none outline-none w-40 lg:w-64 text-sm"
           />
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         {/* Firma Seçici */}
         <div className="relative" ref={firmRef}>
           <button
             onClick={() => { setShowFirmSelect(!showFirmSelect); setShowSettings(false); setShowNotifications(false); }}
-            className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+            className="flex items-center gap-1.5 px-2 py-1.5 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
           >
-            <Building2 size={16} className="text-blue-600" />
-            <span className="text-sm font-medium text-blue-700 max-w-[150px] truncate">
+            <Building2 size={14} className="text-blue-600" />
+            <span className="text-xs font-medium text-blue-700 max-w-[80px] lg:max-w-[150px] truncate">
               {selectedFirm ? selectedFirm.name : 'Tüm Firmalar'}
             </span>
-            <ChevronDown size={14} className="text-blue-500" />
+            <ChevronDown size={12} className="text-blue-500" />
           </button>
 
           {showFirmSelect && (
@@ -266,7 +266,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-xl shadow-xl border border-slate-200 z-[60] overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 bg-white rounded-xl shadow-xl border border-slate-200 z-[60] overflow-hidden">
               <div className="p-4 border-b border-slate-200 bg-slate-50">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-slate-800 flex items-center gap-2">
