@@ -396,7 +396,7 @@ export default function TransactionTracking() {
                     <thead className="bg-slate-50">
                       <tr>
                         <ResizableTh columnId="islem-tarih" className="text-left py-2 px-4">Tarih</ResizableTh>
-                        <ResizableTh columnId="islem-firma" className="text-left py-2 px-4">Firma</ResizableTh>
+                        <ResizableTh columnId="islem-firma" className="text-left py-2 px-4">Cari</ResizableTh>
                         <ResizableTh columnId="islem-proje" className="text-left py-2 px-4">Proje</ResizableTh>
                         <ResizableTh columnId="islem-aciklama" className="text-left py-2 px-4">Açıklama</ResizableTh>
                         <ResizableTh columnId="islem-tutar" className="text-right py-2 px-4">Tutar</ResizableTh>
