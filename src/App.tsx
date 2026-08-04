@@ -35,6 +35,7 @@ import SeverancePage from './pages/Severance';
 import StockCount from './pages/StockCount';
 import DueDateCalendar from './pages/DueDateCalendar';
 import DocumentManagement from './pages/DocumentManagement';
+import AssetManagement from './pages/AssetManagement';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -95,6 +96,7 @@ function AppLayout() {
             <Route path="/stok-sayim" element={<StockCount />} />
             <Route path="/vade-takvimi" element={<DueDateCalendar />} />
             <Route path="/dokumanlar" element={<DocumentManagement />} />
+            <Route path="/demirbaslar" element={<AssetManagement />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>

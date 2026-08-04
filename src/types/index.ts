@@ -507,3 +507,122 @@ export interface SeveranceCalculation {
   created_at: string;
   personnel?: Personnel;
 }
+
+// =============================================
+// DEMİRBAŞ MODÜLÜ TİPLERİ
+// =============================================
+
+export interface FixedAsset {
+  id: string;
+  asset_code: string;
+  name: string;
+  description?: string;
+  category: string;
+  purchase_date?: string;
+  purchase_price: number;
+  current_value: number;
+  depreciation_rate: number;
+  useful_life: number;
+  location?: string;
+  department?: string;
+  project_id?: string;
+  firm_id?: string;
+  status: 'active' | 'disposed' | 'maintenance';
+  serial_number?: string;
+  barcode?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  firm?: Firm;
+  project?: Project;
+  vehicle?: VehicleDetail;
+}
+
+export interface VehicleDetail {
+  id: string;
+  asset_id: string;
+  plate_number: string;
+  brand?: string;
+  model?: string;
+  year?: number;
+  color?: string;
+  engine_type?: string;
+  fuel_type: string;
+  current_km: number;
+  last_maintenance_km: number;
+  next_maintenance_km: number;
+  insurance_company?: string;
+  insurance_policy_no?: string;
+  insurance_start?: string;
+  insurance_end?: string;
+  insurance_premium: number;
+  inspection_date?: string;
+  next_inspection_date?: string;
+  assigned_to?: string;
+  assignment_date?: string;
+  assignment_notes?: string;
+  created_at: string;
+  updated_at: string;
+  assigned_personnel?: Personnel;
+}
+
+export interface VehicleKmRecord {
+  id: string;
+  asset_id: string;
+  record_date: string;
+  km_value: number;
+  notes?: string;
+  created_at: string;
+}
+
+export interface VehicleFuelRecord {
+  id: string;
+  asset_id: string;
+  fuel_date: string;
+  fuel_type: string;
+  liters: number;
+  amount: number;
+  km_at_fuel?: number;
+  station?: string;
+  notes?: string;
+  created_at: string;
+}
+
+export interface VehicleAssignment {
+  id: string;
+  asset_id: string;
+  personnel_id: string;
+  assignment_date: string;
+  return_date?: string;
+  notes?: string;
+  created_at: string;
+  personnel?: Personnel;
+}
+
+export interface VehiclePenalty {
+  id: string;
+  asset_id: string;
+  penalty_date: string;
+  penalty_type: string;
+  amount: number;
+  points: number;
+  description?: string;
+  status: 'paid' | 'unpaid';
+  payment_date?: string;
+  created_at: string;
+}
+
+export interface VehicleMtv {
+  id: string;
+  asset_id: string;
+  year: number;
+  installment_1_amount: number;
+  installment_1_due?: string;
+  installment_1_paid: boolean;
+  installment_1_payment_date?: string;
+  installment_2_amount: number;
+  installment_2_due?: string;
+  installment_2_paid: boolean;
+  installment_2_payment_date?: string;
+  created_at: string;
+}

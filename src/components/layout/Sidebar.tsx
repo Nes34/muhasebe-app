@@ -24,6 +24,7 @@ import {
   TrendingUp,
   ClipboardCheck,
   FolderOpen,
+  Car,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -96,6 +97,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { to: '/stok', icon: Package, label: 'Stok Yönetimi' },
       { to: '/stok-sayim', icon: ClipboardCheck, label: 'Stok Sayım' },
+      { to: '/demirbaslar', icon: Car, label: 'Demirbaş Yönetimi' },
       { to: '/stok-birimleri', icon: Ruler, label: 'Stok Birimleri' },
       { to: '/stok-birlesme', icon: GitMerge, label: 'Stok Birleştirme' },
     ],
