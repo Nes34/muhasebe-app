@@ -23,6 +23,7 @@ import {
   Clock,
   TrendingUp,
   ClipboardCheck,
+  FolderOpen,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -114,6 +115,7 @@ const menuGroups: MenuGroup[] = [
     icon: PieChart,
     items: [
       { to: '/raporlar', icon: PieChart, label: 'Raporlar' },
+      { to: '/dokumanlar', icon: FolderOpen, label: 'Dokümanlar' },
       { to: '/kullanici-yonetimi', icon: Users, label: 'Kullanıcılar' },
     ],
   },
