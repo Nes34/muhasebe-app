@@ -5,7 +5,7 @@ import { formatCurrency, formatDateTR, parseDateTR } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import {
   TrendingUp, TrendingDown, Wallet, Building2, FileCheck, AlertTriangle,
-  ArrowUpCircle, ArrowDownCircle, X, BarChart3, PieChart as PieChartIcon,
+  ArrowUpCircle, ArrowDownCircle, X, BarChart3, PieChart as PieChartIcon, Settings,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -45,6 +45,13 @@ export default function Dashboard() {
   const [activeFilter, setActiveFilter] = useState<FilterType>(null);
   const [filterData, setFilterData] = useState<any[]>([]);
   const [filterLoading, setFilterLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // Widget görünürlük ayarları
+  const [visibleWidgets, setVisibleWidgets] = useState<string[]>(() => {
+    const saved = localStorage.getItem('dashboard_widgets');
+    return saved ? JSON.parse(saved) : ['cards', 'charts', 'projection', 'reminders'];
+  });
 
   // Filtre detayları için state'ler
   const [incomeData, setIncomeData] = useState<any[]>([]);
@@ -59,6 +66,24 @@ export default function Dashboard() {
   const [collectedCheckData, setCollectedCheckData] = useState<any[]>([]);
 
   useEffect(() => { fetchDashboardStats(); }, [selectedFirm, selectedProject]);
+
+  // Widget görünürlük toggle
+  const toggleWidget = (widgetId: string) => {
+    setVisibleWidgets(prev => {
+      const updated = prev.includes(widgetId) 
+        ? prev.filter(id => id !== widgetId)
+        : [...prev, widgetId];
+      localStorage.setItem('dashboard_widgets', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const widgetOptions = [
+    { id: 'cards', label: 'Özet Kartlar' },
+    { id: 'charts', label: 'Grafikler' },
+    { id: 'projection', label: 'Nakit Akış Projeksiyonu' },
+    { id: 'reminders', label: 'Hatırlatmalar' },
+  ];
 
   const fetchDashboardStats = async () => {
     try {
@@ -379,7 +404,38 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200"
+        >
+          <Settings size={16} />
+          Widget Ayarları
+        </button>
+      </div>
+
+      {/* Widget Ayarları */}
+      {showSettings && (
+        <div className="bg-white rounded-xl p-4 border border-slate-200 mb-6">
+          <h3 className="font-semibold text-slate-800 mb-3">Gösterilecek Bölümler</h3>
+          <div className="flex flex-wrap gap-2">
+            {widgetOptions.map(widget => (
+              <button
+                key={widget.id}
+                onClick={() => toggleWidget(widget.id)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  visibleWidgets.includes(widget.id)
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                    : 'bg-slate-100 text-slate-500 border border-slate-200'
+                }`}
+              >
+                {visibleWidgets.includes(widget.id) ? '✓' : '○'} {widget.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Özet Kartlar - Tıklanabilir */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
@@ -407,78 +463,82 @@ export default function Dashboard() {
       </div>
 
       {/* Grafikler */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Gelir/Gider Trend Grafiği */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-            <BarChart3 size={20} className="text-blue-500" />
-            Günlük Gelir/Gider Trendi
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={dailyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip formatter={(value: number) => formatCurrency(value)} />
-              <Legend />
-              <Line type="monotone" dataKey="income" name="Gelir" stroke="#22c55e" strokeWidth={2} />
-              <Line type="monotone" dataKey="expense" name="Gider" stroke="#ef4444" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+      {visibleWidgets.includes('charts') && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Gelir/Gider Trend Grafiği */}
+            <div className="bg-white rounded-xl p-6 border border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                <BarChart3 size={20} className="text-blue-500" />
+                Günlük Gelir/Gider Trendi
+              </h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={dailyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Legend />
+                  <Line type="monotone" dataKey="income" name="Gelir" stroke="#22c55e" strokeWidth={2} />
+                  <Line type="monotone" dataKey="expense" name="Gider" stroke="#ef4444" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
 
-        {/* Gelir/Gider Pasta Grafiği */}
-        <div className="bg-white rounded-xl p-6 border border-slate-200">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-            <PieChartIcon size={20} className="text-purple-500" />
-            Gelir/Gider Dağılımı
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={[
-                  { name: 'Gelir', value: stats.totalIncome },
-                  { name: 'Gider', value: stats.totalExpense },
-                ]}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} %${(percent * 100).toFixed(0)}`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                <Cell fill="#22c55e" />
-                <Cell fill="#ef4444" />
-              </Pie>
-              <Tooltip formatter={(value: number) => formatCurrency(value)} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+            {/* Gelir/Gider Pasta Grafiği */}
+            <div className="bg-white rounded-xl p-6 border border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                <PieChartIcon size={20} className="text-purple-500" />
+                Gelir/Gider Dağılımı
+              </h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Gelir', value: stats.totalIncome },
+                      { name: 'Gider', value: stats.totalExpense },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} %${(percent * 100).toFixed(0)}`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    <Cell fill="#22c55e" />
+                    <Cell fill="#ef4444" />
+                  </Pie>
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
-      {/* Karşılaştırma Grafiği */}
-      <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
-        <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-          <BarChart3 size={20} className="text-green-500" />
-          Gelir/Gider Karşılaştırması
-        </h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={dailyData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip formatter={(value: number) => formatCurrency(value)} />
-            <Legend />
-            <Bar dataKey="income" name="Gelir" fill="#22c55e" />
-            <Bar dataKey="expense" name="Gider" fill="#ef4444" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+          {/* Karşılaştırma Grafiği */}
+          <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <BarChart3 size={20} className="text-green-500" />
+              Gelir/Gider Karşılaştırması
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={dailyData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                <Legend />
+                <Bar dataKey="income" name="Gelir" fill="#22c55e" />
+                <Bar dataKey="expense" name="Gider" fill="#ef4444" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
 
       {/* Nakit Akış Projeksiyonu */}
-      {dailyData.length > 0 && (
+      {visibleWidgets.includes('projection') && dailyData.length > 0 && (
         <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
           <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
             <TrendingUp size={20} className="text-purple-500" />
@@ -516,11 +576,12 @@ export default function Dashboard() {
       )}
 
       {/* Hatırlatmalar */}
-      <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
-        <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-          <AlertTriangle size={20} className="text-orange-500" />
-          Hatırlatmalar
-        </h3>
+      {visibleWidgets.includes('reminders') && (
+        <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+            <AlertTriangle size={20} className="text-orange-500" />
+            Hatırlatmalar
+          </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Vadesi Geçen Çekler */}
           <div className="bg-red-50 rounded-lg p-4 border border-red-200">
@@ -566,7 +627,8 @@ export default function Dashboard() {
             <p className="text-sm text-green-600">• {stats.collectedChecks} adet çek tahsil edildi ({formatCurrency(stats.collectedChecksAmount)})</p>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Filtre Detayı */}
       {activeFilter && (
