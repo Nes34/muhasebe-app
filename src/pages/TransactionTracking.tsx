@@ -118,7 +118,13 @@ export default function TransactionTracking() {
   };
 
   const getTypeLabel = (type: string) => {
-    return typeLabels[type] || transactionTypes.find(t => t.value === type)?.name || type;
+    // Önce statik label'lardan kontrol et
+    if (typeLabels[type]) return typeLabels[type];
+    // Sonra veritabanından gelen türlerden kontrol et
+    const dbType = transactionTypes.find(t => t.value === type);
+    if (dbType) return dbType.name;
+    // Hiçbiri yoksa type'ı olduğu gibi göster
+    return type;
   };
 
   const getTypeColor = (type: string) => {
