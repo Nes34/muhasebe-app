@@ -63,25 +63,44 @@ export function FirmProvider({ children }: { children: ReactNode }) {
     const { data } = await query;
     if (data) {
       setProjects(data);
-      // Seçili proje bu firmada yoksa sıfırla
-      if (selectedProject && !data.some(p => p.id === selectedProject.id)) {
+      
+      // LocalStorage'dan son seçili projeyi al
+      const savedProjectId = localStorage.getItem('selectedProjectId');
+      if (savedProjectId) {
+        const savedProject = data.find(p => p.id === savedProjectId);
+        if (savedProject) {
+          setSelectedProject(savedProject);
+        } else if (selectedProject && !data.some(p => p.id === selectedProject.id)) {
+          // Seçili proje bu firmada yoksa sıfırla
+          setSelectedProject(null);
+          localStorage.removeItem('selectedProjectId');
+        }
+      } else if (selectedProject && !data.some(p => p.id === selectedProject.id)) {
         setSelectedProject(null);
+        localStorage.removeItem('selectedProjectId');
       }
     }
   };
 
   const handleSetSelectedFirm = (firm: Firm | null) => {
     setSelectedFirm(firm);
-    setSelectedProject(null); // Firma değişince projeyi sıfırla
+    // Firma değişince projeyi sıfırlama - sadece yeni firmada yoksa sıfırla
     if (firm) {
       localStorage.setItem('selectedFirmId', firm.id);
     } else {
       localStorage.removeItem('selectedFirmId');
+      setSelectedProject(null);
+      localStorage.removeItem('selectedProjectId');
     }
   };
 
   const handleSetSelectedProject = (project: Project | null) => {
     setSelectedProject(project);
+    if (project) {
+      localStorage.setItem('selectedProjectId', project.id);
+    } else {
+      localStorage.removeItem('selectedProjectId');
+    }
   };
 
   return (
