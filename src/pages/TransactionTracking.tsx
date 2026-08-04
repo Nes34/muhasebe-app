@@ -12,6 +12,9 @@ import ResizableTh from '../components/tables/ResizableTh';
 export default function TransactionTracking() {
   const { selectedFirm } = useFirm();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [cashTransactions, setCashTransactions] = useState<any[]>([]);
+  const [bankTransactions, setBankTransactions] = useState<any[]>([]);
+  const [checks, setChecks] = useState<any[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
   const [firms, setFirms] = useState<Firm[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -47,47 +50,140 @@ export default function TransactionTracking() {
     let projectsQuery = supabase.from('projects').select('*');
     if (selectedFirm) projectsQuery = projectsQuery.eq('firm_id', selectedFirm.id);
 
-    const [transactionsRes, typesRes, firmsRes, projectsRes] = await Promise.all([
+    let cashQuery = supabase.from('cash_transactions').select('*, cash_register:cash_registers(name), cari:cariler(name), project:projects(name)').order('created_at', { ascending: false });
+    let bankQuery = supabase.from('bank_transactions').select('*, bank_account:bank_accounts(bank_name), cari:cariler(name), project:projects(name)').order('created_at', { ascending: false });
+    let checkQuery = supabase.from('checks').select('*, firm:firms(name), project:projects(name)').order('created_at', { ascending: false });
+
+    if (selectedFirm) {
+      cashQuery = cashQuery.eq('firm_id', selectedFirm.id);
+      bankQuery = bankQuery.eq('firm_id', selectedFirm.id);
+      checkQuery = checkQuery.eq('firm_id', selectedFirm.id);
+    }
+
+    const [transactionsRes, typesRes, firmsRes, projectsRes, cashRes, bankRes, checkRes] = await Promise.all([
       txQuery,
       supabase.from('transaction_types').select('*').eq('is_active', true),
       supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both'),
       projectsQuery,
+      cashQuery,
+      bankQuery,
+      checkQuery,
     ]);
 
     if (transactionsRes.data) setTransactions(transactionsRes.data);
     if (typesRes.data) setTransactionTypes(typesRes.data);
     if (firmsRes.data) setFirms(firmsRes.data);
     if (projectsRes.data) setProjects(projectsRes.data);
+    if (cashRes.data) setCashTransactions(cashRes.data);
+    if (bankRes.data) setBankTransactions(bankRes.data);
+    if (checkRes.data) setChecks(checkRes.data);
     setLoading(false);
   };
 
+  const typeLabels: Record<string, string> = {
+    income: 'Gelir',
+    expense: 'Gider',
+    invoice: 'Fatura',
+    sale_invoice: 'Satış Faturası',
+    purchase_invoice: 'Alış Faturası',
+    delivery_note: 'İrsaliye',
+    sale_delivery_note: 'Satış İrsaliyesi',
+    purchase_delivery_note: 'Alış İrsaliyesi',
+    cash: 'Nakit',
+    cash_in: 'Kasa Giriş',
+    cash_out: 'Kasa Çıkış',
+    bank: 'Banka',
+    bank_in: 'Banka Giriş',
+    bank_out: 'Banka Çıkış',
+    check: 'Çek',
+    check_received: 'Alınan Çek',
+    check_given: 'Verilen Çek',
+  };
+
+  const typeColors: Record<string, string> = {
+    income: 'bg-green-100 text-green-700 border-green-200',
+    expense: 'bg-red-100 text-red-700 border-red-200',
+    invoice: 'bg-blue-100 text-blue-700 border-blue-200',
+    sale_invoice: 'bg-teal-100 text-teal-700 border-teal-200',
+    purchase_invoice: 'bg-orange-100 text-orange-700 border-orange-200',
+    delivery_note: 'bg-purple-100 text-purple-700 border-purple-200',
+    sale_delivery_note: 'bg-violet-100 text-violet-700 border-violet-200',
+    purchase_delivery_note: 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
+    cash_in: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    cash_out: 'bg-amber-100 text-amber-700 border-amber-200',
+    bank_in: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+    bank_out: 'bg-blue-100 text-blue-700 border-blue-200',
+    check_received: 'bg-pink-100 text-pink-700 border-pink-200',
+    check_given: 'bg-rose-100 text-rose-700 border-rose-200',
+  };
+
   const getTypeLabel = (type: string) => {
-    const found = transactionTypes.find(t => t.value === type);
-    return found?.name || type;
+    return typeLabels[type] || transactionTypes.find(t => t.value === type)?.name || type;
   };
 
   const getTypeColor = (type: string) => {
-    const colors: Record<string, string> = {
-      income: 'bg-green-100 text-green-700 border-green-200',
-      expense: 'bg-red-100 text-red-700 border-red-200',
-      invoice: 'bg-blue-100 text-blue-700 border-blue-200',
-      delivery_note: 'bg-purple-100 text-purple-700 border-purple-200',
-      purchase_invoice: 'bg-orange-100 text-orange-700 border-orange-200',
-      sale_invoice: 'bg-teal-100 text-teal-700 border-teal-200',
-      cash: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-      bank: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-      check: 'bg-pink-100 text-pink-700 border-pink-200',
-    };
-    return colors[type] || 'bg-slate-100 text-slate-700 border-slate-200';
+    return typeColors[type] || 'bg-slate-100 text-slate-700 border-slate-200';
   };
 
+  // Tüm işlemleri birleştir (transactions + nakit + banka + çek)
+  const allItems = [
+    ...transactions.map(t => ({
+      id: t.id,
+      type: t.transaction_type,
+      date: t.transaction_date,
+      firm: t.firm?.name || '-',
+      project: t.project?.name || '-',
+      description: t.description || '-',
+      amount: t.amount,
+      invoice_number: t.invoice_number || '',
+      created_at: t.created_at,
+      _raw: t,
+    })),
+    ...cashTransactions.map(t => ({
+      id: t.id,
+      type: t.transaction_type === 'in' ? 'cash_in' : 'cash_out',
+      date: t.created_at?.split('T')[0] || '',
+      firm: '-',
+      project: t.project?.name || '-',
+      description: `Kasa - ${t.cari?.name || t.cash_register?.name || '-'}`,
+      amount: t.amount,
+      invoice_number: '',
+      created_at: t.created_at,
+      _raw: t,
+    })),
+    ...bankTransactions.map(t => ({
+      id: t.id,
+      type: t.transaction_type === 'in' ? 'bank_in' : 'bank_out',
+      date: t.created_at?.split('T')[0] || '',
+      firm: '-',
+      project: t.project?.name || '-',
+      description: `Banka - ${t.cari?.name || t.bank_account?.bank_name || '-'}`,
+      amount: t.amount,
+      invoice_number: '',
+      created_at: t.created_at,
+      _raw: t,
+    })),
+    ...checks.map(t => ({
+      id: t.id,
+      type: t.check_type === 'received' ? 'check_received' : 'check_given',
+      date: t.issue_date || t.created_at?.split('T')[0] || '',
+      firm: t.firm?.name || '-',
+      project: t.project?.name || '-',
+      description: `Çek No: ${t.check_number || '-'} (${t.status === 'pending' ? 'Bekleyen' : t.status === 'collected' ? 'Tahsil' : t.status === 'paid' ? 'Ödenen' : t.status})`,
+      amount: t.amount,
+      invoice_number: '',
+      created_at: t.created_at,
+      _raw: t,
+    })),
+  ].sort((a, b) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime());
+
   // Her tür için işlemleri grupla
-  const groupedTransactions = transactions.reduce((acc, t) => {
-    const type = t.transaction_type;
+  const groupedTransactions = allItems.reduce((acc, item) => {
+    const type = item.type;
     if (!acc[type]) acc[type] = [];
-    acc[type].push(t);
+    acc[type].push(item);
     return acc;
-  }, {} as Record<string, Transaction[]>);
+  }, {} as Record<string, typeof allItems>);
 
   // Filtrelenmiş işlemler
   const filteredGrouped = Object.entries(groupedTransactions).reduce((acc, [type, items]) => {
@@ -95,13 +191,13 @@ export default function TransactionTracking() {
     
     const filtered = items.filter(t =>
       t.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.firm?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.firm?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
     if (filtered.length > 0) acc[type] = filtered;
     return acc;
-  }, {} as Record<string, Transaction[]>);
+  }, {} as Record<string, typeof allItems>);
 
   const toggleType = (type: string) => {
     setExpandedTypes(prev =>
@@ -191,7 +287,7 @@ export default function TransactionTracking() {
           İşlem Takibi
         </h1>
         <div className="flex gap-2">
-          <button onClick={() => exportTransactionsToExcel(Object.values(filteredGrouped).flat())} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"><Download size={16} /> Excel</button>
+          <button onClick={() => exportTransactionsToExcel(transactions)} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"><Download size={16} /> Excel</button>
           <button onClick={expandAll} className="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
             Tümünü Aç
           </button>
@@ -296,19 +392,19 @@ export default function TransactionTracking() {
                     <tbody>
                       {items.map(t => (
                         <tr key={t.id} className="border-t border-slate-100 hover:bg-slate-50">
-                          <td className="py-3 px-4">{formatDateTR(t.transaction_date)}</td>
-                          <td className="py-3 px-4">{t.firm?.name || '-'}</td>
-                          <td className="py-3 px-4">{t.project?.name || '-'}</td>
+                          <td className="py-3 px-4">{formatDateTR(t.date)}</td>
+                          <td className="py-3 px-4">{t.firm || '-'}</td>
+                          <td className="py-3 px-4">{t.project || '-'}</td>
                           <td className="py-3 px-4 text-slate-600 max-w-[200px] truncate">{t.description || '-'}</td>
                           <td className="py-3 px-4 text-right font-medium">{formatCurrency(t.amount)}</td>
                           <td className="py-3 px-4 text-center">
                             <div className="flex items-center justify-center gap-1">
-                              {(t.transaction_type === 'invoice' || t.transaction_type === 'delivery_note') && (
-                                <button onClick={() => generateInvoicePDF(t)} className="p-1 text-green-600 hover:bg-green-50 rounded" title="PDF İndir">
+                              {(t.type === 'invoice' || t.type === 'delivery_note' || t.type === 'sale_invoice' || t.type === 'purchase_invoice' || t.type === 'sale_delivery_note' || t.type === 'purchase_delivery_note') && (
+                                <button onClick={() => generateInvoicePDF(t._raw)} className="p-1 text-green-600 hover:bg-green-50 rounded" title="PDF İndir">
                                   <FileText size={14} />
                                 </button>
                               )}
-                              <button onClick={() => handleEdit(t)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Düzenle">
+                              <button onClick={() => handleEdit(t._raw)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Düzenle">
                                 <Edit2 size={14} />
                               </button>
                               <button onClick={() => handleDelete(t.id)} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Sil">
