@@ -26,6 +26,7 @@ import UserManagement from './pages/UserManagement';
 import OrderEntry from './pages/OrderEntry';
 import OrderTracking from './pages/OrderTracking';
 import PersonnelManagement from './pages/PersonnelManagement';
+import AttendancePage from './pages/Attendance';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -79,6 +80,7 @@ function AppLayout() {
             <Route path="/firma-birlesme" element={<FirmMerge />} />
             <Route path="/kullanici-yonetimi" element={<UserManagement />} />
             <Route path="/personel" element={<PersonnelManagement />} />
+            <Route path="/puantaj" element={<AttendancePage />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>

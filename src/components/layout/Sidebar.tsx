@@ -18,6 +18,7 @@ import {
   FolderKanban,
   ShoppingCart,
   Truck,
+  Calendar,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -78,6 +79,7 @@ const menuGroups: MenuGroup[] = [
     icon: Users,
     items: [
       { to: '/personel', icon: Users, label: 'Personel Yönetimi' },
+      { to: '/puantaj', icon: Calendar, label: 'Puantaj' },
     ],
   },
   {
