@@ -21,6 +21,7 @@ import {
   Calendar,
   FileText,
   Clock,
+  TrendingUp,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -84,6 +85,7 @@ const menuGroups: MenuGroup[] = [
       { to: '/puantaj', icon: Calendar, label: 'Puantaj' },
       { to: '/bordro', icon: FileText, label: 'Bordro Hazırlama' },
       { to: '/izin', icon: Clock, label: 'İzin Yönetimi' },
+      { to: '/kidem-ihbar', icon: TrendingUp, label: 'Kıdem/İhbar' },
     ],
   },
   {
