@@ -1,8 +1,9 @@
-import { Bell, Search, User, LogOut, Menu, Settings, Lock, X, CheckCircle, AlertTriangle, Building2, ChevronDown, Plus, FolderKanban, Sun, Moon } from 'lucide-react';
+import { Bell, Search, User, LogOut, Menu, Settings, Lock, X, CheckCircle, AlertTriangle, Building2, ChevronDown, Plus, FolderKanban, Sun, Moon, Bot } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useFirm } from '../../hooks/useFirm';
 import { useDarkMode } from '../../hooks/useDarkMode';
+import { ChatPanel } from '../ai/ChatPanel';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency, formatDateTR } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -21,6 +22,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showFirmSelect, setShowFirmSelect] = useState(false);
   const [showProjectSelect, setShowProjectSelect] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -262,6 +264,15 @@ export function Header({ onMenuClick }: HeaderProps) {
           {isDark ? <Sun size={20} className="text-yellow-500" /> : <Moon size={20} className="text-slate-600" />}
         </button>
 
+        {/* AI Asistan Butonu */}
+        <button
+          onClick={() => setIsChatOpen(!isChatOpen)}
+          className={`p-2 rounded-lg transition-colors ${isChatOpen ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'}`}
+          title="Yapay Zeka Asistanı"
+        >
+          <Bot size={20} />
+        </button>
+
         {/* Bildirimler */}
         <div className="relative" ref={notifRef}>
           <button 
@@ -418,6 +429,9 @@ export function Header({ onMenuClick }: HeaderProps) {
           )}
         </div>
       </div>
+      
+      {/* AI Asistan Paneli */}
+      <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </header>
   );
 }
