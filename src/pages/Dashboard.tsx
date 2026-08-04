@@ -149,7 +149,7 @@ export default function Dashboard() {
       (allTx || []).forEach((t: any) => {
         if (transferTypes.includes(t.transaction_type)) {
           // Transferler gelir/gider olarak sayılmaz
-        } else if (['income', 'invoice'].includes(t.transaction_type)) {
+        } else if (['income', 'invoice', 'sale_invoice'].includes(t.transaction_type)) {
           totalIncome += t.amount;
           incomeList.push({ ...t, _type: 'income' });
         } else {

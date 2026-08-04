@@ -147,8 +147,8 @@ export default function Firms() {
       const firmBankTxs = (bankTxRes.data || []).filter((t: any) => firmBankIds.includes(t.bank_account_id));
 
       // Transactions: transfer hariç gelir/gider
-      let income = txs.filter(t => !transferTypes.includes(t.transaction_type) && (t.transaction_type === 'income' || t.transaction_type === 'invoice')).reduce((s, t) => s + t.amount, 0);
-      let expense = txs.filter(t => !transferTypes.includes(t.transaction_type) && t.transaction_type !== 'income' && t.transaction_type !== 'invoice').reduce((s, t) => s + t.amount, 0);
+      let income = txs.filter(t => !transferTypes.includes(t.transaction_type) && (t.transaction_type === 'income' || t.transaction_type === 'invoice' || t.transaction_type === 'sale_invoice')).reduce((s, t) => s + t.amount, 0);
+      let expense = txs.filter(t => !transferTypes.includes(t.transaction_type) && t.transaction_type !== 'income' && t.transaction_type !== 'invoice' && t.transaction_type !== 'sale_invoice').reduce((s, t) => s + t.amount, 0);
 
       // Bağımsız kasa/banka işlemleri
       firmCashTxs.forEach((t: any) => {
