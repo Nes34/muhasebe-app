@@ -56,7 +56,7 @@ export const generateAIResponse = async (
         ? 'https://api.openai.com/v1/chat/completions'
         : 'https://api.groq.com/openai/v1/chat/completions';
       
-      const model = provider === 'openai' ? 'gpt-4o-mini' : 'llama3-8b-8192';
+      const model = provider === 'openai' ? 'gpt-4o-mini' : 'llama-3.1-8b-instant';
 
       const res = await fetch(endpoint, {
         method: 'POST',
