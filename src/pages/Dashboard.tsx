@@ -521,10 +521,12 @@ export default function Dashboard() {
               {[...incomeData, ...expenseData]
                 .sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())
                 .slice(0, 5)
-                .map((transaction: any, i: number) => (
+                .map((transaction: any, i: number) => {
+                const isIncome = transaction._type === 'income';
+                return (
                 <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                   <div className="flex items-center gap-3">
-                    {['income', 'invoice', 'sale_invoice'].includes(transaction.transaction_type) ? (
+                    {isIncome ? (
                       <ArrowUpCircle size={20} className="text-green-500" />
                     ) : (
                       <ArrowDownCircle size={20} className="text-red-500" />
@@ -535,13 +537,14 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`font-semibold ${getTypeColor(transaction.transaction_type)}`}>
-                      {['income', 'invoice', 'sale_invoice'].includes(transaction.transaction_type) ? '+' : '-'}{formatCurrency(transaction.amount)}
+                    <p className={`font-semibold ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
+                      {isIncome ? '+' : '-'}{formatCurrency(transaction.amount)}
                     </p>
                     <p className="text-xs text-slate-500">{formatDateTR(transaction.transaction_date)}</p>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-slate-500 text-center py-4">Henüz işlem yok.</p>
