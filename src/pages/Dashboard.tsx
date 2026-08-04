@@ -33,7 +33,7 @@ interface DailyData {
 }
 
 export default function Dashboard() {
-  const { selectedFirm, selectedProject, projects, setSelectedProject } = useFirm();
+  const { selectedFirm, selectedProject } = useFirm();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({ totalIncome: 0, totalExpense: 0, totalCash: 0, totalBank: 0, pendingGiven: 0, urgentGiven: 0, paidChecks: 0, paidChecksAmount: 0, pendingReceived: 0, urgentReceived: 0, collectedChecks: 0, collectedChecksAmount: 0, profitLoss: 0 });
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
@@ -276,9 +276,7 @@ export default function Dashboard() {
 
       // Proje bazlı kasa/banka toplamları
       const projCashIn = (cashTxRes.data || []).filter((t: any) => t.transaction_type === 'in').reduce((s: number, t: any) => s + t.amount, 0);
-      const projCashOut = (cashTxRes.data || []).filter((t: any) => t.transaction_type === 'out').reduce((s: number, t: any) => s + t.amount, 0);
       const projBankIn = (bankTxRes.data || []).filter((t: any) => t.transaction_type === 'in').reduce((s: number, t: any) => s + t.amount, 0);
-      const projBankOut = (bankTxRes.data || []).filter((t: any) => t.transaction_type === 'out').reduce((s: number, t: any) => s + t.amount, 0);
 
       setStats({
         totalIncome,

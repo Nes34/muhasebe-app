@@ -93,7 +93,6 @@ export default function Projects() {
       const bankOut = bankTx.filter(t => t.transaction_type === 'out').reduce((s, t) => s + t.amount, 0);
 
       // Bekleyen çekler (tahsil/ödenmemiş)
-      const pendingReceivedChecks = checks.filter(c => c.check_type === 'received' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
       const pendingGivenChecks = checks.filter(c => c.check_type === 'given' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
       const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
 

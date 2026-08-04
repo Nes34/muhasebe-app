@@ -53,8 +53,6 @@ export default function Firms() {
     const { data: firmsData } = await firmsQuery;
     if (!firmsData || firmsData.length === 0) { setFirmSummaries([]); return; }
 
-    const firmIds = firmsData.map(f => f.id);
-
     const transferTypes = ['transfer', 'stock_transfer', 'cash_transfer', 'bank_transfer'];
 
     // Dashboard ile aynı sorguları yap
@@ -175,7 +173,6 @@ export default function Firms() {
       });
 
       // Bekleyen çekler
-      const pendingReceivedChecks = checks.filter(c => c.check_type === 'received' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
       const pendingGivenChecks = checks.filter(c => c.check_type === 'given' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
       const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
 
