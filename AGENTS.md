@@ -74,6 +74,14 @@
 1. `src/pages/Reports.tsx` → Mevcut raporlara ekle
 2. `src/lib/ai.ts` → SYSTEM_PROMPT'a rapor bilgisi ekle
 
+## 🚗 Demirbaş Yönetimi Modülü
+- Sayfa: `src/pages/AssetManagement.tsx`
+- SQL: `supabase/assets.sql`
+- Tablolar: fixed_assets, vehicle_details, vehicle_km_records, vehicle_fuel_records, vehicle_assignments, vehicle_penalties, vehicle_mtv
+- Özellikler: KM takibi, yakıt takibi, ceza takibi, MTV takibi, zimmetleme, hatırlatmalar
+- Hatırlatmalar: Sigorta bitiş, muayene, 10.000 KM bakım
+- Dashboard'da da araç hatırlatmaları linki var
+
 ## 📋 AI Asistanı SYSTEM_PROMPT İçeriği
 AI asistanı aşağıdaki bilgileri bilmeli:
 - Tüm sayfa isimleri ve ne işe yaradıkları

@@ -626,6 +626,13 @@ export default function Dashboard() {
             <p className="text-sm text-green-600">• {stats.paidChecks} adet çek ödendi ({formatCurrency(stats.paidChecksAmount)})</p>
             <p className="text-sm text-green-600">• {stats.collectedChecks} adet çek tahsil edildi ({formatCurrency(stats.collectedChecksAmount)})</p>
           </div>
+
+          {/* Araç Hatırlatmaları */}
+          <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+            <h4 className="font-medium text-purple-800 mb-2">Araç Hatırlatmaları</h4>
+            <p className="text-sm text-purple-600">• Sigorta, muayene ve bakım hatırlatmaları için</p>
+            <a href="/demirbaslar" className="text-sm text-purple-600 underline mt-1 inline-block">Demirbaş Yönetimi'ne git →</a>
+          </div>
         </div>
         </div>
       )}
