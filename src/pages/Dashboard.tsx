@@ -515,6 +515,59 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Hatırlatmalar */}
+      <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+        <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <AlertTriangle size={20} className="text-orange-500" />
+          Hatırlatmalar
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Vadesi Geçen Çekler */}
+          <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+            <h4 className="font-medium text-red-800 mb-2">Vadesi Geçen Çekler</h4>
+            {stats.urgentGiven > 0 || stats.urgentReceived > 0 ? (
+              <div className="space-y-1">
+                {stats.urgentGiven > 0 && (
+                  <p className="text-sm text-red-600">• {stats.urgentGiven} adet verilen çek vadesi geçmiş</p>
+                )}
+                {stats.urgentReceived > 0 && (
+                  <p className="text-sm text-red-600">• {stats.urgentReceived} adet alınan çek vadesi geçmiş</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-green-600">Vadesi geçmiş çek yok</p>
+            )}
+          </div>
+
+          {/* Yaklaşan Vadeler */}
+          <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+            <h4 className="font-medium text-orange-800 mb-2">Yaklaşan Vadeler (7 gün)</h4>
+            {stats.urgentGiven > 0 || stats.urgentReceived > 0 ? (
+              <div className="space-y-1">
+                <p className="text-sm text-orange-600">• {stats.pendingGiven} adet verilen çek bekliyor</p>
+                <p className="text-sm text-orange-600">• {stats.pendingReceived} adet alınan çek bekliyor</p>
+              </div>
+            ) : (
+              <p className="text-sm text-green-600">Yaklaşan vade yok</p>
+            )}
+          </div>
+
+          {/* Kasa/Banka Durumu */}
+          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <h4 className="font-medium text-blue-800 mb-2">Kasa/Banka Durumu</h4>
+            <p className="text-sm text-blue-600">• Kasa: {formatCurrency(stats.totalCash)}</p>
+            <p className="text-sm text-blue-600">• Banka: {formatCurrency(stats.totalBank)}</p>
+          </div>
+
+          {/* Ödenen/Tahsil Edilen Çekler */}
+          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+            <h4 className="font-medium text-green-800 mb-2">Çek Hareketleri</h4>
+            <p className="text-sm text-green-600">• {stats.paidChecks} adet çek ödendi ({formatCurrency(stats.paidChecksAmount)})</p>
+            <p className="text-sm text-green-600">• {stats.collectedChecks} adet çek tahsil edildi ({formatCurrency(stats.collectedChecksAmount)})</p>
+          </div>
+        </div>
+      </div>
+
       {/* Filtre Detayı */}
       {activeFilter && (
         <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
