@@ -267,10 +267,15 @@ export function Header({ onMenuClick }: HeaderProps) {
         {/* AI Asistan Butonu */}
         <button
           onClick={() => setIsChatOpen(!isChatOpen)}
-          className={`p-2 rounded-lg transition-colors ${isChatOpen ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${
+            isChatOpen 
+              ? 'bg-blue-600 text-white shadow-md' 
+              : 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800'
+          }`}
           title="Yapay Zeka Asistanı"
         >
-          <Bot size={20} />
+          <Bot size={18} />
+          <span className="text-sm font-medium hidden sm:inline">Asistan</span>
         </button>
 
         {/* Bildirimler */}
