@@ -19,6 +19,7 @@ import {
   ShoppingCart,
   Truck,
   Calendar,
+  FileText,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -80,6 +81,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { to: '/personel', icon: Users, label: 'Personel Yönetimi' },
       { to: '/puantaj', icon: Calendar, label: 'Puantaj' },
+      { to: '/bordro', icon: FileText, label: 'Bordro Hazırlama' },
     ],
   },
   {
