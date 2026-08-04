@@ -5,6 +5,7 @@ import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import type { Cari, OrderDelivery, OrderInvoice } from '../types';
 import { Search, AlertTriangle, CheckCircle, Package, Truck, FileText, X, Save, ChevronDown, ChevronRight, CheckSquare, Square, Keyboard } from 'lucide-react';
+import ResizableTh from '../components/tables/ResizableTh';
 
 interface OrderWithDetails {
   id: string;
@@ -631,10 +632,10 @@ export default function OrderTracking() {
                         <table className="w-full text-xs">
                           <thead className="bg-slate-50">
                             <tr>
-                              <th className="text-left py-2 px-2">Ürün</th>
-                              <th className="text-right py-2 px-2">Sipariş</th>
-                              <th className="text-right py-2 px-2">İrsaliye</th>
-                              <th className="text-right py-2 px-2">Fatura</th>
+                              <ResizableTh columnId="siparis-takip-urun" className="text-left py-2 px-2">Ürün</ResizableTh>
+                              <ResizableTh columnId="siparis-takip-siparis" className="text-right py-2 px-2">Sipariş</ResizableTh>
+                              <ResizableTh columnId="siparis-takip-irsaliye" className="text-right py-2 px-2">İrsaliye</ResizableTh>
+                              <ResizableTh columnId="siparis-takip-fatura" className="text-right py-2 px-2">Fatura</ResizableTh>
                             </tr>
                           </thead>
                           <tbody>
@@ -800,12 +801,12 @@ export default function OrderTracking() {
                               className="rounded"
                             />
                           </th>
-                          <th className="text-left py-2 px-2">Sipariş</th>
-                          <th className="text-left py-2 px-2">Ürün</th>
-                          <th className="text-right py-2 px-2">Sipariş</th>
-                          <th className="text-right py-2 px-2">Gönderilen</th>
-                          <th className="text-right py-2 px-2 font-bold text-blue-700">Kalan</th>
-                          <th className="text-right py-2 px-2 w-28">Girilecek</th>
+                          <ResizableTh columnId="irsaliye-siparis" className="text-left py-2 px-2">Sipariş</ResizableTh>
+                          <ResizableTh columnId="irsaliye-urun" className="text-left py-2 px-2">Ürün</ResizableTh>
+                          <ResizableTh columnId="irsaliye-siparis-miktar" className="text-right py-2 px-2">Sipariş</ResizableTh>
+                          <ResizableTh columnId="irsaliye-gonderilen" className="text-right py-2 px-2">Gönderilen</ResizableTh>
+                          <ResizableTh columnId="irsaliye-kalan" className="text-right py-2 px-2 font-bold text-blue-700">Kalan</ResizableTh>
+                          <ResizableTh columnId="irsaliye-girilecek" className="text-right py-2 px-2">Girilecek</ResizableTh>
                         </tr>
                       </thead>
                       <tbody>
@@ -951,14 +952,14 @@ export default function OrderTracking() {
                               className="rounded"
                             />
                           </th>
-                          <th className="text-left py-2 px-2">Sipariş</th>
-                          <th className="text-left py-2 px-2">Ürün</th>
-                          <th className="text-right py-2 px-2">Sipariş</th>
-                          <th className="text-right py-2 px-2">Faturalanan</th>
-                          <th className="text-right py-2 px-2 font-bold text-purple-700">Kalan</th>
-                          <th className="text-right py-2 px-2 w-24">Birim Fiyat</th>
-                          <th className="text-right py-2 px-2 w-28">Girilecek</th>
-                          <th className="text-right py-2 px-2 w-28">Tutar</th>
+                          <ResizableTh columnId="fatura-siparis" className="text-left py-2 px-2">Sipariş</ResizableTh>
+                          <ResizableTh columnId="fatura-urun" className="text-left py-2 px-2">Ürün</ResizableTh>
+                          <ResizableTh columnId="fatura-siparis-miktar" className="text-right py-2 px-2">Sipariş</ResizableTh>
+                          <ResizableTh columnId="fatura-faturalanan" className="text-right py-2 px-2">Faturalanan</ResizableTh>
+                          <ResizableTh columnId="fatura-kalan" className="text-right py-2 px-2 font-bold text-purple-700">Kalan</ResizableTh>
+                          <ResizableTh columnId="fatura-birim-fiyat" className="text-right py-2 px-2">Birim Fiyat</ResizableTh>
+                          <ResizableTh columnId="fatura-girilecek" className="text-right py-2 px-2">Girilecek</ResizableTh>
+                          <ResizableTh columnId="fatura-tutar" className="text-right py-2 px-2">Tutar</ResizableTh>
                         </tr>
                       </thead>
                       <tbody>

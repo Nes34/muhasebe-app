@@ -8,7 +8,9 @@ import { useAuth } from '../hooks/useAuth';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import DescriptionAutocomplete from '../components/DescriptionAutocomplete';
-import { Plus, Trash2, Save, AlertCircle, CheckCircle, X, Upload, FileSpreadsheet, Search, Package, Download, TrendingUp, TrendingDown, FileText, Truck, Receipt, Building2 } from 'lucide-react';
+import { Plus, Trash2, Save, AlertCircle, CheckCircle, X, Upload, FileSpreadsheet, Search, Package, Download, TrendingUp, TrendingDown, FileText, Truck, Receipt } from 'lucide-react';
+import ResizableTh from '../components/tables/ResizableTh';
+import ResizableCell from '../components/tables/ResizableCell';
 import type { Firm, Cari, Project, ExpenseCategory, TransactionItemInput, TransactionType, CashRegister, BankAccount, Product, StockUnit } from '../types';
 
 // İşlem tipine göre renk eşleme
@@ -555,6 +557,9 @@ export default function TransactionEntry() {
               cash_register_id: cashRegisterId,
               transaction_id: transaction.id,
               transaction_type: isIncome ? 'in' : 'out',
+              firm_id: firmId || null,
+              cari_id: cariId || null,
+              project_id: projectId || null,
               amount: totals.grandTotal,
               description: description || `${isIncome ? 'Gelir' : 'Gider'} kaydı`,
             });
@@ -579,6 +584,9 @@ export default function TransactionEntry() {
               bank_account_id: bankAccountId,
               transaction_id: transaction.id,
               transaction_type: isIncome ? 'in' : 'out',
+              firm_id: firmId || null,
+              cari_id: cariId || null,
+              project_id: projectId || null,
               amount: totals.grandTotal,
               description: description || `${isIncome ? 'Gelir' : 'Gider'} kaydı`,
             });
@@ -708,8 +716,6 @@ export default function TransactionEntry() {
   const showInvoiceNumber = isAnyInvoice || isIncomeType || isExpenseType;
   const showDeliveryNoteNumber = isDeliveryNoteType;
   const showItems = isAnyInvoice || isDeliveryNoteType;
-  const isCheckType = transactionType === 'check';
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -810,29 +816,8 @@ export default function TransactionEntry() {
 
         <div className="bg-white rounded-xl border border-slate-300 overflow-hidden">
           <div className="flex flex-nowrap gap-0 border-t border-slate-300 overflow-x-auto bg-slate-100">
-            <div className="border-r border-b border-slate-300 p-2 min-w-[150px] shrink-0 bg-slate-100">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Tarih</label>
-              <input
-                type="text"
-                value={transactionDate}
-                onChange={(e) => setTransactionDate(e.target.value)}
-                placeholder="gg.aa.yyyy"
-                className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
-            </div>
-
-            <div className="border-r border-b border-slate-300 p-2 min-w-[180px] shrink-0">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Cari</label>
-              <SearchableSelect
-                options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
-                value={cariId}
-                onChange={(id) => setCariId(id)}
-                placeholder="Cari ara..."
-              />
-            </div>
-
             {showFirm && (
-              <div className="border-r border-b border-slate-300 p-2 min-w-[180px] shrink-0">
+              <ResizableCell cellId="giris-firma" className="bg-slate-100">
                 <div className="flex items-center justify-between mb-0.5">
                   <label className="block text-sm font-medium text-slate-700">Firma</label>
                   <button
@@ -851,26 +836,10 @@ export default function TransactionEntry() {
                   placeholder="Firma ara..."
                   required
                 />
-              </div>
+              </ResizableCell>
             )}
 
-            {showExpenseCategory && (
-              <div className="border-r border-b border-slate-300 p-2 min-w-[180px] shrink-0">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Gider Türü</label>
-                <select
-                  value={expenseCategoryId}
-                  onChange={(e) => setExpenseCategoryId(e.target.value)}
-                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Seçiniz...</option>
-                  {expenseCategories.map((category) => (
-                    <option key={category.id} value={category.id}>{category.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="border-r border-b border-slate-300 p-2 min-w-[180px] shrink-0">
+            <ResizableCell cellId="giris-proje" className="bg-slate-100">
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Proje <span className="text-red-500">*</span>
               </label>
@@ -888,10 +857,21 @@ export default function TransactionEntry() {
               {firmId && projects.filter(p => p.firm_id === firmId).length === 0 && (
                 <p className="text-xs text-amber-600 mt-1">Proje bulunamadı</p>
               )}
-            </div>
+            </ResizableCell>
+
+            <ResizableCell cellId="giris-tarih">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Tarih</label>
+              <input
+                type="text"
+                value={transactionDate}
+                onChange={(e) => setTransactionDate(e.target.value)}
+                placeholder="gg.aa.yyyy"
+                className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              />
+            </ResizableCell>
 
             {showInvoiceNumber && (
-              <div className="border-r border-b border-slate-300 p-2 min-w-[180px] shrink-0">
+              <ResizableCell cellId="giris-fatura-no">
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   {isIncomeType ? 'Gelir No' : isExpenseType ? 'Gider No' : isPurchaseInvoice ? 'Alış Fatura No' : isSaleInvoice ? 'Satış Fatura No' : 'Fatura No'}
                 </label>
@@ -903,11 +883,37 @@ export default function TransactionEntry() {
                   placeholder={isIncomeType ? 'GEL2026/1' : isExpenseType ? 'GID2026/1' : 'aab2026/1'}
                   className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
-              </div>
+              </ResizableCell>
+            )}
+
+            <ResizableCell cellId="giris-cari">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Cari</label>
+              <SearchableSelect
+                options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
+                value={cariId}
+                onChange={(id) => setCariId(id)}
+                placeholder="Cari ara..."
+              />
+            </ResizableCell>
+
+            {showExpenseCategory && (
+              <ResizableCell cellId="giris-gider-turu">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Gider Türü</label>
+                <select
+                  value={expenseCategoryId}
+                  onChange={(e) => setExpenseCategoryId(e.target.value)}
+                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                >
+                  <option value="">Seçiniz...</option>
+                  {expenseCategories.map((category) => (
+                    <option key={category.id} value={category.id}>{category.name}</option>
+                  ))}
+                </select>
+              </ResizableCell>
             )}
 
             {showDeliveryNoteNumber && (
-              <div className="border-r border-b border-slate-300 p-2 min-w-[180px] shrink-0">
+              <ResizableCell cellId="giris-irsaliye-no">
                 <label className="block text-sm font-medium text-slate-700 mb-1">İrsaliye No</label>
                 <input
                   type="text"
@@ -915,11 +921,11 @@ export default function TransactionEntry() {
                   onChange={(e) => setDeliveryNoteNumber(e.target.value)}
                   className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
-              </div>
+              </ResizableCell>
             )}
 
             {(isIncomeType || isExpenseType) && (
-              <div className="border-r border-b border-slate-300 p-2 min-w-[180px] shrink-0">
+              <ResizableCell cellId="giris-odeme-yontemi">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Ödeme Yöntemi</label>
                 <select
                   value={paymentMethod}
@@ -931,11 +937,11 @@ export default function TransactionEntry() {
                   <option value="bank">Banka Havalesi</option>
                   <option value="check">Çek</option>
                 </select>
-              </div>
+              </ResizableCell>
             )}
 
             {(isIncomeType || isExpenseType) && paymentMethod === 'cash' && (
-              <div className="border-r border-b border-slate-300 p-2 min-w-[180px] shrink-0">
+              <ResizableCell cellId="giris-kasa">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Kasa</label>
                 <select
                   value={cashRegisterId}
@@ -947,11 +953,11 @@ export default function TransactionEntry() {
                     <option key={register.id} value={register.id}>{register.name}</option>
                   ))}
                 </select>
-              </div>
+              </ResizableCell>
             )}
 
             {(isIncomeType || isExpenseType) && paymentMethod === 'bank' && (
-              <div className="border-r border-b border-slate-300 p-2 min-w-[180px] shrink-0">
+              <ResizableCell cellId="giris-banka">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Banka Hesabı</label>
                 <select
                   value={bankAccountId}
@@ -963,12 +969,12 @@ export default function TransactionEntry() {
                     <option key={account.id} value={account.id}>{account.bank_name} - {account.iban || account.account_number}</option>
                   ))}
                 </select>
-              </div>
+              </ResizableCell>
             )}
 
             {(isIncomeType || isExpenseType) && paymentMethod === 'check' && (
               <>
-                <div className="border-r border-b border-slate-300 p-2 min-w-[150px] shrink-0">
+                <ResizableCell cellId="giris-cek-no" minWidth={130}>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Çek No</label>
                   <input
                     type="text"
@@ -977,8 +983,8 @@ export default function TransactionEntry() {
                     placeholder="Çek numarası"
                     className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
-                </div>
-                <div className="border-r border-b border-slate-300 p-2 min-w-[130px] shrink-0">
+                </ResizableCell>
+                <ResizableCell cellId="giris-cek-turu" minWidth={110}>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Çek Türü</label>
                   <select
                     value={checkType}
@@ -988,8 +994,8 @@ export default function TransactionEntry() {
                     <option value="received">Alınan</option>
                     <option value="given">Verilen</option>
                   </select>
-                </div>
-                <div className="border-r border-b border-slate-300 p-2 min-w-[150px] shrink-0">
+                </ResizableCell>
+                <ResizableCell cellId="giris-cek-banka">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Banka</label>
                   <input
                     type="text"
@@ -997,8 +1003,8 @@ export default function TransactionEntry() {
                     onChange={(e) => setBankName(e.target.value)}
                     className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
-                </div>
-                <div className="border-r border-b border-slate-300 p-2 min-w-[130px] shrink-0">
+                </ResizableCell>
+                <ResizableCell cellId="giris-cek-vade" minWidth={130}>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Vade</label>
                   <input
                     type="text"
@@ -1007,7 +1013,7 @@ export default function TransactionEntry() {
                     placeholder="gg.aa.yyyy"
                     className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
-                </div>
+                </ResizableCell>
               </>
             )}
           </div>
@@ -1044,17 +1050,17 @@ export default function TransactionEntry() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200">
-                      <th className="text-left py-3 px-2">#</th>
-                      <th className="text-left py-3 px-2 min-w-[250px]">Ürün / Açıklama</th>
-                      <th className="text-right py-3 px-2">Miktar</th>
-                      <th className="text-left py-3 px-2">Birim</th>
-                      <th className="text-right py-3 px-2">Birim Fiyat</th>
-                      <th className="text-right py-3 px-2">Tutar</th>
-                      <th className="text-right py-3 px-2">KDV %</th>
-                      <th className="text-right py-3 px-2">KDV</th>
-                      <th className="text-right py-3 px-2">Tevkifat %</th>
-                      <th className="text-right py-3 px-2">Stopaj %</th>
-                      <th className="text-center py-3 px-2">İşlem</th>
+                      <ResizableTh columnId="islem-kalem-sira" className="text-left py-3 px-2">#</ResizableTh>
+                      <ResizableTh columnId="islem-kalem-urun" className="text-left py-3 px-2">Ürün / Açıklama</ResizableTh>
+                      <ResizableTh columnId="islem-kalem-miktar" className="text-right py-3 px-2">Miktar</ResizableTh>
+                      <ResizableTh columnId="islem-kalem-birim" className="text-left py-3 px-2">Birim</ResizableTh>
+                      <ResizableTh columnId="islem-kalem-fiyat" className="text-right py-3 px-2">Birim Fiyat</ResizableTh>
+                      <ResizableTh columnId="islem-kalem-tutar" className="text-right py-3 px-2">Tutar</ResizableTh>
+                      <ResizableTh columnId="islem-kalem-kdv-oran" className="text-right py-3 px-2">KDV %</ResizableTh>
+                      <ResizableTh columnId="islem-kalem-kdv" className="text-right py-3 px-2">KDV</ResizableTh>
+                      <ResizableTh columnId="islem-kalem-tevkifat" className="text-right py-3 px-2">Tevkifat %</ResizableTh>
+                      <ResizableTh columnId="islem-kalem-stopaj" className="text-right py-3 px-2">Stopaj %</ResizableTh>
+                      <ResizableTh columnId="islem-kalem-islem" className="text-center py-3 px-2">İşlem</ResizableTh>
                     </tr>
                   </thead>
                   <tbody>

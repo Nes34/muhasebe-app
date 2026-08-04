@@ -4,18 +4,21 @@ import { formatDateTR, formatCurrency, toISODate, parseDateTR, todayISO } from '
 import { exportChecksToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
-import type { Check, Cari, BankAccount } from '../types';
+import type { Check, Cari, BankAccount, Firm } from '../types';
 import { Plus, Edit2, Trash2, Search, AlertTriangle, Send, Download } from 'lucide-react';
+import ResizableTh from '../components/tables/ResizableTh';
 
 export default function CheckManagement() {
   const { selectedFirm } = useFirm();
   const [checks, setChecks] = useState<Check[]>([]);
   const [cariler, setCariler] = useState<Cari[]>([]);
+  const [firms, setFirms] = useState<Firm[]>([]);
   const [firmBankAccounts, setFirmBankAccounts] = useState<BankAccount[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [_bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [_loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'received' | 'given'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'endorsed' | 'collected' | 'paid'>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingCheck, setEditingCheck] = useState<Check | null>(null);
   
@@ -32,95 +35,70 @@ export default function CheckManagement() {
     notes: '',
   });
 
-  useEffect(() => { fetchMeta().then(() => fetchChecks()); }, [selectedFirm]);
+  useEffect(() => {
+    (async () => {
+      const [carilerRes, bankRes, firmsRes] = await Promise.all([
+        supabase.from('cariler').select('*').eq('is_active', true).order('code'),
+        supabase.from('bank_accounts').select('*').eq('is_active', true).order('bank_name'),
+        supabase.from('firms').select('*').eq('is_active', true).order('name'),
+      ]);
+      const _cariler = carilerRes.data || [];
+      const _bankAccounts = bankRes.data || [];
+      if (carilerRes.data) setCariler(_cariler);
+      if (bankRes.data) setBankAccounts(_bankAccounts);
+      if (firmsRes.data) setFirms(firmsRes.data);
 
-  const fetchChecks = async () => {
-    let query = supabase.from('checks').select('*').order('due_date', { ascending: true });
-    if (selectedFirm) {
-      query = query.eq('firm_id', selectedFirm.id);
-    }
-    const { data } = await query;
-    if (!data) { setLoading(false); return; }
+      let query = supabase.from('checks').select('*').order('due_date', { ascending: true });
+      if (selectedFirm) query = query.eq('firm_id', selectedFirm.id);
+      const { data } = await query;
+      if (!data) { setLoading(false); return; }
 
-    // Vadesi dolan çekleri otomatik tahsil/öde
-    const today = todayISO();
-    const dueChecks = data.filter(c => {
-      if (c.status !== 'pending') return false;
-      // Tarih formatını normalize et ve karşılaştır
-      const dueDate = toISODate(c.due_date);
-      return dueDate && dueDate <= today;
-    });
+      // Otomatik vade ödeme
+      const today = todayISO();
+      const dueChecks = data.filter(c => {
+        if (c.status !== 'pending') return false;
+        const dueDate = toISODate(c.due_date);
+        return dueDate && dueDate <= today;
+      });
 
-    for (const check of dueChecks) {
-      // İdempotency: zaten işlendi mi kontrol et
-      const { data: freshCheck } = await supabase.from('checks').select('status').eq('id', check.id).single();
-      if (freshCheck && freshCheck.status !== 'pending') continue;
-
-      const newStatus = check.check_type === 'received' ? 'collected' : 'paid';
-      const cariName = cariler.find(c => c.id === check.cari_id)?.name || '';
-
-      // Çek durumunu güncelle
-      await supabase.from('checks').update({ status: newStatus }).eq('id', check.id);
-
-      // Çekin banka hesabını bul (bank_name ile eşleştir)
-      const acc = bankAccounts.find(a => a.bank_name === check.bank_name);
-
-      if (check.check_type === 'received') {
-        // Tahsil edilen çek → bankaya giriş
-        if (acc) {
-          // Güncel bakiyeyi oku (race condition önleme)
+      for (const check of dueChecks) {
+        const { data: freshCheck } = await supabase.from('checks').select('status').eq('id', check.id).single();
+        if (freshCheck && freshCheck.status !== 'pending') continue;
+        const newStatus = check.check_type === 'received' ? 'collected' : 'paid';
+        const cariName = _cariler.find((c: any) => c.id === check.cari_id)?.name || '';
+        await supabase.from('checks').update({ status: newStatus }).eq('id', check.id);
+        const acc = _bankAccounts.find((a: any) => a.bank_name === check.bank_name);
+        if (check.check_type === 'received' && acc) {
           const { data: freshAcc } = await supabase.from('bank_accounts').select('current_balance').eq('id', acc.id).single();
           const currentBalance = freshAcc?.current_balance ?? acc.current_balance;
-
-          await supabase.from('bank_transactions').insert({
-            bank_account_id: acc.id,
-            cari_id: check.cari_id,
-            firm_id: check.firm_id,
-            transaction_type: 'in',
-            amount: check.amount,
-            description: `Çek Tahsil (Otomatik): ${check.check_number} - ${cariName}`,
-          });
+          await supabase.from('bank_transactions').insert({ bank_account_id: acc.id, cari_id: check.cari_id, firm_id: check.firm_id, transaction_type: 'in', amount: check.amount, description: `Çek Tahsil (Otomatik): ${check.check_number} - ${cariName}` });
           await supabase.from('bank_accounts').update({ current_balance: currentBalance + check.amount }).eq('id', acc.id);
-        }
-      } else {
-        // Ödenen çek → bankadan çıkış
-        if (acc) {
-          // Güncel bakiyeyi oku (race condition önleme)
+        } else if (check.check_type === 'given' && acc) {
           const { data: freshAcc } = await supabase.from('bank_accounts').select('current_balance').eq('id', acc.id).single();
           const currentBalance = freshAcc?.current_balance ?? acc.current_balance;
-
-          await supabase.from('bank_transactions').insert({
-            bank_account_id: acc.id,
-            cari_id: check.cari_id,
-            firm_id: check.firm_id,
-            transaction_type: 'out',
-            amount: check.amount,
-            description: `Çek Ödeme (Otomatik): ${check.check_number} - ${cariName}`,
-          });
+          await supabase.from('bank_transactions').insert({ bank_account_id: acc.id, cari_id: check.cari_id, firm_id: check.firm_id, transaction_type: 'out', amount: check.amount, description: `Çek Ödeme (Otomatik): ${check.check_number} - ${cariName}` });
           await supabase.from('bank_accounts').update({ current_balance: currentBalance - check.amount }).eq('id', acc.id);
         }
       }
-    }
 
-    // Güncel çekleri tekrar çek
-    const { data: updated } = await query;
-    if (updated) setChecks(updated);
-    setLoading(false);
-  };
-
-  const fetchMeta = async () => {
-    const [carilerRes, bankRes] = await Promise.all([
-      supabase.from('cariler').select('*').eq('is_active', true).order('code'),
-      supabase.from('bank_accounts').select('*').eq('is_active', true).order('bank_name'),
-    ]);
-    if (carilerRes.data) setCariler(carilerRes.data);
-    if (bankRes.data) setBankAccounts(bankRes.data);
-  };
+      setChecks(data);
+      setLoading(false);
+    })();
+  }, [selectedFirm]);
 
   const fetchFirmBankAccounts = async (firmId: string) => {
     if (!firmId) { setFirmBankAccounts([]); return; }
     const { data } = await supabase.from('bank_accounts').select('*').eq('is_active', true).eq('firm_id', firmId).order('bank_name');
     if (data) setFirmBankAccounts(data);
+  };
+
+  const reload = async () => {
+    setLoading(true);
+    let query = supabase.from('checks').select('*').order('due_date', { ascending: true });
+    if (selectedFirm) query = query.eq('firm_id', selectedFirm.id);
+    const { data } = await query;
+    if (data) setChecks(data);
+    setLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -132,7 +110,7 @@ export default function CheckManagement() {
     }
     setShowForm(false); setEditingCheck(null);
     setFormData({ check_number: '', check_type: 'received', cari_id: '', bank_name: '', bank_branch: '', amount: 0, issue_date: formatDateTR(new Date()), due_date: '', notes: '' });
-    fetchChecks();
+    reload();
   };
 
   const handleEdit = (check: Check) => {
@@ -142,7 +120,7 @@ export default function CheckManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Bu çeki silmek istediğinizden emin misiniz?')) { await supabase.from('checks').delete().eq('id', id); fetchChecks(); }
+    if (confirm('Bu çeki silmek istediğinizden emin misiniz?')) { await supabase.from('checks').delete().eq('id', id); reload(); }
   };
 
   const handleEndorse = async (e: React.FormEvent) => {
@@ -164,7 +142,7 @@ export default function CheckManagement() {
       setShowEndorseModal(false);
       setEndorsingCheck(null);
       setEndorseData({ endorsed_to: '', endorsed_date: formatDateTR(new Date()), endorsed_by: '', notes: '' });
-      fetchChecks();
+      reload();
     }
   };
 
@@ -199,7 +177,8 @@ export default function CheckManagement() {
     const cariName = cariler.find(c => c.id === check.cari_id)?.name || '';
     const matchesSearch = check.check_number.toLowerCase().includes(searchTerm.toLowerCase()) || cariName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || check.check_type === filterType;
-    return matchesSearch && matchesType && (check.status === 'pending' || check.status === 'endorsed');
+    const matchesStatus = filterStatus === 'all' || check.status === filterStatus;
+    return matchesSearch && matchesType && matchesStatus;
   });
 
   const receivedTotal = filteredChecks.filter(c => c.check_type === 'received').reduce((sum, c) => sum + c.amount, 0);
@@ -227,9 +206,13 @@ export default function CheckManagement() {
 
       <div className="flex flex-wrap gap-4 mb-4">
         <div className="relative flex-1 md:w-96"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Çek ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" /></div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {[{ value: 'all', label: 'Tümü' }, { value: 'received', label: 'Alınan' }, { value: 'given', label: 'Verilen' }].map((option) => (
             <button key={option.value} onClick={() => setFilterType(option.value as typeof filterType)} className={`px-4 py-2 rounded-lg transition-colors ${filterType === option.value ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{option.label}</button>
+          ))}
+          <div className="w-px bg-slate-300 mx-1" />
+          {[{ value: 'all', label: 'Tüm Durum' }, { value: 'pending', label: 'Bekleyen' }, { value: 'collected', label: 'Tahsil' }, { value: 'paid', label: 'Ödenen' }, { value: 'endorsed', label: 'Ciro' }].map((option) => (
+            <button key={option.value} onClick={() => setFilterStatus(option.value as typeof filterStatus)} className={`px-3 py-2 rounded-lg text-sm transition-colors ${filterStatus === option.value ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{option.label}</button>
           ))}
           <button onClick={() => exportChecksToExcel(filteredChecks)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"><Download size={18} /> Excel</button>
         </div>
@@ -243,7 +226,18 @@ export default function CheckManagement() {
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Çek No</th><th className="text-left py-3 px-4">Tür</th><th className="text-left py-3 px-4">Cari</th><th className="text-left py-3 px-4">Banka</th><th className="text-right py-3 px-4">Tutar</th><th className="text-left py-3 px-4">Vade</th><th className="text-center py-3 px-4">Kalan</th><th className="text-center py-3 px-4">Durum</th><th className="text-center py-3 px-4">İşlem</th></tr></thead>
+            <thead className="bg-slate-50"><tr>
+              <ResizableTh columnId="cek-no" className="text-left py-3 px-4">Çek No</ResizableTh>
+              <ResizableTh columnId="cek-tur" className="text-left py-3 px-4">Tür</ResizableTh>
+              <ResizableTh columnId="cek-firma" className="text-left py-3 px-4">Firma</ResizableTh>
+              <ResizableTh columnId="cek-cari" className="text-left py-3 px-4">Cari</ResizableTh>
+              <ResizableTh columnId="cek-banka" className="text-left py-3 px-4">Banka</ResizableTh>
+              <ResizableTh columnId="cek-tutar" className="text-right py-3 px-4">Tutar</ResizableTh>
+              <ResizableTh columnId="cek-vade" className="text-left py-3 px-4">Vade</ResizableTh>
+              <ResizableTh columnId="cek-kalan" className="text-center py-3 px-4">Kalan</ResizableTh>
+              <ResizableTh columnId="cek-durum" className="text-center py-3 px-4">Durum</ResizableTh>
+              <ResizableTh columnId="cek-islem" className="text-center py-3 px-4">İşlem</ResizableTh>
+            </tr></thead>
             <tbody>
               {filteredChecks.map((check) => {
                 const dueStatus = getDueStatus(check.due_date);
@@ -252,6 +246,7 @@ export default function CheckManagement() {
                   <tr key={check.id} className="border-t border-slate-100 hover:bg-slate-50">
                     <td className="py-3 px-4 font-medium">{check.check_number}</td>
                     <td className="py-3 px-4"><span className={`px-2 py-1 rounded-full text-xs font-medium ${check.check_type === 'received' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{check.check_type === 'received' ? 'Alınan' : 'Verilen'}</span></td>
+                    <td className="py-3 px-4">{firms.find(f => f.id === check.firm_id)?.name || '-'}</td>
                     <td className="py-3 px-4">{cari?.name || '-'}</td>
                     <td className="py-3 px-4">{check.bank_name || '-'}</td>
                     <td className="py-3 px-4 text-right">{formatCurrency(check.amount)}</td>

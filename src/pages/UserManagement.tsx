@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { UserProfile, Firm } from '../types';
 import { Plus, Edit2, Trash2, Users, Shield, CheckCircle, XCircle, Lock, History } from 'lucide-react';
+import ResizableTh from '../components/tables/ResizableTh';
 
 const ROLES = [
   { value: 'admin', label: 'Yönetici', description: 'Tüm yetkilere sahip', color: 'bg-red-100 text-red-700' },
@@ -141,12 +142,12 @@ export default function UserManagement() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr>
-                <th className="text-left py-3 px-4">Kullanıcı</th>
-                <th className="text-left py-3 px-4">E-posta</th>
-                <th className="text-left py-3 px-4">Rol</th>
-                <th className="text-left py-3 px-4">Firma</th>
-                <th className="text-center py-3 px-4">Durum</th>
-                <th className="text-center py-3 px-4">İşlem</th>
+                <ResizableTh columnId="kullanici-ad" className="text-left py-3 px-4">Kullanıcı</ResizableTh>
+                <ResizableTh columnId="kullanici-email" className="text-left py-3 px-4">E-posta</ResizableTh>
+                <ResizableTh columnId="kullanici-rol" className="text-left py-3 px-4">Rol</ResizableTh>
+                <ResizableTh columnId="kullanici-firma" className="text-left py-3 px-4">Firma</ResizableTh>
+                <ResizableTh columnId="kullanici-durum" className="text-center py-3 px-4">Durum</ResizableTh>
+                <ResizableTh columnId="kullanici-islem" className="text-center py-3 px-4">İşlem</ResizableTh>
               </tr>
             </thead>
             <tbody>
@@ -220,9 +221,9 @@ export default function UserManagement() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50">
                   <tr>
-                    <th className="text-left py-3 px-4">Kullanıcı</th>
-                    <th className="text-left py-3 px-4">Değişiklik Tarihi</th>
-                    <th className="text-left py-3 px-4">Durum</th>
+                    <ResizableTh columnId="sifre-kullanici" className="text-left py-3 px-4">Kullanıcı</ResizableTh>
+                    <ResizableTh columnId="sifre-tarih" className="text-left py-3 px-4">Değişiklik Tarihi</ResizableTh>
+                    <ResizableTh columnId="sifre-durum" className="text-left py-3 px-4">Durum</ResizableTh>
                   </tr>
                 </thead>
                 <tbody>

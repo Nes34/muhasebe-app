@@ -5,6 +5,7 @@ import { generateNextCode, findSimilar, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import type { Cari, Firm, Project } from '../types';
 import { Plus, Edit2, Trash2, Search, Users, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle, Filter } from 'lucide-react';
+import ResizableTh from '../components/tables/ResizableTh';
 
 interface CariWithBalance extends Cari {
   balance?: number;
@@ -383,17 +384,17 @@ export default function Cariler() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr>
-                <th className="text-left py-3 px-2">Kod</th>
-                <th className="text-left py-3 px-2">Cari Adı</th>
-                <th className="text-left py-3 px-2">Vergi No</th>
-                <th className="text-right py-3 px-2">Borç</th>
-                <th className="text-right py-3 px-2">Alacak</th>
-                <th className="text-right py-3 px-2">Bakiye</th>
-                <th className="text-right py-3 px-2">Kestiği Fatura</th>
-                <th className="text-right py-3 px-2">Kesmesi Gereken Fatura</th>
-                <th className="text-right py-3 px-2">Alınan Çek</th>
-                <th className="text-right py-3 px-2">Verilen Çek</th>
-                <th className="text-center py-3 px-2">İşlem</th>
+                <ResizableTh columnId="cari-kod" className="text-left py-3 px-2">Kod</ResizableTh>
+                <ResizableTh columnId="cari-ad" className="text-left py-3 px-2">Cari Adı</ResizableTh>
+                <ResizableTh columnId="cari-vergi" className="text-left py-3 px-2">Vergi No</ResizableTh>
+                <ResizableTh columnId="cari-borc" className="text-right py-3 px-2">Borç</ResizableTh>
+                <ResizableTh columnId="cari-alacak" className="text-right py-3 px-2">Alacak</ResizableTh>
+                <ResizableTh columnId="cari-bakiye" className="text-right py-3 px-2">Bakiye</ResizableTh>
+                <ResizableTh columnId="cari-kestiigi-fatura" className="text-right py-3 px-2">Kestiği Fatura</ResizableTh>
+                <ResizableTh columnId="cari-kesmesi-gereken" className="text-right py-3 px-2">Kesmesi Gereken Fatura</ResizableTh>
+                <ResizableTh columnId="cari-alinan-cek" className="text-right py-3 px-2">Alınan Çek</ResizableTh>
+                <ResizableTh columnId="cari-verilen-cek" className="text-right py-3 px-2">Verilen Çek</ResizableTh>
+                <ResizableTh columnId="cari-islem" className="text-center py-3 px-2">İşlem</ResizableTh>
               </tr>
             </thead>
             <tbody>

@@ -3,13 +3,12 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { addRequest, getPendingRequests, approveRequest, rejectRequest, type ApprovalRequest } from '../lib/approvals';
 import SearchableSelect from '../components/SearchableSelect';
-import type { Firm, Cari } from '../types';
+import type { Cari } from '../types';
 import { GitMerge, AlertTriangle, CheckCircle, AlertCircle, Shield, Send, Clock, Check, X } from 'lucide-react';
 
 export default function FirmMerge() {
   const { user, userRole } = useAuth();
   const isAdmin = userRole === 'admin';
-  const [firms, setFirms] = useState<Firm[]>([]);
   const [cariler, setCariler] = useState<Cari[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -37,12 +36,8 @@ export default function FirmMerge() {
 
   const fetchFirms = async () => {
     setLoading(true);
-    const [firmsRes, carilerRes] = await Promise.all([
-      supabase.from('firms').select('*').in('type', ['customer', 'supplier']).order('code'),
-      supabase.from('cariler').select('*').eq('is_active', true).order('code'),
-    ]);
-    if (firmsRes.data) setFirms(firmsRes.data);
-    if (carilerRes.data) setCariler(carilerRes.data);
+    const { data } = await supabase.from('cariler').select('*').eq('is_active', true).order('code');
+    if (data) setCariler(data);
     setLoading(false);
   };
 
@@ -140,8 +135,6 @@ export default function FirmMerge() {
       setMerging(false);
     }
   };
-
-  const activeFirms = firms.filter(f => f.is_active);
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>;
 

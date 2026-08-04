@@ -5,6 +5,7 @@ import { importFromExcel, exportFirmsToCSV } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
 import type { Firm } from '../types';
 import { Plus, Edit2, Trash2, Search, Building2, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import ResizableTh from '../components/tables/ResizableTh';
 
 interface FirmSummary {
   firm: Firm;
@@ -250,12 +251,12 @@ export default function Firms() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="text-left py-3 px-4">Firma</th>
-                      <th className="text-right py-3 px-4">Gelir</th>
-                      <th className="text-right py-3 px-4">Gider</th>
-                      <th className="text-right py-3 px-4">Verilen Çek</th>
-                      <th className="text-right py-3 px-4">Ödenen Çek</th>
-                      <th className="text-right py-3 px-4">Kar/Zarar</th>
+                      <ResizableTh columnId="firma-firma" className="text-left py-3 px-4">Firma</ResizableTh>
+                      <ResizableTh columnId="firma-gelir" className="text-right py-3 px-4">Gelir</ResizableTh>
+                      <ResizableTh columnId="firma-gider" className="text-right py-3 px-4">Gider</ResizableTh>
+                      <ResizableTh columnId="firma-verilen-cek" className="text-right py-3 px-4">Verilen Çek</ResizableTh>
+                      <ResizableTh columnId="firma-odencek" className="text-right py-3 px-4">Ödenen Çek</ResizableTh>
+                      <ResizableTh columnId="firma-kar" className="text-right py-3 px-4">Kar/Zarar</ResizableTh>
                     </tr>
                   </thead>
                   <tbody>
@@ -289,7 +290,12 @@ export default function Firms() {
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Firma Adı</th><th className="text-left py-3 px-4">Vergi No</th><th className="text-left py-3 px-4">Telefon</th><th className="text-center py-3 px-4">İşlem</th></tr></thead>
+            <thead className="bg-slate-50"><tr>
+              <ResizableTh columnId="firma-liste-ad" className="text-left py-3 px-4">Firma Adı</ResizableTh>
+              <ResizableTh columnId="firma-liste-vergi" className="text-left py-3 px-4">Vergi No</ResizableTh>
+              <ResizableTh columnId="firma-liste-tel" className="text-left py-3 px-4">Telefon</ResizableTh>
+              <ResizableTh columnId="firma-liste-islem" className="text-center py-3 px-4">İşlem</ResizableTh>
+            </tr></thead>
             <tbody>
               {filtered.map(firm => (
                 <tr key={firm.id} className="border-t border-slate-100 hover:bg-slate-50">

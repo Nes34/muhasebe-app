@@ -5,6 +5,7 @@ import { exportBankTransactionsToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
 import type { BankAccount, BankTransaction, Firm, Cari, Project } from '../types';
 import { Plus, ArrowUpCircle, ArrowDownCircle, Building2, Download } from 'lucide-react';
+import ResizableTh from '../components/tables/ResizableTh';
 
 interface BankAccountWithFirms extends BankAccount {
   firms: Firm[];
@@ -68,7 +69,20 @@ export default function BankManagement() {
 
   const fetchTransactions = async (accountId: string) => {
     const { data } = await supabase.from('bank_transactions').select('*').eq('bank_account_id', accountId).order('created_at', { ascending: false }).limit(50);
-    if (data) setTransactions(data);
+    if (!data) { setTransactions([]); return; }
+
+    const filtered = data.filter((t: any) => !t.description?.includes('(Otomatik)'));
+
+    // Firm isimlerini manuel çek
+    const firmIds = [...new Set(filtered.map((t: any) => t.firm_id).filter(Boolean))];
+    let firmMap: Record<string, string> = {};
+    if (firmIds.length > 0) {
+      const { data: firmRows } = await supabase.from('firms').select('id, name').in('id', firmIds);
+      firmRows?.forEach((f: any) => { firmMap[f.id] = f.name; });
+    }
+
+    const enriched = filtered.map((t: any) => ({ ...t, firm_name: t.firm_id ? firmMap[t.firm_id] || '-' : '-' }));
+    setTransactions(enriched);
   };
 
   const toggleFirmId = (fid: string) => {
@@ -124,6 +138,7 @@ export default function BankManagement() {
       bank_account_id: selectedAccount,
       cari_id: transactionData.cari_id,
       project_id: transactionData.project_id,
+      firm_id: selectedFirm?.id || null,
       transaction_type: transactionData.transaction_type,
       amount: transactionData.amount,
       description: transactionData.description,
@@ -193,7 +208,15 @@ export default function BankManagement() {
             </div>
           </div>
           <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Tarih</th><th className="text-left py-3 px-4">Tür</th><th className="text-left py-3 px-4">Cari</th><th className="text-left py-3 px-4">Proje</th><th className="text-right py-3 px-4">Tutar</th><th className="text-left py-3 px-4">Açıklama</th></tr></thead>
+            <thead className="bg-slate-50"><tr>
+              <ResizableTh columnId="bank-tarih" className="text-left py-3 px-4">Tarih</ResizableTh>
+              <ResizableTh columnId="bank-tur" className="text-left py-3 px-4">Tür</ResizableTh>
+              <ResizableTh columnId="bank-firma" className="text-left py-3 px-4">Firma</ResizableTh>
+              <ResizableTh columnId="bank-cari" className="text-left py-3 px-4">Cari</ResizableTh>
+              <ResizableTh columnId="bank-proje" className="text-left py-3 px-4">Proje</ResizableTh>
+              <ResizableTh columnId="bank-tutar" className="text-right py-3 px-4">Tutar</ResizableTh>
+              <ResizableTh columnId="bank-aciklama" className="text-left py-3 px-4">Açıklama</ResizableTh>
+            </tr></thead>
             <tbody>
               {(() => {
                 const account = accounts.find(a => a.id === selectedAccount);
@@ -205,6 +228,7 @@ export default function BankManagement() {
                       <td className="py-3 px-4"><span className="text-blue-600 font-medium">Açılış</span></td>
                       <td className="py-3 px-4">-</td>
                       <td className="py-3 px-4">-</td>
+                      <td className="py-3 px-4">-</td>
                       <td className="py-3 px-4 text-right font-medium text-blue-600">{formatCurrency(openingBalance)}</td>
                       <td className="py-3 px-4 text-slate-500">Hesap açılış bakiyesi</td>
                     </tr>
@@ -212,6 +236,7 @@ export default function BankManagement() {
                       <tr key={t.id} className="border-t border-slate-100">
                         <td className="py-3 px-4">{formatDateTR(t.created_at)}</td>
                         <td className="py-3 px-4"><span className={`flex items-center gap-1 ${t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}`}>{t.transaction_type === 'in' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}{t.transaction_type === 'in' ? 'Giriş' : 'Çıkış'}</span></td>
+                        <td className="py-3 px-4 text-slate-600">{(t as any).firm_name || '-'}</td>
                         <td className="py-3 px-4 text-slate-600">{cariler.find(c => c.id === t.cari_id)?.name || '-'}</td>
                         <td className="py-3 px-4 text-slate-600">{projects.find(p => p.id === t.project_id)?.name || '-'}</td>
                         <td className="py-3 px-4 text-right font-medium"><span className={t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}>{t.transaction_type === 'in' ? '+' : '-'}{formatCurrency(t.amount)}</span></td>

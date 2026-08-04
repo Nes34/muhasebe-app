@@ -5,6 +5,7 @@ import { exportCashTransactionsToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
 import type { CashRegister, CashTransaction, Firm, Cari, Project } from '../types';
 import { Plus, ArrowUpCircle, ArrowDownCircle, Building2, Download } from 'lucide-react';
+import ResizableTh from '../components/tables/ResizableTh';
 
 interface CashRegisterWithFirms extends CashRegister {
   firms: Firm[];
@@ -25,13 +26,12 @@ export default function CashManagement() {
   const [transactionData, setTransactionData] = useState<{ transaction_type: 'in' | 'out'; amount: number; description: string; cari_id: string; project_id: string }>({ transaction_type: 'in', amount: 0, description: '', cari_id: '', project_id: '' });
   const [editModal, setEditModal] = useState<CashRegisterWithFirms | null>(null);
   const [editBalance, setEditBalance] = useState(0);
+  const [firmBalances, setFirmBalances] = useState<Record<string, number>>({});
 
   useEffect(() => { fetchData(); }, []);
 
   useEffect(() => {
     fetchRegisters();
-    setSelectedRegister('');
-    setTransactions([]);
   }, [selectedFirm]);
 
   const fetchData = async () => {
@@ -68,7 +68,18 @@ export default function CashManagement() {
 
   const fetchTransactions = async (registerId: string) => {
     const { data } = await supabase.from('cash_transactions').select('*').eq('cash_register_id', registerId).order('created_at', { ascending: false }).limit(50);
-    if (data) setTransactions(data);
+    if (!data) { setTransactions([]); return; }
+
+    // Firm isimlerini manuel çek
+    const firmIds = [...new Set(data.map((t: any) => t.firm_id).filter(Boolean))];
+    let firmMap: Record<string, string> = {};
+    if (firmIds.length > 0) {
+      const { data: firmRows } = await supabase.from('firms').select('id, name').in('id', firmIds);
+      firmRows?.forEach((f: any) => { firmMap[f.id] = f.name; });
+    }
+
+    const enriched = data.map((t: any) => ({ ...t, firm_name: t.firm_id ? firmMap[t.firm_id] || '-' : '-' }));
+    setTransactions(enriched);
   };
 
   const handleCreateRegister = async (e: React.FormEvent) => {
@@ -92,6 +103,23 @@ export default function CashManagement() {
     fetchRegisters();
   };
 
+  const fetchFirmBalances = async (registerId: string) => {
+    const { data: txs } = await supabase.from('cash_transactions').select('firm_id, amount, transaction_type').eq('cash_register_id', registerId);
+    const balances: Record<string, number> = {};
+    (txs || []).forEach((t: any) => {
+      if (!t.firm_id) return;
+      if (!balances[t.firm_id]) balances[t.firm_id] = 0;
+      balances[t.firm_id] += t.transaction_type === 'in' ? t.amount : -t.amount;
+    });
+    setFirmBalances(balances);
+  };
+
+  const updateFirmBalance = (firmId: string, value: number) => {
+    const updated = { ...firmBalances, [firmId]: value };
+    setFirmBalances(updated);
+    setEditBalance(Object.values(updated).reduce((sum, v) => sum + v, 0));
+  };
+
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!transactionData.cari_id) { alert('Cari seçimi zorunludur!'); return; }
@@ -101,6 +129,7 @@ export default function CashManagement() {
       cash_register_id: selectedRegister,
       cari_id: transactionData.cari_id,
       project_id: transactionData.project_id,
+      firm_id: selectedFirm?.id || null,
       transaction_type: transactionData.transaction_type,
       amount: transactionData.amount,
       description: transactionData.description,
@@ -126,15 +155,25 @@ export default function CashManagement() {
 
   useEffect(() => {
     const fetchTx = async () => {
+      let raw: any[] = [];
       if (selectedFirm) {
         const regIds = registers.map(r => r.id);
         if (regIds.length === 0) { setTransactions([]); return; }
         const { data } = await supabase.from('cash_transactions').select('*').in('cash_register_id', regIds).order('created_at', { ascending: false }).limit(50);
-        if (data) setTransactions(data);
+        if (data) raw = data;
       } else {
         const { data } = await supabase.from('cash_transactions').select('*').order('created_at', { ascending: false }).limit(50);
-        if (data) setTransactions(data);
+        if (data) raw = data;
       }
+
+      // Firm isimlerini ekle
+      const firmIds = [...new Set(raw.map(t => t.firm_id).filter(Boolean))];
+      let firmMap: Record<string, string> = {};
+      if (firmIds.length > 0) {
+        const { data: firmRows } = await supabase.from('firms').select('id, name').in('id', firmIds);
+        firmRows?.forEach((f: any) => { firmMap[f.id] = f.name; });
+      }
+      setTransactions(raw.map(t => ({ ...t, firm_name: t.firm_id ? firmMap[t.firm_id] || '-' : '-' })));
     };
     fetchTx();
   }, [selectedFirm, registers]);
@@ -151,7 +190,7 @@ export default function CashManagement() {
           <div key={register.id} onClick={() => { setSelectedRegister(register.id); fetchTransactions(register.id); }} className={`bg-white rounded-xl p-6 border-2 cursor-pointer transition-all ${selectedRegister === register.id ? 'border-blue-500 shadow-lg' : 'border-slate-200 hover:border-slate-300'}`}>
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-slate-800">{register.name}</h3>
-              <button onClick={(e) => { e.stopPropagation(); setEditModal(register); setEditBalance(register.opening_balance || 0); }} className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50">Düzenle</button>
+              <button onClick={(e) => { e.stopPropagation(); setEditModal(register); setEditBalance(register.opening_balance || 0); fetchFirmBalances(register.id); }} className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50">Düzenle</button>
             </div>
             <p className="text-2xl font-bold text-blue-600 mt-2">{formatCurrency(register.current_balance, register.currency)}</p>
             <p className="text-sm text-slate-500 mt-1">{register.currency}</p>
@@ -189,13 +228,23 @@ export default function CashManagement() {
           </div>
         </div>
         <table className="w-full text-sm">
-          <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">Tarih</th><th className="text-left py-3 px-4">Tür</th><th className="text-left py-3 px-4">Kasa</th><th className="text-left py-3 px-4">Cari</th><th className="text-left py-3 px-4">Proje</th><th className="text-right py-3 px-4">Tutar</th><th className="text-left py-3 px-4">Açıklama</th></tr></thead>
+        <thead className="bg-slate-50"><tr>
+          <ResizableTh columnId="kasa-tarih" className="text-left py-3 px-4">Tarih</ResizableTh>
+          <ResizableTh columnId="kasa-tur" className="text-left py-3 px-4">Tür</ResizableTh>
+          <ResizableTh columnId="kasa-kasa" className="text-left py-3 px-4">Kasa</ResizableTh>
+          <ResizableTh columnId="kasa-firma" className="text-left py-3 px-4">Firma</ResizableTh>
+          <ResizableTh columnId="kasa-cari" className="text-left py-3 px-4">Cari</ResizableTh>
+          <ResizableTh columnId="kasa-proje" className="text-left py-3 px-4">Proje</ResizableTh>
+          <ResizableTh columnId="kasa-tutar" className="text-right py-3 px-4">Tutar</ResizableTh>
+          <ResizableTh columnId="kasa-aciklama" className="text-left py-3 px-4">Açıklama</ResizableTh>
+        </tr></thead>
           <tbody>
             {transactions.map(t => (
               <tr key={t.id} className="border-t border-slate-100">
                 <td className="py-3 px-4">{formatDateTR(t.created_at)}</td>
                 <td className="py-3 px-4"><span className={`flex items-center gap-1 ${t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}`}>{t.transaction_type === 'in' ? <ArrowUpCircle size={16} /> : <ArrowDownCircle size={16} />}{t.transaction_type === 'in' ? 'Giriş' : 'Çıkış'}</span></td>
                 <td className="py-3 px-4 text-slate-600">{registers.find(r => r.id === t.cash_register_id)?.name || '-'}</td>
+                <td className="py-3 px-4 text-slate-600">{(t as any).firm_name || '-'}</td>
                 <td className="py-3 px-4 text-slate-600">{cariler.find(c => c.id === t.cari_id)?.name || '-'}</td>
                 <td className="py-3 px-4 text-slate-600">{projects.find(p => p.id === t.project_id)?.name || '-'}</td>
                 <td className="py-3 px-4 text-right font-medium"><span className={t.transaction_type === 'in' ? 'text-green-600' : 'text-red-600'}>{t.transaction_type === 'in' ? '+' : '-'}{formatCurrency(t.amount)}</span></td>
@@ -271,11 +320,36 @@ export default function CashManagement() {
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <h2 className="text-lg font-semibold mb-4">Açılış Bakiyesi Düzenle</h2>
             <p className="text-sm text-slate-600 mb-4">{editModal.name}</p>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Açılış Bakiyesi</label>
-              <input type="number" value={editBalance} onChange={(e) => setEditBalance(parseFloat(e.target.value) || 0)} className="w-full px-4 py-2 border border-slate-300 rounded-lg" />
-              <p className="text-xs text-slate-500 mt-1">Not: Bu değişiklik mevcut bakiyeyi de sıfırlar</p>
-            </div>
+            
+            {editModal.firms.length > 0 && (
+              <div className="mb-4 space-y-3">
+                <p className="text-xs font-medium text-slate-500 uppercase">Firmalara Göre Bakiye</p>
+                {editModal.firms.map(f => (
+                  <div key={f.id} className="flex items-center gap-2">
+                    <span className="text-sm text-slate-700 w-40 truncate">{f.name}</span>
+                    <input
+                      type="number"
+                      value={firmBalances[f.id] || 0}
+                      onChange={(e) => updateFirmBalance(f.id, parseFloat(e.target.value) || 0)}
+                      className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                ))}
+                <div className="border-t border-slate-200 pt-2 flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-700">Toplam</span>
+                  <span className="text-sm font-bold text-blue-600">{formatCurrency(editBalance)}</span>
+                </div>
+              </div>
+            )}
+
+            {editModal.firms.length === 0 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Açılış Bakiyesi</label>
+                <input type="number" value={editBalance} onChange={(e) => setEditBalance(parseFloat(e.target.value) || 0)} className="w-full px-4 py-2 border border-slate-300 rounded-lg" />
+              </div>
+            )}
+
+            <p className="text-xs text-slate-500 mb-4">Not: Bu değişiklik mevcut bakiyeyi de sıfırlar</p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setEditModal(null)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
               <button onClick={handleUpdateOpeningBalance} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button>

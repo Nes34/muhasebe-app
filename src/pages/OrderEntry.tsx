@@ -5,6 +5,7 @@ import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import type { Order, OrderItem, Firm, Cari, Project, Product } from '../types';
 import { Plus, Edit2, Trash2, Search, ShoppingCart, AlertTriangle, CheckCircle, Save, X, Package } from 'lucide-react';
+import ResizableTh from '../components/tables/ResizableTh';
 
 interface OrderWithDetails extends Order {
   firm?: Firm;
@@ -333,16 +334,16 @@ export default function OrderEntry() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr>
-                <th className="text-left py-3 px-4">Sipariş No</th>
-                <th className="text-left py-3 px-4">Tarih</th>
-                <th className="text-left py-3 px-4">Firma</th>
-                <th className="text-left py-3 px-4">Cari</th>
-                <th className="text-left py-3 px-4">Proje</th>
-                <th className="text-right py-3 px-4">Tutar</th>
-                <th className="text-center py-3 px-4">İrsaliye</th>
-                <th className="text-center py-3 px-4">Fatura</th>
-                <th className="text-center py-3 px-4">Durum</th>
-                <th className="text-center py-3 px-4">İşlem</th>
+                <ResizableTh columnId="siparis-no" className="text-left py-3 px-4">Sipariş No</ResizableTh>
+                <ResizableTh columnId="siparis-tarih" className="text-left py-3 px-4">Tarih</ResizableTh>
+                <ResizableTh columnId="siparis-firma" className="text-left py-3 px-4">Firma</ResizableTh>
+                <ResizableTh columnId="siparis-cari" className="text-left py-3 px-4">Cari</ResizableTh>
+                <ResizableTh columnId="siparis-proje" className="text-left py-3 px-4">Proje</ResizableTh>
+                <ResizableTh columnId="siparis-tutar" className="text-right py-3 px-4">Tutar</ResizableTh>
+                <ResizableTh columnId="siparis-irsaliye" className="text-center py-3 px-4">İrsaliye</ResizableTh>
+                <ResizableTh columnId="siparis-fatura" className="text-center py-3 px-4">Fatura</ResizableTh>
+                <ResizableTh columnId="siparis-durum" className="text-center py-3 px-4">Durum</ResizableTh>
+                <ResizableTh columnId="siparis-islem" className="text-center py-3 px-4">İşlem</ResizableTh>
               </tr>
             </thead>
             <tbody>
@@ -468,13 +469,13 @@ export default function OrderEntry() {
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50">
                         <tr>
-                          <th className="text-left py-2 px-3">Ürün</th>
-                          <th className="text-left py-2 px-3">Açıklama</th>
-                          <th className="text-right py-2 px-3 w-20">Miktar</th>
-                          <th className="text-left py-2 px-3 w-20">Birim</th>
-                          <th className="text-right py-2 px-3 w-28">Birim Fiyat</th>
-                          <th className="text-right py-2 px-3 w-28">Tutar</th>
-                          <th className="text-center py-2 px-3 w-16">Sil</th>
+                          <ResizableTh columnId="siparis-kalem-urun" className="text-left py-2 px-3">Ürün</ResizableTh>
+                          <ResizableTh columnId="siparis-kalem-aciklama" className="text-left py-2 px-3">Açıklama</ResizableTh>
+                          <ResizableTh columnId="siparis-kalem-miktar" className="text-right py-2 px-3">Miktar</ResizableTh>
+                          <ResizableTh columnId="siparis-kalem-birim" className="text-left py-2 px-3">Birim</ResizableTh>
+                          <ResizableTh columnId="siparis-kalem-fiyat" className="text-right py-2 px-3">Birim Fiyat</ResizableTh>
+                          <ResizableTh columnId="siparis-kalem-tutar" className="text-right py-2 px-3">Tutar</ResizableTh>
+                          <ResizableTh columnId="siparis-kalem-sil" className="text-center py-2 px-3">Sil</ResizableTh>
                         </tr>
                       </thead>
                       <tbody>

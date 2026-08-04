@@ -8,15 +8,22 @@ import {
   ArrowUpCircle, ArrowDownCircle, X,
 } from 'lucide-react';
 
-type FilterType = 'income' | 'expense' | 'cash' | 'bank' | 'pending_checks' | 'urgent_checks' | null;
+type FilterType = 'income' | 'expense' | 'profitLoss' | 'cash' | 'bank' | 'pending_given' | 'urgent_given' | 'paid_checks' | 'pending_received' | 'urgent_received' | 'collected_checks' | null;
 
 interface DashboardStats {
   totalIncome: number;
   totalExpense: number;
   totalCash: number;
   totalBank: number;
-  pendingChecks: number;
-  urgentChecks: number;
+  pendingGiven: number;
+  urgentGiven: number;
+  paidChecks: number;
+  paidChecksAmount: number;
+  pendingReceived: number;
+  urgentReceived: number;
+  collectedChecks: number;
+  collectedChecksAmount: number;
+  profitLoss: number;
 }
 
 interface DailyData {
@@ -28,7 +35,7 @@ interface DailyData {
 export default function Dashboard() {
   const { selectedFirm } = useFirm();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<DashboardStats>({ totalIncome: 0, totalExpense: 0, totalCash: 0, totalBank: 0, pendingChecks: 0, urgentChecks: 0 });
+  const [stats, setStats] = useState<DashboardStats>({ totalIncome: 0, totalExpense: 0, totalCash: 0, totalBank: 0, pendingGiven: 0, urgentGiven: 0, paidChecks: 0, paidChecksAmount: 0, pendingReceived: 0, urgentReceived: 0, collectedChecks: 0, collectedChecksAmount: 0, profitLoss: 0 });
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterType>(null);
@@ -42,6 +49,10 @@ export default function Dashboard() {
   const [bankData, setBankData] = useState<any[]>([]);
   const [pendingCheckData, setPendingCheckData] = useState<any[]>([]);
   const [urgentCheckData, setUrgentCheckData] = useState<any[]>([]);
+  const [paidCheckData, setPaidCheckData] = useState<any[]>([]);
+  const [pendingReceivedData, setPendingReceivedData] = useState<any[]>([]);
+  const [urgentReceivedData, setUrgentReceivedData] = useState<any[]>([]);
+  const [collectedCheckData, setCollectedCheckData] = useState<any[]>([]);
 
   useEffect(() => { fetchDashboardStats(); }, [selectedFirm]);
 
@@ -93,7 +104,37 @@ export default function Dashboard() {
 
       setDailyData(Array.from(dailyMap.values()));
 
-      // Toplam gelir/gider
+      // Kasa (junction tablo ile)
+      const { data: allCash } = await supabase.from('cash_registers').select('*').eq('is_active', true);
+      let cash = allCash;
+      if (selectedFirm && allCash && allCash.length > 0) {
+        const { data: crfLinks } = await supabase.from('cash_register_firms').select('cash_register_id').eq('firm_id', selectedFirm.id);
+        const allowedIds = (crfLinks || []).map((l: any) => l.cash_register_id);
+        cash = allCash.filter((c: any) => allowedIds.includes(c.id));
+      }
+
+      // Banka (junction tablo ile)
+      const { data: allBank } = await supabase.from('bank_accounts').select('*').eq('is_active', true);
+      let bank = allBank;
+      if (selectedFirm && allBank && allBank.length > 0) {
+        const { data: bafLinks } = await supabase.from('bank_account_firms').select('bank_account_id').eq('firm_id', selectedFirm.id);
+        const allowedIds = (bafLinks || []).map((l: any) => l.bank_account_id);
+        bank = allBank.filter((b: any) => allowedIds.includes(b.id));
+      }
+
+      // Banka bakiyelerini normal işlemlerden hesapla (otomatik çek ödemeleri hariç)
+      if (bank && bank.length > 0) {
+        const bIds = bank.map((b: any) => b.id);
+        const { data: bankTx } = await supabase.from('bank_transactions').select('bank_account_id, amount, transaction_type, description').in('bank_account_id', bIds);
+        bank = bank.map((b: any) => {
+          const normalTx = (bankTx || []).filter((t: any) => t.bank_account_id === b.id && !t.description?.includes('(Otomatik)'));
+          const txIn = normalTx.filter((t: any) => t.transaction_type === 'in').reduce((s: number, t: any) => s + t.amount, 0);
+          const txOut = normalTx.filter((t: any) => t.transaction_type === 'out').reduce((s: number, t: any) => s + t.amount, 0);
+          return { ...b, current_balance: (b.opening_balance || 0) + txIn - txOut };
+        });
+      }
+
+      // Toplam gelir/gider (transactions + bağımsız kasa/banka)
       let totalIncome = 0;
       let totalExpense = 0;
       const incomeList: any[] = [];
@@ -110,45 +151,120 @@ export default function Dashboard() {
           expenseList.push(t);
         }
       });
+      console.log('DEBUG allTx:', allTx?.length, 'income:', totalIncome, 'expense:', totalExpense);
+
+      // Bağımsız kasa/banka işlemleri (transaction_id olmayanlar — mükerrer önlemek için)
+      const cashIds = (cash || []).map((c: any) => c.id);
+      const bankIds = (bank || []).map((b: any) => b.id);
+
+      const [cashTxRes, bankTxRes] = await Promise.all([
+        cashIds.length > 0 ? supabase.from('cash_transactions').select('amount, transaction_type, created_at, cari:cariler(name)').in('cash_register_id', cashIds).is('transaction_id', null) : { data: [] },
+        bankIds.length > 0 ? supabase.from('bank_transactions').select('amount, transaction_type, created_at, cari:cariler(name)').in('bank_account_id', bankIds).is('transaction_id', null) : { data: [] },
+      ]);
+
+      (cashTxRes.data || []).forEach((t: any) => {
+        const item = { ...t, transaction_date: t.created_at?.split('T')[0], description: `Kasa - ${t.cari?.name || ''}`, source: 'cash' };
+        if (t.transaction_type === 'in') { totalIncome += t.amount; incomeList.push(item); }
+        else { totalExpense += t.amount; expenseList.push(item); }
+      });
+
+      (bankTxRes.data || []).forEach((t: any) => {
+        const item = { ...t, transaction_date: t.created_at?.split('T')[0], description: `Banka - ${t.cari?.name || ''}`, source: 'bank' };
+        if (t.transaction_type === 'in') { totalIncome += t.amount; incomeList.push(item); }
+        else { totalExpense += t.amount; expenseList.push(item); }
+      });
+
+      // Açılış bakiyelerini gelir/gidere ekle
+      (cash || []).forEach((c: any) => {
+        if (c.opening_balance > 0) { totalIncome += c.opening_balance; incomeList.push({ description: `Kasa Açılış - ${c.name}`, amount: c.opening_balance, transaction_date: '', source: 'cash_opening' }); }
+        else if (c.opening_balance < 0) { totalExpense += Math.abs(c.opening_balance); expenseList.push({ description: `Kasa Açılış - ${c.name}`, amount: Math.abs(c.opening_balance), transaction_date: '', source: 'cash_opening' }); }
+      });
+      (bank || []).forEach((b: any) => {
+        if (b.opening_balance > 0) { totalIncome += b.opening_balance; incomeList.push({ description: `Banka Açılış - ${b.bank_name}`, amount: b.opening_balance, transaction_date: '', source: 'bank_opening' }); }
+        else if (b.opening_balance < 0) { totalExpense += Math.abs(b.opening_balance); expenseList.push({ description: `Banka Açılış - ${b.bank_name}`, amount: Math.abs(b.opening_balance), transaction_date: '', source: 'bank_opening' }); }
+      });
 
       setIncomeData(incomeList);
       setExpenseData(expenseList);
 
-      // Kasa
-      let cashQ = supabase.from('cash_registers').select('*').eq('is_active', true);
-      if (selectedFirm) cashQ = cashQ.eq('firm_id', selectedFirm.id);
-      const { data: cash } = await cashQ;
-
-      // Banka
-      let bankQ = supabase.from('bank_accounts').select('*').eq('is_active', true);
-      if (selectedFirm) bankQ = bankQ.eq('firm_id', selectedFirm.id);
-      const { data: bank } = await bankQ;
-
       setCashData(cash || []);
       setBankData(bank || []);
 
-      // Çekler
-      let checkQ = supabase.from('checks').select('*, firm:firms(name)').eq('status', 'pending').order('due_date');
-      if (selectedFirm) checkQ = checkQ.eq('firm_id', selectedFirm.id);
-      const { data: pendingChecks } = await checkQ;
+      // Verilen çekler - bekleyen
+      let givenPendingQ = supabase.from('checks').select('*').eq('status', 'pending').eq('check_type', 'given').order('due_date');
+      if (selectedFirm) givenPendingQ = givenPendingQ.eq('firm_id', selectedFirm.id);
+      const { data: pendingGivenRaw } = await givenPendingQ;
 
       const fiveDaysLater = new Date(today);
       fiveDaysLater.setDate(today.getDate() + 5);
-      const urgent = (pendingChecks || []).filter((c: any) => {
+
+      // Tüm çeklerden cari_id'leri topla ve carileri çek
+      const allCheckData = [...(pendingGivenRaw || [])];
+      let paidCheckQ = supabase.from('checks').select('*').eq('status', 'paid').eq('check_type', 'given').order('created_at', { ascending: false });
+      if (selectedFirm) paidCheckQ = paidCheckQ.eq('firm_id', selectedFirm.id);
+      const { data: paidChecksRaw } = await paidCheckQ;
+      allCheckData.push(...(paidChecksRaw || []));
+
+      let receivedPendingQ = supabase.from('checks').select('*').eq('status', 'pending').eq('check_type', 'received').order('due_date');
+      if (selectedFirm) receivedPendingQ = receivedPendingQ.eq('firm_id', selectedFirm.id);
+      const { data: pendingReceivedRaw } = await receivedPendingQ;
+      allCheckData.push(...(pendingReceivedRaw || []));
+
+      let collectedCheckQ = supabase.from('checks').select('*').eq('status', 'collected').eq('check_type', 'received').order('created_at', { ascending: false });
+      if (selectedFirm) collectedCheckQ = collectedCheckQ.eq('firm_id', selectedFirm.id);
+      const { data: collectedChecksRaw } = await collectedCheckQ;
+      allCheckData.push(...(collectedChecksRaw || []));
+
+      // Cari ve firma isimlerini çek
+      const cariIds = [...new Set(allCheckData.map(c => c.cari_id).filter(Boolean))];
+      const firmIds = [...new Set(allCheckData.map(c => c.firm_id).filter(Boolean))];
+      const [cariRes, firmRes] = await Promise.all([
+        cariIds.length > 0 ? supabase.from('cariler').select('id, name, code').in('id', cariIds) : { data: [] },
+        firmIds.length > 0 ? supabase.from('firms').select('id, name').in('id', firmIds) : { data: [] },
+      ]);
+      const cariMap: Record<string, any> = {};
+      cariRes.data?.forEach((c: any) => { cariMap[c.id] = c; });
+      const firmMap: Record<string, any> = {};
+      firmRes.data?.forEach((f: any) => { firmMap[f.id] = f; });
+
+      const enrichChecks = (data: any[]) => data.map(c => ({ ...c, cari: cariMap[c.cari_id] || null, firm: firmMap[c.firm_id] || null }));
+
+      const pendingGiven = enrichChecks(pendingGivenRaw || []);
+      const urgentGiven = pendingGiven.filter((c: any) => {
         const dueDate = parseDateTR(c.due_date) || new Date(c.due_date);
         return dueDate <= fiveDaysLater;
       });
+      setPendingCheckData(pendingGiven);
+      setUrgentCheckData(urgentGiven);
 
-      setPendingCheckData(pendingChecks || []);
-      setUrgentCheckData(urgent);
+      setPaidCheckData(enrichChecks(paidChecksRaw || []));
+      const paidAmount = (paidChecksRaw || []).reduce((sum: number, c: any) => sum + c.amount, 0);
+
+      const pendingReceived = enrichChecks(pendingReceivedRaw || []);
+      const urgentReceived = pendingReceived.filter((c: any) => {
+        const dueDate = parseDateTR(c.due_date) || new Date(c.due_date);
+        return dueDate <= fiveDaysLater;
+      });
+      setPendingReceivedData(pendingReceived);
+      setUrgentReceivedData(urgentReceived);
+
+      setCollectedCheckData(enrichChecks(collectedChecksRaw || []));
+      const collectedAmount = (collectedChecksRaw || []).reduce((sum: number, c: any) => sum + c.amount, 0);
 
       setStats({
         totalIncome,
         totalExpense,
         totalCash: (cash || []).reduce((sum: number, c: any) => sum + c.current_balance, 0),
         totalBank: (bank || []).reduce((sum: number, b: any) => sum + b.current_balance, 0),
-        pendingChecks: (pendingChecks || []).length,
-        urgentChecks: urgent.length,
+        pendingGiven: (pendingGiven || []).length,
+        urgentGiven: urgentGiven.length,
+        paidChecks: (paidChecksRaw || []).length,
+        paidChecksAmount: paidAmount,
+        pendingReceived: (pendingReceived || []).length,
+        urgentReceived: urgentReceived.length,
+        collectedChecks: (collectedChecksRaw || []).length,
+        collectedChecksAmount: collectedAmount,
+        profitLoss: totalIncome - totalExpense,
       });
     } catch (error) {
       console.error('Dashboard hatası:', error);
@@ -170,10 +286,15 @@ export default function Dashboard() {
     switch (filter) {
       case 'income': setFilterData(incomeData); break;
       case 'expense': setFilterData(expenseData); break;
+      case 'profitLoss': setFilterData([...incomeData, ...expenseData].sort((a: any, b: any) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime())); break;
       case 'cash': setFilterData(cashData); break;
       case 'bank': setFilterData(bankData); break;
-      case 'pending_checks': setFilterData(pendingCheckData); break;
-      case 'urgent_checks': setFilterData(urgentCheckData); break;
+      case 'pending_given': setFilterData(pendingCheckData); break;
+      case 'urgent_given': setFilterData(urgentCheckData); break;
+      case 'paid_checks': setFilterData(paidCheckData); break;
+      case 'pending_received': setFilterData(pendingReceivedData); break;
+      case 'urgent_received': setFilterData(urgentReceivedData); break;
+      case 'collected_checks': setFilterData(collectedCheckData); break;
     }
     setFilterLoading(false);
   };
@@ -182,10 +303,15 @@ export default function Dashboard() {
     const titles: Record<string, string> = {
       income: 'Gelir İşlemleri',
       expense: 'Gider İşlemleri',
+      profitLoss: 'Kâr/Zarar Detayı',
       cash: 'Kasa Hesapları',
       bank: 'Banka Hesapları',
-      pending_checks: 'Bekleyen Çekler',
-      urgent_checks: 'Vadesi Yaklaşan Çekler',
+      pending_given: 'Bekleyen Verilen Çekler',
+      urgent_given: 'Vadesi Yaklaşan Verilen Çekler',
+      paid_checks: 'Ödenen Çekler',
+      pending_received: 'Bekleyen Alınan Çekler',
+      urgent_received: 'Vadesi Yaklaşan Alınan Çekler',
+      collected_checks: 'Tahsil Edilen Çekler',
     };
     return activeFilter ? titles[activeFilter] : '';
   };
@@ -201,10 +327,15 @@ export default function Dashboard() {
   const cards = [
     { id: 'income' as FilterType, title: 'Toplam Gelir', value: formatCurrency(stats.totalIncome), icon: TrendingUp, color: 'bg-green-500', bgColor: 'bg-green-50' },
     { id: 'expense' as FilterType, title: 'Toplam Gider', value: formatCurrency(stats.totalExpense), icon: TrendingDown, color: 'bg-red-500', bgColor: 'bg-red-50' },
+    { id: 'profitLoss' as FilterType, title: 'Kâr/Zarar', value: formatCurrency(stats.profitLoss), icon: stats.profitLoss >= 0 ? TrendingUp : TrendingDown, color: stats.profitLoss >= 0 ? 'bg-emerald-500' : 'bg-rose-500', bgColor: stats.profitLoss >= 0 ? 'bg-emerald-50' : 'bg-rose-50' },
     { id: 'cash' as FilterType, title: 'Kasa Toplamı', value: formatCurrency(stats.totalCash), icon: Wallet, color: 'bg-blue-500', bgColor: 'bg-blue-50' },
     { id: 'bank' as FilterType, title: 'Banka Toplamı', value: formatCurrency(stats.totalBank), icon: Building2, color: 'bg-purple-500', bgColor: 'bg-purple-50' },
-    { id: 'pending_checks' as FilterType, title: 'Bekleyen Çek', value: `${stats.pendingChecks} adet`, icon: FileCheck, color: 'bg-orange-500', bgColor: 'bg-orange-50' },
-    { id: 'urgent_checks' as FilterType, title: 'Vadesi Yaklaşan', value: `${stats.urgentChecks} adet`, icon: AlertTriangle, color: 'bg-yellow-500', bgColor: 'bg-yellow-50' },
+    { id: 'pending_given' as FilterType, title: 'Bekleyen Verilen Çek', value: `${stats.pendingGiven} adet`, icon: FileCheck, color: 'bg-orange-500', bgColor: 'bg-orange-50' },
+    { id: 'urgent_given' as FilterType, title: 'Vadesi Yaklaşan Verilen', value: `${stats.urgentGiven} adet`, icon: AlertTriangle, color: 'bg-yellow-500', bgColor: 'bg-yellow-50' },
+    { id: 'paid_checks' as FilterType, title: 'Ödenen Çek', value: `${stats.paidChecks} adet / ${formatCurrency(stats.paidChecksAmount)}`, icon: FileCheck, color: 'bg-red-600', bgColor: 'bg-red-50' },
+    { id: 'pending_received' as FilterType, title: 'Bekleyen Alınan Çek', value: `${stats.pendingReceived} adet`, icon: FileCheck, color: 'bg-teal-500', bgColor: 'bg-teal-50' },
+    { id: 'urgent_received' as FilterType, title: 'Vadesi Yaklaşan Alınan', value: `${stats.urgentReceived} adet`, icon: AlertTriangle, color: 'bg-amber-500', bgColor: 'bg-amber-50' },
+    { id: 'collected_checks' as FilterType, title: 'Tahsil Edilen Çek', value: `${stats.collectedChecks} adet / ${formatCurrency(stats.collectedChecksAmount)}`, icon: FileCheck, color: 'bg-green-600', bgColor: 'bg-green-50' },
   ];
 
   const maxAmount = Math.max(...dailyData.map(d => Math.max(d.income, d.expense)), 1);
@@ -268,7 +399,7 @@ export default function Dashboard() {
           ) : (
             <div className="max-h-[400px] overflow-y-auto space-y-2">
               {/* Gelir/Gider Filtresi */}
-              {(activeFilter === 'income' || activeFilter === 'expense') && filterData.map((t: any, i: number) => (
+              {(activeFilter === 'income' || activeFilter === 'expense' || activeFilter === 'profitLoss') && filterData.map((t: any, i: number) => (
                 <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100">
                   <div className="flex items-center gap-3">
                     {['income', 'invoice', 'sale_invoice'].includes(t.transaction_type) ? (
@@ -316,20 +447,33 @@ export default function Dashboard() {
               ))}
 
               {/* Çek Filtresi */}
-              {(activeFilter === 'pending_checks' || activeFilter === 'urgent_checks') && filterData.map((c: any) => {
+              {(activeFilter === 'pending_given' || activeFilter === 'urgent_given' || activeFilter === 'paid_checks' || activeFilter === 'pending_received' || activeFilter === 'urgent_received' || activeFilter === 'collected_checks') && filterData.map((c: any) => {
                 const dueDate = parseDateTR(c.due_date) || new Date(c.due_date);
                 const daysUntil = Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                const isGiven = c.check_type === 'given';
                 return (
-                  <div key={c.id} onClick={() => navigate('/cekler')} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200 hover:bg-orange-100 cursor-pointer transition-colors">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">{c.check_number}</p>
-                      <p className="text-xs text-slate-500">{c.firm?.name || '-'} • {formatDateTR(c.due_date)}</p>
+                  <div key={c.id} onClick={() => navigate('/cekler')} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 cursor-pointer transition-colors">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${isGiven ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{isGiven ? 'Verilen' : 'Alınan'}</span>
+                        <span className="text-sm font-bold text-slate-800">{c.check_number}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-slate-500">
+                        <span>{c.firm?.name || '-'}</span>
+                        <span>{c.cari?.name || '-'}</span>
+                        <span>{c.bank_name || '-'}</span>
+                        <span>Vade: {formatDateTR(c.due_date)}</span>
+                      </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-orange-600">{formatCurrency(c.amount)}</p>
-                      <p className={`text-xs ${daysUntil <= 1 ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
-                        {daysUntil < 0 ? 'Vadesi geçti' : daysUntil === 0 ? 'Bugün' : `${daysUntil} gün`}
-                      </p>
+                      <p className={`font-semibold ${isGiven ? 'text-red-600' : 'text-green-600'}`}>{formatCurrency(c.amount)}</p>
+                      {c.status === 'pending' && (
+                        <p className={`text-xs ${daysUntil <= 1 ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
+                          {daysUntil < 0 ? 'Vadesi geçti' : daysUntil === 0 ? 'Bugün' : `${daysUntil} gün`}
+                        </p>
+                      )}
+                      {c.status === 'paid' && <p className="text-xs text-red-500">Ödendi</p>}
+                      {c.status === 'collected' && <p className="text-xs text-green-500">Tahsil edildi</p>}
                     </div>
                   </div>
                 );

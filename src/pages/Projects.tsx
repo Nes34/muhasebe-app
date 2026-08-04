@@ -6,6 +6,7 @@ import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import type { Project, Firm } from '../types';
 import { Plus, Edit2, Trash2, FolderKanban, AlertTriangle, CheckCircle, Search, TrendingUp, TrendingDown, Wallet, DollarSign, Download } from 'lucide-react';
+import ResizableTh from '../components/tables/ResizableTh';
 
 interface ProjectSummary {
   project: Project;
@@ -279,14 +280,14 @@ export default function Projects() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="text-left py-3 px-4">Proje</th>
-                      <th className="text-right py-3 px-4">Gelir</th>
-                      <th className="text-right py-3 px-4">Gider</th>
-                      <th className="text-right py-3 px-4">Bütçe</th>
-                      <th className="text-right py-3 px-4">Verilen Çek</th>
-                      <th className="text-right py-3 px-4">Ödenen Çek</th>
-                      <th className="text-right py-3 px-4">Kar/Zarar</th>
-                      <th className="text-center py-3 px-4">Tamamlanma</th>
+                      <ResizableTh columnId="proje-ad" className="text-left py-3 px-4">Proje</ResizableTh>
+                      <ResizableTh columnId="proje-gelir" className="text-right py-3 px-4">Gelir</ResizableTh>
+                      <ResizableTh columnId="proje-gider" className="text-right py-3 px-4">Gider</ResizableTh>
+                      <ResizableTh columnId="proje-butce" className="text-right py-3 px-4">Bütçe</ResizableTh>
+                      <ResizableTh columnId="proje-verilen-cek" className="text-right py-3 px-4">Verilen Çek</ResizableTh>
+                      <ResizableTh columnId="proje-odenen-cek" className="text-right py-3 px-4">Ödenen Çek</ResizableTh>
+                      <ResizableTh columnId="proje-kar" className="text-right py-3 px-4">Kar/Zarar</ResizableTh>
+                      <ResizableTh columnId="proje-tamamlanma" className="text-center py-3 px-4">Tamamlanma</ResizableTh>
                     </tr>
                   </thead>
                   <tbody>

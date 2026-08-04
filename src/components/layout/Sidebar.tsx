@@ -89,7 +89,6 @@ const menuGroups: MenuGroup[] = [
       { to: '/kasalar', icon: Wallet, label: 'Kasa Yönetimi' },
       { to: '/bankalar', icon: CreditCard, label: 'Banka Yönetimi' },
       { to: '/cekler', icon: FileCheck, label: 'Çek Yönetimi' },
-      { to: '/cari-hesap', icon: Receipt, label: 'Cari Hesap Ekstresi' },
     ],
   },
   {

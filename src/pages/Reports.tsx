@@ -5,6 +5,7 @@ import { exportToExcel } from '../lib/excel';
 import { useAuth } from '../hooks/useAuth';
 import { useFirm } from '../hooks/useFirm';
 import { BarChart3, TrendingUp, TrendingDown, Download, Users, Search, FileText, AlertTriangle } from 'lucide-react';
+import ResizableTh from '../components/tables/ResizableTh';
 import type { UserProfile } from '../types';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -252,12 +253,12 @@ export default function Reports() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className="text-left py-3 px-4">Tarih</th>
-                  <th className="text-left py-3 px-4">Tür</th>
-                  <th className="text-left py-3 px-4">Firma</th>
-                  <th className="text-right py-3 px-4">Tutar</th>
-                  <th className="text-left py-3 px-4">Açıklama</th>
-                  <th className="text-left py-3 px-4">Giren Kişi</th>
+                  <ResizableTh columnId="rapor-tarih" className="text-left py-3 px-4">Tarih</ResizableTh>
+                  <ResizableTh columnId="rapor-tur" className="text-left py-3 px-4">Tür</ResizableTh>
+                  <ResizableTh columnId="rapor-firma" className="text-left py-3 px-4">Firma</ResizableTh>
+                  <ResizableTh columnId="rapor-tutar" className="text-right py-3 px-4">Tutar</ResizableTh>
+                  <ResizableTh columnId="rapor-aciklama" className="text-left py-3 px-4">Açıklama</ResizableTh>
+                  <ResizableTh columnId="rapor-kisi" className="text-left py-3 px-4">Giren Kişi</ResizableTh>
                 </tr>
               </thead>
               <tbody>
@@ -297,7 +298,12 @@ export default function Reports() {
             </div>
           </div>
           <table className="w-full text-sm">
-            <thead className="bg-slate-50"><tr><th className="text-left py-3 px-4">{activeTab === 'firm' ? 'Firma' : 'Proje'}</th><th className="text-right py-3 px-4">Gelir</th><th className="text-right py-3 px-4">Gider</th><th className="text-right py-3 px-4">Net</th></tr></thead>
+            <thead className="bg-slate-50"><tr>
+              <ResizableTh columnId="rapor-ozet-baslik" className="text-left py-3 px-4">{activeTab === 'firm' ? 'Firma' : 'Proje'}</ResizableTh>
+              <ResizableTh columnId="rapor-ozet-gelir" className="text-right py-3 px-4">Gelir</ResizableTh>
+              <ResizableTh columnId="rapor-ozet-gider" className="text-right py-3 px-4">Gider</ResizableTh>
+              <ResizableTh columnId="rapor-ozet-net" className="text-right py-3 px-4">Net</ResizableTh>
+            </tr></thead>
             <tbody>
               {data.map(r => (
                 <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50">

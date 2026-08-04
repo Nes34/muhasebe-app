@@ -4,6 +4,7 @@ import { generateNextCode, findSimilar, formatCurrency } from '../lib/utils';
 import { exportToExcel } from '../lib/excel';
 import type { Product } from '../types';
 import { Plus, Edit2, Trash2, Search, AlertTriangle, CheckCircle, Download } from 'lucide-react';
+import ResizableTh from '../components/tables/ResizableTh';
 
 export default function StockManagement() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -178,16 +179,16 @@ export default function StockManagement() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr>
-                <th className="text-left py-3 px-4">Kod</th>
-                <th className="text-left py-3 px-4">Barkod</th>
-                <th className="text-left py-3 px-4">Ürün Adı</th>
-                <th className="text-left py-3 px-4">Kategori</th>
-                <th className="text-right py-3 px-4">Stok</th>
-                <th className="text-right py-3 px-4">Min. Stok</th>
-                <th className="text-right py-3 px-4">Birim Fiyat</th>
-                <th className="text-right py-3 px-4">Toplam Değer</th>
-                <th className="text-center py-3 px-4">Durum</th>
-                <th className="text-center py-3 px-4">İşlem</th>
+                <ResizableTh columnId="stok-kod" className="text-left py-3 px-4">Kod</ResizableTh>
+                <ResizableTh columnId="stok-barkod" className="text-left py-3 px-4">Barkod</ResizableTh>
+                <ResizableTh columnId="stok-urun" className="text-left py-3 px-4">Ürün Adı</ResizableTh>
+                <ResizableTh columnId="stok-kategori" className="text-left py-3 px-4">Kategori</ResizableTh>
+                <ResizableTh columnId="stok-stok" className="text-right py-3 px-4">Stok</ResizableTh>
+                <ResizableTh columnId="stok-min" className="text-right py-3 px-4">Min. Stok</ResizableTh>
+                <ResizableTh columnId="stok-fiyat" className="text-right py-3 px-4">Birim Fiyat</ResizableTh>
+                <ResizableTh columnId="stok-toplam" className="text-right py-3 px-4">Toplam Değer</ResizableTh>
+                <ResizableTh columnId="stok-durum" className="text-center py-3 px-4">Durum</ResizableTh>
+                <ResizableTh columnId="stok-islem" className="text-center py-3 px-4">İşlem</ResizableTh>
               </tr>
             </thead>
             <tbody>

@@ -7,6 +7,7 @@ import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import type { Transaction, TransactionType, Firm, Project } from '../types';
 import { Search, Edit2, Trash2, ArrowRightLeft, ChevronDown, ChevronRight, Save, X, AlertCircle, CheckCircle, Download, FileText } from 'lucide-react';
+import ResizableTh from '../components/tables/ResizableTh';
 
 export default function TransactionTracking() {
   const { selectedFirm } = useFirm();
@@ -285,12 +286,12 @@ export default function TransactionTracking() {
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50">
                       <tr>
-                        <th className="text-left py-2 px-4">Tarih</th>
-                        <th className="text-left py-2 px-4">Firma</th>
-                        <th className="text-left py-2 px-4">Proje</th>
-                        <th className="text-left py-2 px-4">Açıklama</th>
-                        <th className="text-right py-2 px-4">Tutar</th>
-                        <th className="text-center py-2 px-4">İşlem</th>
+                        <ResizableTh columnId="islem-tarih" className="text-left py-2 px-4">Tarih</ResizableTh>
+                        <ResizableTh columnId="islem-firma" className="text-left py-2 px-4">Firma</ResizableTh>
+                        <ResizableTh columnId="islem-proje" className="text-left py-2 px-4">Proje</ResizableTh>
+                        <ResizableTh columnId="islem-aciklama" className="text-left py-2 px-4">Açıklama</ResizableTh>
+                        <ResizableTh columnId="islem-tutar" className="text-right py-2 px-4">Tutar</ResizableTh>
+                        <ResizableTh columnId="islem-islem" className="text-center py-2 px-4">İşlem</ResizableTh>
                       </tr>
                     </thead>
                     <tbody>
