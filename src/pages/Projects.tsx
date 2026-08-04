@@ -392,6 +392,7 @@ export default function Projects() {
                       <ResizableTh columnId="proje-gelir" className="text-right py-3 px-4">Gelir</ResizableTh>
                       <ResizableTh columnId="proje-gider" className="text-right py-3 px-4">Gider</ResizableTh>
                       <ResizableTh columnId="proje-butce" className="text-right py-3 px-4">Bütçe</ResizableTh>
+                      <ResizableTh columnId="proje-fark" className="text-right py-3 px-4">Bütçe Farkı</ResizableTh>
                       <ResizableTh columnId="proje-verilen-cek" className="text-right py-3 px-4">Verilen Çek</ResizableTh>
                       <ResizableTh columnId="proje-odenen-cek" className="text-right py-3 px-4">Ödenen Çek</ResizableTh>
                       <ResizableTh columnId="proje-kar" className="text-right py-3 px-4">Kar/Zarar</ResizableTh>
@@ -410,6 +411,13 @@ export default function Projects() {
                         <td className="py-3 px-4 text-right text-green-600 font-mono">{formatCurrency(ps.income)}</td>
                         <td className="py-3 px-4 text-right text-red-600 font-mono">{formatCurrency(ps.expense)}</td>
                         <td className="py-3 px-4 text-right text-blue-600 font-mono">{formatCurrency(ps.budget)}</td>
+                        <td className="py-3 px-4 text-right font-mono">
+                          {ps.budget > 0 ? (
+                            <span className={ps.budget - ps.expense >= 0 ? 'text-green-600' : 'text-red-600'}>
+                              {formatCurrency(ps.budget - ps.expense)}
+                            </span>
+                          ) : '-'}
+                        </td>
                         <td className="py-3 px-4 text-right text-orange-600 font-mono">{formatCurrency(ps.checksGiven)}</td>
                         <td className="py-3 px-4 text-right text-purple-600 font-mono">{formatCurrency(ps.checksPaid)}</td>
                         <td className="py-3 px-4 text-right font-mono font-bold">
