@@ -20,7 +20,7 @@ interface ProjectSummary {
 }
 
 export default function Projects() {
-  const { selectedFirm } = useFirm();
+  const { selectedFirm, selectedProject } = useFirm();
   const [firms, setFirms] = useState<Firm[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectSummaries, setProjectSummaries] = useState<ProjectSummary[]>([]);
@@ -42,8 +42,8 @@ export default function Projects() {
 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  useEffect(() => { fetchData(); }, [selectedFirm]);
-  useEffect(() => { fetchProjectSummaries(); }, [selectedFirm]);
+  useEffect(() => { fetchData(); }, [selectedFirm, selectedProject]);
+  useEffect(() => { fetchProjectSummaries(); }, [selectedFirm, selectedProject]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -62,18 +62,33 @@ export default function Projects() {
   const fetchProjectSummaries = async () => {
     let projectQuery = supabase.from('projects').select('*').order('name');
     if (selectedFirm) projectQuery = projectQuery.eq('firm_id', selectedFirm.id);
+    if (selectedProject) projectQuery = projectQuery.eq('id', selectedProject.id);
     const { data: projectsData } = await projectQuery;
     if (!projectsData || projectsData.length === 0) { setProjectSummaries([]); return; }
 
     const projectIds = projectsData.map(p => p.id);
 
-    const [txRes, checkRes, cashTxRes, bankTxRes, cashRegRes, bankAccRes] = await Promise.all([
+    // Kasa ve banka hesaplarını firma ile filtrele
+    const { data: allCashRegs } = await supabase.from('cash_registers').select('id, opening_balance').eq('is_active', true);
+    const { data: allBankAccs } = await supabase.from('bank_accounts').select('id, opening_balance').eq('is_active', true);
+    
+    let cashRegs = allCashRegs || [];
+    let bankAccs = allBankAccs || [];
+    
+    if (selectedFirm) {
+      const { data: crfLinks } = await supabase.from('cash_register_firms').select('cash_register_id').eq('firm_id', selectedFirm.id);
+      const { data: bafLinks } = await supabase.from('bank_account_firms').select('bank_account_id').eq('firm_id', selectedFirm.id);
+      const cashIds = (crfLinks || []).map((l: any) => l.cash_register_id);
+      const bankIds = (bafLinks || []).map((l: any) => l.bank_account_id);
+      cashRegs = cashRegs.filter((c: any) => cashIds.includes(c.id));
+      bankAccs = bankAccs.filter((b: any) => bankIds.includes(b.id));
+    }
+
+    const [txRes, checkRes, cashTxRes, bankTxRes] = await Promise.all([
       supabase.from('transactions').select('project_id, amount, transaction_type').in('project_id', projectIds).eq('is_exception', false),
       supabase.from('checks').select('project_id, amount, check_type, status').in('project_id', projectIds),
       supabase.from('cash_transactions').select('project_id, amount, transaction_type, transaction_id').in('project_id', projectIds),
       supabase.from('bank_transactions').select('project_id, amount, transaction_type, transaction_id').in('project_id', projectIds),
-      supabase.from('cash_registers').select('opening_balance'),
-      supabase.from('bank_accounts').select('opening_balance'),
     ]);
 
     const summaries: ProjectSummary[] = projectsData.map(project => {
@@ -111,10 +126,10 @@ export default function Projects() {
     setProjectSummaries(summaries);
 
     // Açılış bakiyeleri firma seviyesinde, toplama eklenir
-    const cashOpeningIncome = (cashRegRes.data || []).reduce((s: number, c: any) => c.opening_balance > 0 ? s + c.opening_balance : s, 0);
-    const cashOpeningExpense = (cashRegRes.data || []).reduce((s: number, c: any) => c.opening_balance < 0 ? s + Math.abs(c.opening_balance) : s, 0);
-    const bankOpeningIncome = (bankAccRes.data || []).reduce((s: number, b: any) => b.opening_balance > 0 ? s + b.opening_balance : s, 0);
-    const bankOpeningExpense = (bankAccRes.data || []).reduce((s: number, b: any) => b.opening_balance < 0 ? s + Math.abs(b.opening_balance) : s, 0);
+    const cashOpeningIncome = cashRegs.reduce((s: number, c: any) => c.opening_balance > 0 ? s + c.opening_balance : s, 0);
+    const cashOpeningExpense = cashRegs.reduce((s: number, c: any) => c.opening_balance < 0 ? s + Math.abs(c.opening_balance) : s, 0);
+    const bankOpeningIncome = bankAccs.reduce((s: number, b: any) => b.opening_balance > 0 ? s + b.opening_balance : s, 0);
+    const bankOpeningExpense = bankAccs.reduce((s: number, b: any) => b.opening_balance < 0 ? s + Math.abs(b.opening_balance) : s, 0);
     setOpeningBalances({ income: cashOpeningIncome + bankOpeningIncome, expense: cashOpeningExpense + bankOpeningExpense });
   };
 
