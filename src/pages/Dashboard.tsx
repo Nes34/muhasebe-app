@@ -327,7 +327,7 @@ export default function Dashboard() {
   const cards = [
     { id: 'income' as FilterType, title: 'Toplam Gelir', value: formatCurrency(stats.totalIncome), icon: TrendingUp, color: 'bg-green-500', bgColor: 'bg-green-50' },
     { id: 'expense' as FilterType, title: 'Toplam Gider', value: formatCurrency(stats.totalExpense), icon: TrendingDown, color: 'bg-red-500', bgColor: 'bg-red-50' },
-    { id: 'profitLoss' as FilterType, title: 'Kâr/Zarar', value: formatCurrency(stats.profitLoss), icon: stats.profitLoss >= 0 ? TrendingUp : TrendingDown, color: stats.profitLoss >= 0 ? 'bg-emerald-500' : 'bg-rose-500', bgColor: stats.profitLoss >= 0 ? 'bg-emerald-50' : 'bg-rose-50' },
+    { id: 'profitLoss' as FilterType, title: 'Kâr/Zarar', value: formatCurrency(stats.profitLoss), icon: stats.profitLoss >= 0 ? TrendingUp : TrendingDown, color: stats.profitLoss >= 0 ? 'bg-green-600' : 'bg-red-600', bgColor: stats.profitLoss >= 0 ? 'bg-green-50' : 'bg-red-50' },
     { id: 'cash' as FilterType, title: 'Kasa Toplamı', value: formatCurrency(stats.totalCash), icon: Wallet, color: 'bg-blue-500', bgColor: 'bg-blue-50' },
     { id: 'bank' as FilterType, title: 'Banka Toplamı', value: formatCurrency(stats.totalBank), icon: Building2, color: 'bg-purple-500', bgColor: 'bg-purple-50' },
     { id: 'pending_given' as FilterType, title: 'Bekleyen Verilen Çek', value: `${stats.pendingGiven} adet`, icon: FileCheck, color: 'bg-orange-500', bgColor: 'bg-orange-50' },
