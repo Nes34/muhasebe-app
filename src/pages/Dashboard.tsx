@@ -5,8 +5,12 @@ import { formatCurrency, formatDateTR, parseDateTR } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import {
   TrendingUp, TrendingDown, Wallet, Building2, FileCheck, AlertTriangle,
-  ArrowUpCircle, ArrowDownCircle, X,
+  ArrowUpCircle, ArrowDownCircle, X, BarChart3, PieChart as PieChartIcon,
 } from 'lucide-react';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell, BarChart, Bar,
+} from 'recharts';
 
 type FilterType = 'income' | 'expense' | 'profitLoss' | 'cash' | 'bank' | 'pending_given' | 'urgent_given' | 'paid_checks' | 'pending_received' | 'urgent_received' | 'collected_checks' | null;
 
@@ -400,6 +404,77 @@ export default function Dashboard() {
             </div>
           </button>
         ))}
+      </div>
+
+      {/* Grafikler */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Gelir/Gider Trend Grafiği */}
+        <div className="bg-white rounded-xl p-6 border border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+            <BarChart3 size={20} className="text-blue-500" />
+            Günlük Gelir/Gider Trendi
+          </h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={dailyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip formatter={(value: number) => formatCurrency(value)} />
+              <Legend />
+              <Line type="monotone" dataKey="income" name="Gelir" stroke="#22c55e" strokeWidth={2} />
+              <Line type="monotone" dataKey="expense" name="Gider" stroke="#ef4444" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Gelir/Gider Pasta Grafiği */}
+        <div className="bg-white rounded-xl p-6 border border-slate-200">
+          <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+            <PieChartIcon size={20} className="text-purple-500" />
+            Gelir/Gider Dağılımı
+          </h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={[
+                  { name: 'Gelir', value: stats.totalIncome },
+                  { name: 'Gider', value: stats.totalExpense },
+                ]}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }) => `${name} %${(percent * 100).toFixed(0)}`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                <Cell fill="#22c55e" />
+                <Cell fill="#ef4444" />
+              </Pie>
+              <Tooltip formatter={(value: number) => formatCurrency(value)} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Karşılaştırma Grafiği */}
+      <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+        <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <BarChart3 size={20} className="text-green-500" />
+          Gelir/Gider Karşılaştırması
+        </h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={dailyData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+            <YAxis tick={{ fontSize: 12 }} />
+            <Tooltip formatter={(value: number) => formatCurrency(value)} />
+            <Legend />
+            <Bar dataKey="income" name="Gelir" fill="#22c55e" />
+            <Bar dataKey="expense" name="Gider" fill="#ef4444" />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Filtre Detayı */}
