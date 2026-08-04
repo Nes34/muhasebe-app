@@ -44,6 +44,7 @@ UYGULAMA MENÜLERİ:
 - Çekler: Çek yönetimi
 - Raporlar: Analiz ve raporlar
 - Personel: Personel yönetimi
+- Demirbaş Yönetimi: Araç ve demirbaş takibi (KM, yakıt, ceza, MTV, zimmet)
 
 FATURA GİRME ADIMLARI:
 1. Sol menüden "İşlem Girişi"ne tıklayın
