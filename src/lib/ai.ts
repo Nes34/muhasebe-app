@@ -28,13 +28,13 @@ Cevaplarını kısa ve net tut.`;
 
 export const getAIConfig = () => {
   const provider = localStorage.getItem('ai_provider') as Provider | null;
-  const apiKey = localStorage.getItem('ai_api_key');
+  const apiKey = localStorage.getItem('ai_api_key')?.trim() || null;
   return { provider, apiKey };
 };
 
 export const setAIConfig = (provider: Provider, apiKey: string) => {
   localStorage.setItem('ai_provider', provider);
-  localStorage.setItem('ai_api_key', apiKey);
+  localStorage.setItem('ai_api_key', apiKey.trim());
 };
 
 export const clearAIConfig = () => {
