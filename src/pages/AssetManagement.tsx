@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDateTR } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import type { FixedAsset, VehicleDetail, Personnel } from '../types';
-import { Package, Plus, Edit2, Trash2, Search, Car, AlertTriangle, CheckCircle, X, Fuel, Wrench, Calendar, User } from 'lucide-react';
+import { Package, Plus, Edit2, Trash2, Search, Car, AlertTriangle, CheckCircle, X, Fuel, Wrench, Calendar, User, Upload, Download } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 
 const CATEGORIES = [
@@ -31,6 +31,21 @@ const CATEGORIES = [
   { value: 'other', label: 'Diğer', icon: Package },
 ];
 
+// localStorage'dan özel kategorileri yükle
+const getCustomCategories = (): { value: string; label: string }[] => {
+  const saved = localStorage.getItem('asset_custom_categories');
+  return saved ? JSON.parse(saved) : [];
+};
+
+const saveCustomCategory = (value: string, label: string) => {
+  const custom = getCustomCategories();
+  if (!custom.find(c => c.value === value)) {
+    custom.push({ value, label });
+    localStorage.setItem('asset_custom_categories', JSON.stringify(custom));
+  }
+  return custom;
+};
+
 const FUEL_TYPES = [
   { value: 'diesel', label: 'Dizel' },
   { value: 'gasoline', label: 'Benzin' },
@@ -51,6 +66,11 @@ export default function AssetManagement() {
   const [editingAsset, setEditingAsset] = useState<FixedAsset | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<FixedAsset | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [customCategories, setCustomCategories] = useState<{ value: string; label: string }[]>(getCustomCategories());
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -90,11 +110,111 @@ export default function AssetManagement() {
     setLoading(false);
   };
 
+  const handleAddCategory = () => {
+    if (!newCategoryName.trim()) return;
+    const value = newCategoryName.trim().toLowerCase().replace(/\s+/g, '_');
+    const updated = saveCustomCategory(value, newCategoryName.trim());
+    setCustomCategories(updated);
+    setFormData({ ...formData, category: value });
+    setNewCategoryName('');
+    setShowAddCategory(false);
+  };
+
   const generateAssetCode = () => {
     const prefix = formData.category === 'vehicle' ? 'AR' : formData.category === 'computer' ? 'BL' : formData.category === 'furniture' ? 'MB' : 'MK';
     const lastCode = assets.filter(a => a.asset_code.startsWith(prefix)).sort((a, b) => b.asset_code.localeCompare(a.asset_code))[0]?.asset_code;
     const nextNum = lastCode ? parseInt(lastCode.slice(2)) + 1 : 1;
     return `${prefix}${String(nextNum).padStart(4, '0')}`;
+  };
+
+  const downloadExampleCSV = () => {
+    const csvContent = `Kategori,Ad,Alış Tarihi,Alış Fiyatı,Faydalı Ömür,Seri No,Konum,Departman,Plaka,Marka,Model,Yıl,Yakıt Tipi
+vehicle,Filo Aracı 1,2024-01-15,250000,5,SN001,Merkez Garaj,Filo,34 ABC 123,Ford,Transit,2024,Dizel
+computer,Muhasebe Bilgisayarı,2024-03-01,25000,5,SN002,Muhasebe Ofisi,Bilgisayar,,,,
+desk,Müdür Masası,2024-02-10,8000,10,SN003,Müdür Odası,İdari,,,,
+machine,Üretim Makinesi,2023-06-15,150000,10,SN004,Fabrika,Üretim,,,,`;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'demirbas-ornek.csv';
+    link.click();
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(l => l.trim());
+      if (lines.length < 2) { alert('Dosyada veri bulunamadı.'); return; }
+
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const catIdx = headers.findIndex(h => h.includes('kategori') || h.includes('category'));
+      const nameIdx = headers.findIndex(h => h.includes('ad') && !h.includes('tarih'));
+      const dateIdx = headers.findIndex(h => h.includes('tarih') || h.includes('date'));
+      const priceIdx = headers.findIndex(h => h.includes('fiyat') || h.includes('price') || h.includes('tutar'));
+      const lifeIdx = headers.findIndex(h => h.includes('ömür') || h.includes('life'));
+      const serialIdx = headers.findIndex(h => h.includes('seri') || h.includes('serial'));
+      const locIdx = headers.findIndex(h => h.includes('konum') || h.includes('location'));
+      const deptIdx = headers.findIndex(h => h.includes('departman') || h.includes('department'));
+      const plateIdx = headers.findIndex(h => h.includes('plaka') || h.includes('plate'));
+      const brandIdx = headers.findIndex(h => h.includes('marka') || h.includes('brand'));
+      const modelIdx = headers.findIndex(h => h.includes('model'));
+      const yearIdx = headers.findIndex(h => h.includes('yıl') || h.includes('year'));
+      const fuelIdx = headers.findIndex(h => h.includes('yakıt') || h.includes('fuel'));
+
+      let successCount = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.trim());
+        const name = nameIdx >= 0 ? cols[nameIdx] : '';
+        if (!name) continue;
+
+        const category = catIdx >= 0 ? cols[catIdx] || 'other' : 'other';
+        const purchase_date = dateIdx >= 0 ? cols[dateIdx] : '';
+        const purchase_price = priceIdx >= 0 ? parseFloat(cols[priceIdx]?.replace(/[^\d.-]/g, '') || '0') : 0;
+        const useful_life = lifeIdx >= 0 ? parseInt(cols[lifeIdx]) || 5 : 5;
+        const serial_number = serialIdx >= 0 ? cols[serialIdx] : '';
+        const location = locIdx >= 0 ? cols[locIdx] : '';
+        const department = deptIdx >= 0 ? cols[deptIdx] : '';
+
+        const assetCode = generateAssetCode();
+        const { data: newAsset, error } = await supabase.from('fixed_assets').insert({
+          asset_code: assetCode, name, category, purchase_date: purchase_date || null,
+          purchase_price, current_value: purchase_price, depreciation_rate: useful_life > 0 ? 100 / useful_life : 0,
+          useful_life, serial_number, location, department,
+          firm_id: selectedFirm?.id || null, status: 'active',
+        }).select().single();
+
+        if (error) { console.error('Import error:', error); continue; }
+
+        // Araç ise vehicle_details ekle
+        if (category === 'vehicle' && newAsset) {
+          const plate = plateIdx >= 0 ? cols[plateIdx] : '';
+          const brand = brandIdx >= 0 ? cols[brandIdx] : '';
+          const model = modelIdx >= 0 ? cols[modelIdx] : '';
+          const year = yearIdx >= 0 ? parseInt(cols[yearIdx]) || new Date().getFullYear() : new Date().getFullYear();
+          const fuel_type = fuelIdx >= 0 ? cols[fuelIdx] || 'diesel' : 'diesel';
+
+          if (plate) {
+            await supabase.from('vehicle_details').insert({
+              asset_id: newAsset.id, plate_number: plate, brand, model, year, fuel_type,
+            });
+          }
+        }
+        successCount++;
+      }
+
+      setMessage({ type: 'success', text: `${successCount} demirbaş başarıyla içe aktarıldı!` });
+      fetchData();
+    } catch (err) {
+      setMessage({ type: 'error', text: 'İçe aktarma hatası: ' + (err as Error).message });
+    } finally {
+      setImporting(false);
+      setTimeout(() => setMessage(null), 5000);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -239,7 +359,7 @@ export default function AssetManagement() {
     return matchesSearch && matchesCategory && matchesStatus;
   });
 
-  const getCategoryLabel = (cat: string) => CATEGORIES.find(c => c.value === cat)?.label || cat;
+  const getCategoryLabel = (cat: string) => CATEGORIES.find(c => c.value === cat)?.label || customCategories.find(c => c.value === cat)?.label || cat;
   const getStatusColor = (status: string) => ({ active: 'bg-green-100 text-green-700', disposed: 'bg-red-100 text-red-700', maintenance: 'bg-yellow-100 text-yellow-700' }[status] || 'bg-slate-100 text-slate-700');
   const getStatusLabel = (status: string) => ({ active: 'Aktif', disposed: 'Satıldı', maintenance: 'Bakımda' }[status] || status);
 
@@ -250,6 +370,8 @@ export default function AssetManagement() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Package size={24} />Demirbaş Yönetimi{selectedFirm ? ` - ${selectedFirm.name}` : ''}</h1>
         <div className="flex gap-2">
+          <button onClick={downloadExampleCSV} className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"><Download size={16} />Örnek CSV</button>
+          <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"><Upload size={16} />İçe Aktar</button>
           <button onClick={() => { resetForm(); setEditingAsset(null); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"><Plus size={16} />Yeni Demirbaş</button>
         </div>
       </div>
@@ -382,7 +504,16 @@ export default function AssetManagement() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Ad *</label><input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Kategori</label><select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg">{CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Kategori</label>
+                  <div className="flex gap-2">
+                    <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="flex-1 px-4 py-2 border border-slate-300 rounded-lg">
+                      {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                      {customCategories.length > 0 && <optgroup label="Özel Kategoriler">{customCategories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</optgroup>}
+                    </select>
+                    <button type="button" onClick={() => setShowAddCategory(true)} className="px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 text-sm">+ Ekle</button>
+                  </div>
+                </div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Alış Tarihi</label><input type="date" value={formData.purchase_date} onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Alış Fiyatı</label><input type="number" value={formData.purchase_price} onChange={(e) => setFormData({ ...formData, purchase_price: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Faydalı Ömür (Yıl)</label><input type="number" value={formData.useful_life} onChange={(e) => setFormData({ ...formData, useful_life: parseInt(e.target.value) || 5 })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
@@ -567,6 +698,45 @@ export default function AssetManagement() {
               <div className="flex gap-2 justify-end">
                 <button onClick={() => setShowAssignForm(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
                 <button onClick={handleAssign} className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">Zimmetle</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* İçe Aktarma Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h2 className="text-lg font-semibold mb-4">Demirbaş İçe Aktar</h2>
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-700 mb-2"><strong>CSV Formatı:</strong></p>
+                <p className="text-xs text-blue-600">Kategori, Ad, Alış Tarihi, Alış Faydalı Ömür, Seri No, Konum, Departman</p>
+                <p className="text-xs text-blue-600 mt-1">Araçlar için ek: Plaka, Marka, Model, Yıl, Yakıt Tipi</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">CSV Dosyası Seçin</label>
+                <input type="file" accept=".csv,.xlsx,.xls" onChange={handleImport} className="w-full px-4 py-2 border border-slate-300 rounded-lg" disabled={importing} />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setShowImportModal(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Kategori Ekleme Modal */}
+      {showAddCategory && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+            <h2 className="text-lg font-semibold mb-4">Yeni Kategori Ekle</h2>
+            <div className="space-y-4">
+              <div><label className="block text-sm font-medium text-slate-700 mb-1">Kategori Adı</label><input type="text" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} placeholder="Örn: İş Makinesi" className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => { setShowAddCategory(false); setNewCategoryName(''); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
+                <button onClick={handleAddCategory} disabled={!newCategoryName.trim()} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">Ekle</button>
               </div>
             </div>
           </div>
