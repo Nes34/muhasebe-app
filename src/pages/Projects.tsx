@@ -287,6 +287,33 @@ export default function Projects() {
               </div>
             </div>
 
+            {/* Bütçe Kullanım Özeti */}
+            {totalBudget > 0 && (
+              <div className="bg-white rounded-xl p-4 border border-slate-200 mb-4">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">Bütçe Kullanım Durumu</h3>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-slate-600">Toplam Kullanım</span>
+                      <span className="font-medium">{Math.min((totalExpense / totalBudget) * 100, 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full h-4 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${(totalExpense / totalBudget) * 100 >= 100 ? 'bg-red-500' : (totalExpense / totalBudget) * 100 >= 80 ? 'bg-amber-500' : 'bg-green-500'}`}
+                        style={{ width: `${Math.min((totalExpense / totalBudget) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-slate-600">Kalan Bütçe</p>
+                    <p className={`text-lg font-bold ${totalBudget - totalExpense >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatCurrency(totalBudget - totalExpense)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Proje Detayları Tablosu */}
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
               <div className="overflow-x-auto">
