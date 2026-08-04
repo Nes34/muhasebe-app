@@ -116,7 +116,7 @@ export default function TransactionEntry() {
     }
 
     const [firmsRes, carilerRes, projectsRes, categoriesRes, typesRes, cashRes, bankRes, productsRes, unitsRes, descriptionsRes] = await Promise.all([
-      supabase.from('firms').select('*').eq('is_active', true).in('type', ['customer', 'supplier']),
+      supabase.from('firms').select('*').eq('is_active', true),
       supabase.from('cariler').select('*').eq('is_active', true).order('code'),
       projectsQuery,
       supabase.from('expense_categories').select('*').eq('is_active', true),
