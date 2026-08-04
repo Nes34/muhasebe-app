@@ -259,6 +259,63 @@ export default function AssetManagement() {
         </div>
       </div>
 
+      {/* Hatırlatmalar */}
+      {assets.filter(a => a.category === 'vehicle' && a.vehicle).length > 0 && (() => {
+        const today = new Date();
+        const thirtyDaysLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const reminders: { type: string; vehicle: string; message: string; date: string; color: string }[] = [];
+
+        assets.filter(a => a.category === 'vehicle' && a.vehicle).forEach(asset => {
+          const v = asset.vehicle!;
+          // Sigorta bitiş
+          if (v.insurance_end) {
+            const endDate = new Date(v.insurance_end);
+            if (endDate <= thirtyDaysLater) {
+              const days = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              reminders.push({ type: 'Sigorta', vehicle: v.plate_number, message: `Sigorta ${days < 0 ? 'süresi geçmiş' : `${days} gün sonra bitiyor`}`, date: v.insurance_end, color: days < 0 ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-700' });
+            }
+          }
+          // Muayene
+          if (v.next_inspection_date) {
+            const inspDate = new Date(v.next_inspection_date);
+            if (inspDate <= thirtyDaysLater) {
+              const days = Math.ceil((inspDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+              reminders.push({ type: 'Muayene', vehicle: v.plate_number, message: `Muayene ${days < 0 ? 'geçmiş' : `${days} gün sonra`}`, date: v.next_inspection_date, color: days < 0 ? 'bg-red-50 border-red-200 text-red-700' : 'bg-purple-50 border-purple-200 text-purple-700' });
+            }
+          }
+          // 10.000 KM bakım
+          if (v.current_km > 0 && v.next_maintenance_km > 0) {
+            const kmUntil = v.next_maintenance_km - v.current_km;
+            if (kmUntil <= 1000) {
+              reminders.push({ type: 'Bakım', vehicle: v.plate_number, message: `${kmUntil <= 0 ? 'Bakım geçmiş' : `${kmUntil} KM sonra bakım`}`, date: '', color: kmUntil <= 0 ? 'bg-red-50 border-red-200 text-red-700' : 'bg-yellow-50 border-yellow-200 text-yellow-700' });
+            }
+          }
+        });
+
+        if (reminders.length === 0) return null;
+
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+              <AlertTriangle size={16} className="text-orange-500" />
+              Hatırlatmalar ({reminders.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {reminders.map((r, i) => (
+                <div key={i} className={`p-3 rounded-lg border ${r.color}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-semibold">{r.type}</span>
+                    <span className="text-xs font-mono">{r.vehicle}</span>
+                  </div>
+                  <p className="text-sm">{r.message}</p>
+                  {r.date && <p className="text-xs mt-1 opacity-75">{formatDateTR(r.date)}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Demirbaş Tablosu */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
