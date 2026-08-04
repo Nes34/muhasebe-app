@@ -145,13 +145,12 @@ export default function Dashboard() {
           // Transferler gelir/gider olarak sayılmaz
         } else if (['income', 'invoice'].includes(t.transaction_type)) {
           totalIncome += t.amount;
-          incomeList.push(t);
+          incomeList.push({ ...t, _type: 'income' });
         } else {
           totalExpense += t.amount;
-          expenseList.push(t);
+          expenseList.push({ ...t, _type: 'expense' });
         }
       });
-      console.log('DEBUG allTx:', allTx?.length, 'income:', totalIncome, 'expense:', totalExpense);
 
       // Bağımsız kasa/banka işlemleri (transaction_id olmayanlar — mükerrer önlemek için)
       const cashIds = (cash || []).map((c: any) => c.id);
@@ -163,25 +162,25 @@ export default function Dashboard() {
       ]);
 
       (cashTxRes.data || []).forEach((t: any) => {
-        const item = { ...t, transaction_date: t.created_at?.split('T')[0], description: `Kasa - ${t.cari?.name || ''}`, source: 'cash' };
+        const item = { ...t, transaction_date: t.created_at?.split('T')[0], description: `Kasa - ${t.cari?.name || ''}`, source: 'cash', _type: 'income' as const };
         if (t.transaction_type === 'in') { totalIncome += t.amount; incomeList.push(item); }
-        else { totalExpense += t.amount; expenseList.push(item); }
+        else { totalExpense += t.amount; expenseList.push({ ...item, _type: 'expense' }); }
       });
 
       (bankTxRes.data || []).forEach((t: any) => {
-        const item = { ...t, transaction_date: t.created_at?.split('T')[0], description: `Banka - ${t.cari?.name || ''}`, source: 'bank' };
+        const item = { ...t, transaction_date: t.created_at?.split('T')[0], description: `Banka - ${t.cari?.name || ''}`, source: 'bank', _type: 'income' as const };
         if (t.transaction_type === 'in') { totalIncome += t.amount; incomeList.push(item); }
-        else { totalExpense += t.amount; expenseList.push(item); }
+        else { totalExpense += t.amount; expenseList.push({ ...item, _type: 'expense' }); }
       });
 
       // Açılış bakiyelerini gelir/gidere ekle
       (cash || []).forEach((c: any) => {
-        if (c.opening_balance > 0) { totalIncome += c.opening_balance; incomeList.push({ description: `Kasa Açılış - ${c.name}`, amount: c.opening_balance, transaction_date: '', source: 'cash_opening' }); }
-        else if (c.opening_balance < 0) { totalExpense += Math.abs(c.opening_balance); expenseList.push({ description: `Kasa Açılış - ${c.name}`, amount: Math.abs(c.opening_balance), transaction_date: '', source: 'cash_opening' }); }
+        if (c.opening_balance > 0) { totalIncome += c.opening_balance; incomeList.push({ description: `Kasa Açılış - ${c.name}`, amount: c.opening_balance, transaction_date: '', source: 'cash_opening', _type: 'income' }); }
+        else if (c.opening_balance < 0) { totalExpense += Math.abs(c.opening_balance); expenseList.push({ description: `Kasa Açılış - ${c.name}`, amount: Math.abs(c.opening_balance), transaction_date: '', source: 'cash_opening', _type: 'expense' }); }
       });
       (bank || []).forEach((b: any) => {
-        if (b.opening_balance > 0) { totalIncome += b.opening_balance; incomeList.push({ description: `Banka Açılış - ${b.bank_name}`, amount: b.opening_balance, transaction_date: '', source: 'bank_opening' }); }
-        else if (b.opening_balance < 0) { totalExpense += Math.abs(b.opening_balance); expenseList.push({ description: `Banka Açılış - ${b.bank_name}`, amount: Math.abs(b.opening_balance), transaction_date: '', source: 'bank_opening' }); }
+        if (b.opening_balance > 0) { totalIncome += b.opening_balance; incomeList.push({ description: `Banka Açılış - ${b.bank_name}`, amount: b.opening_balance, transaction_date: '', source: 'bank_opening', _type: 'income' }); }
+        else if (b.opening_balance < 0) { totalExpense += Math.abs(b.opening_balance); expenseList.push({ description: `Banka Açılış - ${b.bank_name}`, amount: Math.abs(b.opening_balance), transaction_date: '', source: 'bank_opening', _type: 'expense' }); }
       });
 
       setIncomeData(incomeList);
@@ -399,10 +398,12 @@ export default function Dashboard() {
           ) : (
             <div className="max-h-[400px] overflow-y-auto space-y-2">
               {/* Gelir/Gider Filtresi */}
-              {(activeFilter === 'income' || activeFilter === 'expense' || activeFilter === 'profitLoss') && filterData.map((t: any, i: number) => (
+              {(activeFilter === 'income' || activeFilter === 'expense' || activeFilter === 'profitLoss') && filterData.map((t: any, i: number) => {
+                const isIncome = activeFilter === 'income' || (activeFilter === 'profitLoss' && t._type === 'income');
+                return (
                 <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100">
                   <div className="flex items-center gap-3">
-                    {['income', 'invoice', 'sale_invoice'].includes(t.transaction_type) ? (
+                    {isIncome ? (
                       <ArrowUpCircle size={18} className="text-green-500" />
                     ) : (
                       <ArrowDownCircle size={18} className="text-red-500" />
@@ -412,11 +413,12 @@ export default function Dashboard() {
                       <p className="text-xs text-slate-500">{getTypeLabel(t.transaction_type)} • {formatDateTR(t.transaction_date)}</p>
                     </div>
                   </div>
-                  <p className={`font-semibold ${getTypeColor(t.transaction_type)}`}>
-                    {['income', 'invoice', 'sale_invoice'].includes(t.transaction_type) ? '+' : '-'}{formatCurrency(t.amount)}
+                  <p className={`font-semibold ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
+                    {isIncome ? '+' : '-'}{formatCurrency(t.amount)}
                   </p>
                 </div>
-              ))}
+                );
+              })}
 
               {/* Kasa Filtresi */}
               {activeFilter === 'cash' && filterData.map((c: any) => (
