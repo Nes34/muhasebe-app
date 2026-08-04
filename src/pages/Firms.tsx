@@ -181,26 +181,6 @@ export default function Firms() {
       return { firm, income, expense, checksGiven: pendingGivenChecks, checksPaid, profitLoss };
     });
 
-    // "Diğer" = Toplam - Firmalar (sadece tüm firmalar görünümünde)
-    if (!selectedFirm) {
-      const firmTotalIncome = summaries.reduce((s, f) => s + f.income, 0);
-      const firmTotalExpense = summaries.reduce((s, f) => s + f.expense, 0);
-      const digerIncome = totalIncome - firmTotalIncome;
-      const digerExpense = totalExpense - firmTotalExpense;
-
-      if (digerIncome > 0 || digerExpense > 0) {
-        const digerFirm: Firm = { id: '__diger__', name: 'Diğer (Atanmamış)', code: '', tax_number: '', address: '', phone: '', email: '', type: 'both', is_active: true, created_at: '' };
-        summaries.push({
-          firm: digerFirm,
-          income: Math.max(0, digerIncome),
-          expense: Math.max(0, digerExpense),
-          checksGiven: 0,
-          checksPaid: 0,
-          profitLoss: Math.max(0, digerIncome) - Math.max(0, digerExpense),
-        });
-      }
-    }
-
     setFirmSummaries(summaries);
 
     // Sayfa toplamları — Dashboard ile birebir aynı formül (firma özetlerinin toplamı DEĞİL)
