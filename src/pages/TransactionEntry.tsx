@@ -1434,7 +1434,8 @@ export default function TransactionEntry() {
                                   (() => {
                                     const filtered = products.filter(p =>
                                       p.name.toLowerCase().includes(item.description.toLowerCase()) ||
-                                      p.code?.toLowerCase().includes(item.description.toLowerCase())
+                                      p.code?.toLowerCase().includes(item.description.toLowerCase()) ||
+                                      p.barcode?.toLowerCase().includes(item.description.toLowerCase())
                                     ).slice(0, 5);
                                     if (filtered.length === 0) return null;
                                     return (
