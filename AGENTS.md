@@ -39,6 +39,49 @@
 - **Yeni özellik eklendiğinde `src/lib/ai.ts` dosyasındaki SYSTEM_PROMPT'u güncelle!**
 - Kullanıcı "nasıl yaparım" dediğinde asistan yeni özellikleri bilmeli
 
+## 🔧 Yeni Özellik Eklerken Kontrol Listesi
+
+### Yeni Sayfa Eklerken:
+1. `src/pages/YeniSayfa.tsx` → Sayfa bileşeni oluştur
+2. `src/App.tsx` → Route ekle (`<Route path="/yeni-sayfa" element={<YeniSayfa />} />`)
+3. `src/components/layout/Sidebar.tsx` → Menü linki ekle
+4. `src/lib/ai.ts` → SYSTEM_PROMPT'a yeni sayfa bilgisi ekle
+
+### Yeni Tablo Eklerken:
+1. Supabase SQL Editor'da tablo oluştur
+2. `src/types/index.ts` → TypeScript arayüzü ekle
+3. İlgili sayfada CRUD işlemleri yaz
+4. `src/lib/ai.ts` → SYSTEM_PROMPT'a tablo bilgisi ekle
+
+### Mevcut Sayfa Değiştirirken:
+1. İlgili `src/pages/Sayfa.tsx` dosyasını değiştir
+2. `src/lib/ai.ts` → SYSTEM_PROMPT'u güncelle (yeni özellik bilgisi)
+
+### Header/Sidebar Değiştirirken:
+1. `src/components/layout/Header.tsx` → Header değişiklikleri
+2. `src/components/layout/Sidebar.tsx` → Sidebar değişiklikleri
+3. `src/components/layout/MobileNav.tsx` → Mobil menü değişiklikleri
+
+### Yeni Hook/Context Eklerken:
+1. `src/hooks/useYeniHook.tsx` → Hook oluştur
+2. `src/App.tsx` → Provider ekle (gerekirse)
+
+### Tip/Tür Eklerken:
+1. `src/types/index.ts` → Yeni arayüz ekle
+2. `src/lib/ai.ts` → SYSTEM_PROMPT'a yeni tip bilgisi ekle
+
+### Raporlama/Analiz Eklerken:
+1. `src/pages/Reports.tsx` → Mevcut raporlara ekle
+2. `src/lib/ai.ts` → SYSTEM_PROMPT'a rapor bilgisi ekle
+
+## 📋 AI Asistanı SYSTEM_PROMPT İçeriği
+AI asistanı aşağıdaki bilgileri bilmeli:
+- Tüm sayfa isimleri ve ne işe yaradıkları
+- Tüm tablo isimleri ve alanları
+- İşlem tipleri (income, expense, sale_invoice, vb.)
+- Hesaplama formülleri (KDV, net maaş, vb.)
+- Adım adım kullanım kılavuzları
+
 ## Kullanıcı Bilgileri
 - GitHub: Nes34
 - E-posta: nes34444@gmail.com
