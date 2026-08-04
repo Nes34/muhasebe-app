@@ -80,6 +80,10 @@ body {
   color: #64748b;
 }
 
+.dark .text-slate-300 {
+  color: #475569;
+}
+
 .dark .border-slate-200,
 .dark .border-slate-300 {
   border-color: #334155;
@@ -143,4 +147,95 @@ body {
 
 .dark .bg-fuchsia-50 {
   background-color: #701a75;
+}
+
+/* Dark mode text colors for colored elements */
+.dark .text-green-600 {
+  color: #4ade80;
+}
+
+.dark .text-red-600 {
+  color: #f87171;
+}
+
+.dark .text-blue-600 {
+  color: #60a5fa;
+}
+
+.dark .text-orange-600 {
+  color: #fb923c;
+}
+
+.dark .text-yellow-600 {
+  color: #fbbf24;
+}
+
+.dark .text-purple-600 {
+  color: #c084fc;
+}
+
+.dark .text-teal-600 {
+  color: #2dd4bf;
+}
+
+.dark .text-amber-600 {
+  color: #fbbf24;
+}
+
+.dark .text-emerald-600 {
+  color: #34d399;
+}
+
+.dark .text-rose-600 {
+  color: #fb7185;
+}
+
+.dark .text-indigo-600 {
+  color: #818cf8;
+}
+
+/* Dark mode input fields */
+.dark input[type="text"],
+.dark input[type="number"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark input[type="date"],
+.dark input[type="month"],
+.dark select,
+.dark textarea {
+  background-color: #1e293b;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b;
+}
+
+/* Dark mode table */
+.dark table {
+  color: #e2e8f0;
+}
+
+.dark th {
+  background-color: #0f172a;
+  color: #94a3b8;
+}
+
+.dark td {
+  border-color: #334155;
+}
+
+.dark tr:hover {
+  background-color: #1e293b;
+}
+
+/* Dark mode buttons */
+.dark button {
+  color: #e2e8f0;
+}
+
+.dark .bg-white button {
+  color: #e2e8f0;
 }
