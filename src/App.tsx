@@ -25,6 +25,7 @@ import FirmMerge from './pages/FirmMerge';
 import UserManagement from './pages/UserManagement';
 import OrderEntry from './pages/OrderEntry';
 import OrderTracking from './pages/OrderTracking';
+import PersonnelManagement from './pages/PersonnelManagement';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -77,6 +78,7 @@ function AppLayout() {
             <Route path="/cariler" element={<Cariler />} />
             <Route path="/firma-birlesme" element={<FirmMerge />} />
             <Route path="/kullanici-yonetimi" element={<UserManagement />} />
+            <Route path="/personel" element={<PersonnelManagement />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>

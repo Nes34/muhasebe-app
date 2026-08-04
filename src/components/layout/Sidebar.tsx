@@ -74,6 +74,13 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
+    title: 'PERSONEL',
+    icon: Users,
+    items: [
+      { to: '/personel', icon: Users, label: 'Personel Yönetimi' },
+    ],
+  },
+  {
     title: 'STOK & ENVANTER',
     icon: Package,
     items: [

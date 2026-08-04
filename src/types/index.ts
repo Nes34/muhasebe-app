@@ -376,3 +376,134 @@ export interface OrderInvoiceItem {
   created_at: string;
   order_item?: OrderItem;
 }
+
+// =============================================
+// PERSONEL MODÜLÜ TİPLERİ
+// =============================================
+
+export interface Personnel {
+  id: string;
+  firm_id?: string;
+  tc_number: string;
+  first_name: string;
+  last_name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  position?: string;
+  taseron: string;
+  start_date: string;
+  end_date?: string;
+  status: 'active' | 'resigned' | 'on_leave';
+  is_protected: boolean;
+  gross_salary?: number;
+  net_salary?: number;
+  bank_name?: string;
+  bank_iban?: string;
+  sgk_number?: string;
+  created_at: string;
+  updated_at: string;
+  firm?: Firm;
+}
+
+export interface PersonnelTransfer {
+  id: string;
+  personnel_id: string;
+  transfer_date: string;
+  old_firm_id?: string;
+  new_firm_id?: string;
+  old_project_id?: string;
+  new_project_id?: string;
+  old_taseron?: string;
+  new_taseron?: string;
+  is_active: boolean;
+  salary_paid: boolean;
+  created_at: string;
+  personnel?: Personnel;
+  old_firm?: Firm;
+  new_firm?: Firm;
+  old_project?: Project;
+  new_project?: Project;
+}
+
+export interface PayrollPeriod {
+  id: string;
+  firm_id: string;
+  year: number;
+  month: number;
+  minimum_wage: number;
+  status: 'draft' | 'approved' | 'paid';
+  created_at: string;
+  firm?: Firm;
+}
+
+export interface Payroll {
+  id: string;
+  personnel_id: string;
+  period_id: string;
+  firm_id: string;
+  project_id?: string;
+  gross_salary: number;
+  net_salary?: number;
+  overtime_hours: number;
+  overtime_pay: number;
+  holiday_overtime_hours: number;
+  holiday_overtime_pay: number;
+  missing_days: number;
+  missing_deduction: number;
+  bonus: number;
+  advance_deduction: number;
+  sgk_employee: number;
+  income_tax: number;
+  stamp_tax: number;
+  total_deductions: number;
+  net_pay: number;
+  status: 'draft' | 'approved' | 'paid';
+  created_at: string;
+  personnel?: Personnel;
+  period?: PayrollPeriod;
+}
+
+export interface Attendance {
+  id: string;
+  personnel_id: string;
+  date: string;
+  overtime_hours: number;
+  is_holiday: boolean;
+  missing_days: number;
+  notes?: string;
+  created_at: string;
+  personnel?: Personnel;
+}
+
+export interface LeaveRequest {
+  id: string;
+  personnel_id: string;
+  leave_type: 'annual' | 'sick' | 'unpaid' | 'maternity' | 'other';
+  start_date: string;
+  end_date: string;
+  days: number;
+  reason?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  approved_by?: string;
+  created_at: string;
+  personnel?: Personnel;
+}
+
+export interface SeveranceCalculation {
+  id: string;
+  personnel_id: string;
+  calculation_type: 'severance' | 'notice';
+  calculation_date: string;
+  start_date: string;
+  end_date?: string;
+  years_worked: number;
+  gross_salary: number;
+  daily_rate: number;
+  total_days: number;
+  total_amount: number;
+  ceiling_amount?: number;
+  notes?: string;
+  created_at: string;
+  personnel?: Personnel;
+}
