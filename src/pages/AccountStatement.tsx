@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { exportAccountStatementToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
-import type { Cari, Project } from '../types';
+import type { Cari } from '../types';
 import { Search, Download, FileText } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 
@@ -11,16 +11,14 @@ export default function AccountStatement() {
   const { selectedFirm, selectedProject } = useFirm();
   const [cariler, setCariler] = useState<Cari[]>([]);
   const [allCariler, setAllCariler] = useState<Cari[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCariId, setSelectedCariId] = useState('');
-  const [selectedProjectId, setSelectedProjectId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [includeException, setIncludeException] = useState(true);
 
-  useEffect(() => { fetchCariler(); fetchProjects(); }, []);
+  useEffect(() => { fetchCariler(); }, []);
   useEffect(() => {
     if (selectedFirm) {
       Promise.all([
@@ -48,16 +46,11 @@ export default function AccountStatement() {
     setSelectedCariId('');
     setTransactions([]);
   }, [selectedFirm, selectedProject]);
-  useEffect(() => { if (selectedCariId) fetchStatement(); }, [selectedCariId, selectedProjectId, startDate, endDate, includeException]);
+  useEffect(() => { if (selectedCariId) fetchStatement(); }, [selectedCariId, selectedProject, startDate, endDate, includeException]);
 
   const fetchCariler = async () => {
     const { data } = await supabase.from('cariler').select('*').eq('is_active', true).order('code');
     if (data) setAllCariler(data);
-  };
-
-  const fetchProjects = async () => {
-    const { data } = await supabase.from('projects').select('*').eq('status', 'active').order('name');
-    if (data) setProjects(data);
   };
 
   const fetchStatement = async () => {
@@ -67,7 +60,7 @@ export default function AccountStatement() {
     const [txRes, checkRes, cashRes, bankRes] = await Promise.all([
       (async () => {
         let q = supabase.from('transactions').select('*, firm:firms(*), project:projects(*)').eq('cari_id', selectedCariId).order('transaction_date', { ascending: true });
-        if (selectedProjectId) q = q.eq('project_id', selectedProjectId);
+        if (selectedProject) q = q.eq('project_id', selectedProject.id);
         if (startDate) q = q.gte('transaction_date', startDate);
         if (endDate) q = q.lte('transaction_date', endDate);
         if (!includeException) q = q.eq('is_exception', false);
@@ -152,7 +145,7 @@ export default function AccountStatement() {
     <div>
       <h1 className="text-2xl font-bold text-slate-800 mb-6">Cari Hesap Ekstresi</h1>
       <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Cari</label>
             <select
@@ -167,7 +160,6 @@ export default function AccountStatement() {
               ))}
             </select>
           </div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Proje</label><select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"><option value="">Tüm Projeler</option>{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
           <div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç</label><input type="text" value={startDate} onChange={(e) => setStartDate(e.target.value)} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" /></div>
           <div><label className="block text-sm font-medium text-slate-700 mb-1">Bitiş</label><input type="text" value={endDate} onChange={(e) => setEndDate(e.target.value)} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" /></div>
         </div>

@@ -195,12 +195,12 @@ export default function CheckManagement() {
       </div>
 
       {filteredChecks.some(c => { const d = getDaysUntilDue(c.due_date); return d >= 0 && d <= 5; }) && (
-        <div className="mb-6 bg-orange-50 border border-orange-200 rounded-xl p-4">
-          <div className="flex items-center gap-2 text-orange-700 mb-2"><AlertTriangle size={20} /><span className="font-semibold">Vadesi Yaklaşan Çekler</span></div>
+        <div className="mb-6 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-xl p-4">
+          <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400 mb-2"><AlertTriangle size={20} /><span className="font-semibold">Vadesi Yaklaşan Çekler</span></div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg p-3"><p className="text-sm text-slate-600">5 Gün İçinde</p><p className="text-lg font-bold text-orange-600">{filteredChecks.filter(c => { const d = getDaysUntilDue(c.due_date); return d > 0 && d <= 5; }).length} Çek</p></div>
-            <div className="bg-white rounded-lg p-3"><p className="text-sm text-slate-600">1 Gün İçinde</p><p className="text-lg font-bold text-orange-600">{filteredChecks.filter(c => getDaysUntilDue(c.due_date) === 1).length} Çek</p></div>
-            <div className="bg-white rounded-lg p-3"><p className="text-sm text-slate-600">Bugün Vade</p><p className="text-lg font-bold text-red-600">{filteredChecks.filter(c => getDaysUntilDue(c.due_date) === 0).length} Çek</p></div>
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-3"><p className="text-sm text-slate-600 dark:text-slate-400">5 Gün İçinde</p><p className="text-lg font-bold text-orange-600 dark:text-orange-400">{filteredChecks.filter(c => { const d = getDaysUntilDue(c.due_date); return d > 0 && d <= 5; }).length} Çek</p></div>
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-3"><p className="text-sm text-slate-600 dark:text-slate-400">1 Gün İçinde</p><p className="text-lg font-bold text-orange-600 dark:text-orange-400">{filteredChecks.filter(c => getDaysUntilDue(c.due_date) === 1).length} Çek</p></div>
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-3"><p className="text-sm text-slate-600 dark:text-slate-400">Bugün Vade</p><p className="text-lg font-bold text-red-600 dark:text-red-400">{filteredChecks.filter(c => getDaysUntilDue(c.due_date) === 0).length} Çek</p></div>
           </div>
         </div>
       )}
