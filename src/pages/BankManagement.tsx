@@ -4,7 +4,7 @@ import { formatDateTR, formatCurrency } from '../lib/utils';
 import { exportBankTransactionsToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
 import type { BankAccount, BankTransaction, Firm, Cari, Project } from '../types';
-import { Plus, ArrowUpCircle, ArrowDownCircle, Building2, Download } from 'lucide-react';
+import { Plus, ArrowUpCircle, ArrowDownCircle, Building2, Download, Upload } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 
 interface BankAccountWithFirms extends BankAccount {
@@ -26,6 +26,10 @@ export default function BankManagement() {
   const [transactionData, setTransactionData] = useState<{ transaction_type: 'in' | 'out'; amount: number; description: string; cari_id: string; project_id: string }>({ transaction_type: 'in', amount: 0, description: '', cari_id: '', project_id: '' });
   const [editModal, setEditModal] = useState<BankAccountWithFirms | null>(null);
   const [editBalance, setEditBalance] = useState(0);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importAccountId, setImportAccountId] = useState('');
 
   useEffect(() => { fetchData(); }, []);
 
@@ -160,11 +164,73 @@ export default function BankManagement() {
 
   const filteredProjects = projects.filter(p => !selectedFirm || p.firm_id === selectedFirm.id);
 
+  const handleImport = async () => {
+    if (!importFile || !importAccountId) return;
+    setImporting(true);
+    try {
+      const text = await importFile.text();
+      const lines = text.split('\n').filter(l => l.trim());
+      if (lines.length < 2) { alert('Dosyada veri bulunamadı.'); return; }
+
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const dateIdx = headers.findIndex(h => h.includes('tarih') || h.includes('date'));
+      const typeIdx = headers.findIndex(h => h.includes('tip') || h.includes('type') || h.includes('işlem'));
+      const amountIdx = headers.findIndex(h => h.includes('tutar') || h.includes('amount'));
+      const descIdx = headers.findIndex(h => h.includes('açıklama') || h.includes('description') || h.includes('detay'));
+
+      if (amountIdx === -1) { alert('Tutar sütunu bulunamadı. Sütun başlıklarını kontrol edin.'); return; }
+
+      let successCount = 0;
+      const account = accounts.find(a => a.id === importAccountId);
+      let balance = account?.current_balance || 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.trim());
+        const amount = parseFloat(cols[amountIdx]?.replace(/[^\d.-]/g, '') || '0');
+        if (amount === 0) continue;
+
+        const date = dateIdx >= 0 ? cols[dateIdx] : new Date().toISOString().split('T')[0];
+        const desc = descIdx >= 0 ? cols[descIdx] : 'Banka Ekstresi İçe Aktarma';
+        const typeStr = typeIdx >= 0 ? cols[typeIdx]?.toLowerCase() : '';
+        const isIncome = typeStr.includes('gelen') || typeStr.includes('in') || typeStr.includes('giriş') || amount > 0;
+        const txType = isIncome ? 'in' : 'out';
+        const txAmount = Math.abs(amount);
+
+        await supabase.from('bank_transactions').insert({
+          bank_account_id: importAccountId,
+          firm_id: selectedFirm?.id || null,
+          transaction_type: txType,
+          amount: txAmount,
+          description: desc,
+          created_at: date.includes('T') ? date : `${date}T00:00:00`,
+        });
+
+        balance = isIncome ? balance + txAmount : balance - txAmount;
+        successCount++;
+      }
+
+      await supabase.from('bank_accounts').update({ current_balance: balance }).eq('id', importAccountId);
+      alert(`${successCount} işlem başarıyla içe aktarıldı!`);
+      setShowImportModal(false);
+      setImportFile(null);
+      setImportAccountId('');
+      fetchAccounts();
+      if (selectedAccount) fetchTransactions(selectedAccount);
+    } catch (err) {
+      alert('İçe aktarma hatası: ' + (err as Error).message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Banka Yönetimi{selectedFirm ? ` - ${selectedFirm.name}` : ''}</h1>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><Plus size={16} />Yeni Hesap</button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowImportModal(true)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"><Upload size={16} />Ekstre İçe Aktar</button>
+          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"><Plus size={16} />Yeni Hesap</button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -321,6 +387,43 @@ export default function BankManagement() {
             <div className="space-y-4">
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Yeni Açılış Bakiyesi</label><input type="number" value={editBalance} onChange={(e) => setEditBalance(parseFloat(e.target.value) || 0)} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
               <div className="flex gap-2 justify-end"><button type="button" onClick={() => setEditModal(null)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button><button type="button" onClick={handleUpdateOpeningBalance} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ekstre İçe Aktarma Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h2 className="text-lg font-semibold mb-4">Banka Ekstresi İçe Aktar</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Hesap Seçin</label>
+                <select value={importAccountId} onChange={(e) => setImportAccountId(e.target.value)} className="w-full px-4 py-2 border border-slate-300 rounded-lg">
+                  <option value="">Hesap Seçin</option>
+                  {accounts.map(a => <option key={a.id} value={a.id}>{a.bank_name} - {a.branch || 'Ana Hesap'}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">CSV/Excel Dosyası</label>
+                <input type="file" accept=".csv,.xlsx,.xls" onChange={(e) => setImportFile(e.target.files?.[0] || null)} className="w-full px-4 py-2 border border-slate-300 rounded-lg" />
+                <p className="text-xs text-slate-500 mt-1">Sütun başlıkları: Tarih, İşlem Tipi, Tutar, Açıklama</p>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-sm font-medium text-slate-700 mb-2">Örnek CSV Formatı:</p>
+                <code className="text-xs text-slate-600">
+                  Tarih,İşlem Tipi,Tutar,Açıklama<br />
+                  2024-01-15,Gelen,5000,Müşteri ödemesi<br />
+                  2024-01-16,Giden,2000,Fatura ödemesi
+                </code>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={() => { setShowImportModal(false); setImportFile(null); setImportAccountId(''); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
+                <button type="button" onClick={handleImport} disabled={!importFile || !importAccountId || importing} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
+                  {importing ? 'İçe Aktarılıyor...' : 'İçe Aktar'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
