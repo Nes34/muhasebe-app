@@ -916,16 +916,8 @@ export default function TransactionEntry() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="bg-white rounded-xl p-6 border border-slate-200">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center mb-3">
             <label className="text-sm font-medium text-slate-700">İşlem Tipi</label>
-            <button
-              type="button"
-              onClick={() => setShowAddTypeModal(true)}
-              className="flex items-center gap-1 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-            >
-              <Plus size={14} />
-              Yeni Tip Ekle
-            </button>
           </div>
           <div className="flex flex-wrap gap-3">
             {transactionTypes.map((type) => {
