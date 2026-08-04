@@ -110,7 +110,7 @@ export default function Firms() {
     (txRes.data || []).forEach((t: any) => {
       if (transferTypes.includes(t.transaction_type)) return;
       if (t.is_exception) return;
-      if (['income', 'invoice'].includes(t.transaction_type)) totalIncome += t.amount;
+      if (['income', 'invoice', 'sale_invoice'].includes(t.transaction_type)) totalIncome += t.amount;
       else totalExpense += t.amount;
     });
 
