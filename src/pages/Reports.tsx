@@ -30,9 +30,10 @@ export default function Reports() {
   const [firmReports, setFirmReports] = useState<Report[]>([]);
   const [projectReports, setProjectReports] = useState<Report[]>([]);
   const [transactionLogs, setTransactionLogs] = useState<TransactionLog[]>([]);
+  const [monthlyComparison, setMonthlyComparison] = useState<{ month: string; income: number; expense: number; net: number }[]>([]);
   const [userProfiles, setUserProfiles] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'firm' | 'project' | 'logs'>('firm');
+  const [activeTab, setActiveTab] = useState<'firm' | 'project' | 'logs' | 'comparison'>('firm');
   const [searchTerm, setSearchTerm] = useState('');
   const [userRole, setUserRole] = useState<string>('viewer');
 
@@ -79,6 +80,24 @@ export default function Reports() {
 
     // İşlem loglarını çek (admin için)
     setTransactionLogs(transactions as TransactionLog[]);
+
+    // Aylık karşılaştırma
+    const monthlyMap = new Map<string, { income: number; expense: number }>();
+    transactions.forEach(t => {
+      const month = t.transaction_date?.substring(0, 7) || 'Bilinmeyen';
+      const entry = monthlyMap.get(month) || { income: 0, expense: 0 };
+      if (t.transaction_type === 'income' || t.transaction_type === 'invoice' || t.transaction_type === 'sale_invoice') {
+        entry.income += t.amount;
+      } else {
+        entry.expense += t.amount;
+      }
+      monthlyMap.set(month, entry);
+    });
+    const monthlyData = Array.from(monthlyMap.entries())
+      .map(([month, data]) => ({ month, income: data.income, expense: data.expense, net: data.income - data.expense }))
+      .sort((a, b) => b.month.localeCompare(a.month));
+    setMonthlyComparison(monthlyData);
+
     setLoading(false);
   };
 
@@ -223,6 +242,7 @@ export default function Reports() {
       <div className="flex gap-2 mb-6">
         <button onClick={() => setActiveTab('firm')} className={`px-4 py-2 rounded-lg transition-colors ${activeTab === 'firm' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>Firma Bazlı</button>
         <button onClick={() => setActiveTab('project')} className={`px-4 py-2 rounded-lg transition-colors ${activeTab === 'project' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>Proje Bazlı</button>
+        <button onClick={() => setActiveTab('comparison')} className={`px-4 py-2 rounded-lg transition-colors ${activeTab === 'comparison' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>Aylık Karşılaştırma</button>
         {userRole === 'admin' && (
           <button onClick={() => setActiveTab('logs')} className={`px-4 py-2 rounded-lg transition-colors ${activeTab === 'logs' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
             <span className="flex items-center gap-2"><Users size={16} />İşlem Logları</span>
@@ -288,7 +308,45 @@ export default function Reports() {
         </div>
       )}
 
-      {activeTab !== 'logs' && (
+      {activeTab === 'comparison' && (
+        <div className="bg-white rounded-xl border border-slate-200">
+          <div className="flex items-center justify-between p-4 border-b border-slate-200">
+            <h2 className="font-semibold text-slate-800">Aylık Karşılaştırma</h2>
+            <div className="flex gap-2">
+              <button onClick={() => exportToExcel(monthlyComparison.map(r => ({ 'Ay': r.month, 'Gelir': r.income, 'Gider': r.expense, 'Net': r.net })), 'aylik-karsilastirma', 'Aylık Karşılaştırma')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"><Download size={16} />Excel</button>
+            </div>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50"><tr>
+              <ResizableTh columnId="karsilastirma-ay" className="text-left py-3 px-4">Ay</ResizableTh>
+              <ResizableTh columnId="karsilastirma-gelir" className="text-right py-3 px-4">Gelir</ResizableTh>
+              <ResizableTh columnId="karsilastirma-gider" className="text-right py-3 px-4">Gider</ResizableTh>
+              <ResizableTh columnId="karsilastirma-net" className="text-right py-3 px-4">Net</ResizableTh>
+            </tr></thead>
+            <tbody>
+              {monthlyComparison.map(r => (
+                <tr key={r.month} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="py-3 px-4 font-medium">{r.month}</td>
+                  <td className="py-3 px-4 text-right text-green-600">{formatCurrency(r.income)}</td>
+                  <td className="py-3 px-4 text-right text-red-600">{formatCurrency(r.expense)}</td>
+                  <td className="py-3 px-4 text-right font-medium"><span className={r.net >= 0 ? 'text-blue-600' : 'text-orange-600'}>{formatCurrency(r.net)}</span></td>
+                </tr>
+              ))}
+              {monthlyComparison.length > 0 && (
+                <tr className="border-t-2 border-slate-300 bg-slate-50 font-bold">
+                  <td className="py-3 px-4">TOPLAM</td>
+                  <td className="py-3 px-4 text-right text-green-600">{formatCurrency(monthlyComparison.reduce((s, r) => s + r.income, 0))}</td>
+                  <td className="py-3 px-4 text-right text-red-600">{formatCurrency(monthlyComparison.reduce((s, r) => s + r.expense, 0))}</td>
+                  <td className="py-3 px-4 text-right"><span className={monthlyComparison.reduce((s, r) => s + r.net, 0) >= 0 ? 'text-blue-600' : 'text-orange-600'}>{formatCurrency(monthlyComparison.reduce((s, r) => s + r.net, 0))}</span></td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          {monthlyComparison.length === 0 && <p className="text-center py-8 text-slate-500">Veri bulunamadı.</p>}
+        </div>
+      )}
+
+      {activeTab !== 'logs' && activeTab !== 'comparison' && (
         <div className="bg-white rounded-xl border border-slate-200">
           <div className="flex items-center justify-between p-4 border-b border-slate-200">
             <h2 className="font-semibold text-slate-800">{activeTab === 'firm' ? 'Firma Bazlı' : 'Proje Bazlı'} Gelir/Gider Raporu</h2>
