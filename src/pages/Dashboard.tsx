@@ -477,6 +477,44 @@ export default function Dashboard() {
         </ResponsiveContainer>
       </div>
 
+      {/* Nakit Akış Projeksiyonu */}
+      {dailyData.length > 0 && (
+        <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+            <TrendingUp size={20} className="text-purple-500" />
+            Nakit Akış Projeksiyonu (30 Gün)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {(() => {
+              const avgIncome = dailyData.reduce((s, d) => s + d.income, 0) / dailyData.length;
+              const avgExpense = dailyData.reduce((s, d) => s + d.expense, 0) / dailyData.length;
+              const projectedIncome = avgIncome * 30;
+              const projectedExpense = avgExpense * 30;
+              const projectedNet = projectedIncome - projectedExpense;
+              return (
+                <>
+                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p className="text-sm text-green-700 mb-1">Tahmini Gelir (30 gün)</p>
+                    <p className="text-xl font-bold text-green-600">{formatCurrency(projectedIncome)}</p>
+                    <p className="text-xs text-green-500 mt-1">Günlük ort: {formatCurrency(avgIncome)}</p>
+                  </div>
+                  <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                    <p className="text-sm text-red-700 mb-1">Tahmini Gider (30 gün)</p>
+                    <p className="text-xl font-bold text-red-600">{formatCurrency(projectedExpense)}</p>
+                    <p className="text-xs text-red-500 mt-1">Günlük ort: {formatCurrency(avgExpense)}</p>
+                  </div>
+                  <div className={`rounded-lg p-4 border ${projectedNet >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
+                    <p className={`text-sm mb-1 ${projectedNet >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>Tahmini Net (30 gün)</p>
+                    <p className={`text-xl font-bold ${projectedNet >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>{formatCurrency(projectedNet)}</p>
+                    <p className={`text-xs mt-1 ${projectedNet >= 0 ? 'text-blue-500' : 'text-orange-500'}`}>Günlük ort: {formatCurrency(projectedNet / 30)}</p>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
       {/* Filtre Detayı */}
       {activeFilter && (
         <div className="bg-white rounded-xl p-6 border border-slate-200 mb-6">
