@@ -87,12 +87,57 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
         ) : (
           <div className="p-4 flex flex-col gap-4">
             {messages.length === 0 && (
-              <div className="text-center p-6 text-slate-500 dark:text-slate-400 text-sm">
-                <Bot size={32} className="mx-auto mb-2 opacity-50" />
-                <p>Merhaba! Size muhasebe işlemlerinizde nasıl yardımcı olabilirim?</p>
-                <div className="flex flex-wrap justify-center gap-2 mt-4">
-                  <button onClick={() => handleSend("Bu ay kaç fatura kestim?")} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-full text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">📊 Bu ayki faturalar</button>
-                  <button onClick={() => handleSend("KDV oranları nelerdir?")} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-full text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">💡 KDV oranları</button>
+              <div className="p-4">
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Bot size={32} className="text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-1">Merhaba! Ben Muhasebe Asistanınız</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Size nasıl yardımcı olabilirim?</p>
+                </div>
+
+                <div className="space-y-3 mb-4">
+                  <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Yapabildiklerim</h4>
+                  
+                  <div className="grid grid-cols-1 gap-2">
+                    <div className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <span className="text-lg">📊</span>
+                      <div>
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Fatura ve İşlem Takibi</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">"Bu ay kaç fatura kestim?"</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <span className="text-lg">💰</span>
+                      <div>
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Hesaplama</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">"KDV hesapla 1000 TL" veya "Net maaş hesapla"</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <span className="text-lg">📋</span>
+                      <div>
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Muhasebe Bilgisi</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">"KDV oranları nelerdir?"</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <span className="text-lg">🔧</span>
+                      <div>
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Kullanım Yardımı</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">"Nasıl fatura keserim?"</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <button onClick={() => handleSend("Bu ay kaç fatura kestim?")} className="px-3 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">📊 Bu ayki faturalar</button>
+                  <button onClick={() => handleSend("Nasıl fatura keserim?")} className="px-3 py-2 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg text-xs hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors">📝 Fatura nasıl kesilir</button>
+                  <button onClick={() => handleSend("KDV oranları nelerdir?")} className="px-3 py-2 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg text-xs hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors">💡 KDV oranları</button>
                 </div>
               </div>
             )}
