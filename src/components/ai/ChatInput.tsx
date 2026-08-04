@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 
 interface ChatInputProps {
@@ -8,18 +8,22 @@ interface ChatInputProps {
 
 export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   const [input, setInput] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
       onSend(input.trim());
       setInput('');
+      // Input'ta kal
+      setTimeout(() => inputRef.current?.focus(), 0);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="p-3 border-t dark:border-slate-800 bg-white dark:bg-slate-900 rounded-b-xl flex gap-2">
       <input
+        ref={inputRef}
         type="text"
         value={input}
         onChange={(e) => setInput(e.target.value)}
