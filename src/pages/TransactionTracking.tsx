@@ -40,7 +40,7 @@ export default function TransactionTracking() {
 
   const fetchData = async () => {
     setLoading(true);
-    let txQuery = supabase.from('transactions').select('*, firm:firms(*), project:projects(*)').order('transaction_date', { ascending: false });
+    let txQuery = supabase.from('transactions').select('*, firm:firms(*), project:projects(*), cari:cariler(*)').order('transaction_date', { ascending: false });
     
     // Header'da firma seçiliyse sadece o firmaya ait işlemleri göster
     if (selectedFirm) {
@@ -145,7 +145,7 @@ export default function TransactionTracking() {
       id: t.id,
       type: t.transaction_type,
       date: t.transaction_date,
-      firm: t.firm?.name || '-',
+      firm: t.cari?.name || t.firm?.name || '-',
       project: t.project?.name || '-',
       description: t.description || '-',
       amount: t.amount,
