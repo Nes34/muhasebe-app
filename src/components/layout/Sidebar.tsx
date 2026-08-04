@@ -106,6 +106,7 @@ const menuGroups: MenuGroup[] = [
       { to: '/kasalar', icon: Wallet, label: 'Kasa Yönetimi' },
       { to: '/bankalar', icon: CreditCard, label: 'Banka Yönetimi' },
       { to: '/cekler', icon: FileCheck, label: 'Çek Yönetimi' },
+      { to: '/vade-takvimi', icon: Calendar, label: 'Vade Takvimi' },
     ],
   },
   {
