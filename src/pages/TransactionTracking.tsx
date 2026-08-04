@@ -224,8 +224,7 @@ export default function TransactionTracking() {
             <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium mb-1 ${getTypeColor(stat.type)}`}>
               {stat.label}
             </span>
-            <p className="text-lg font-bold text-slate-800">{stat.count}</p>
-            <p className="text-xs text-slate-500">{formatCurrency(stat.total)}</p>
+            <p className="text-lg font-bold text-slate-800">{formatCurrency(stat.total)}</p>
           </button>
         ))}
       </div>
