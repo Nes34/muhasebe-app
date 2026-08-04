@@ -33,7 +33,7 @@ interface DailyData {
 }
 
 export default function Dashboard() {
-  const { selectedFirm } = useFirm();
+  const { selectedFirm, selectedProject, projects, setSelectedProject } = useFirm();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({ totalIncome: 0, totalExpense: 0, totalCash: 0, totalBank: 0, pendingGiven: 0, urgentGiven: 0, paidChecks: 0, paidChecksAmount: 0, pendingReceived: 0, urgentReceived: 0, collectedChecks: 0, collectedChecksAmount: 0, profitLoss: 0 });
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
@@ -54,7 +54,7 @@ export default function Dashboard() {
   const [urgentReceivedData, setUrgentReceivedData] = useState<any[]>([]);
   const [collectedCheckData, setCollectedCheckData] = useState<any[]>([]);
 
-  useEffect(() => { fetchDashboardStats(); }, [selectedFirm]);
+  useEffect(() => { fetchDashboardStats(); }, [selectedFirm, selectedProject]);
 
   const fetchDashboardStats = async () => {
     try {
@@ -64,17 +64,19 @@ export default function Dashboard() {
       sevenDaysAgo.setDate(today.getDate() - 6);
 
       // Tüm transactions
-      let txQ = supabase.from('transactions').select('amount, transaction_type, transaction_date, is_exception, firm:firms(name)');
+      let txQ = supabase.from('transactions').select('amount, transaction_type, transaction_date, is_exception, firm:firms(name), project_id');
       if (selectedFirm) txQ = txQ.eq('firm_id', selectedFirm.id);
+      if (selectedProject) txQ = txQ.eq('project_id', selectedProject.id);
       const { data: allTx } = await txQ.eq('is_exception', false);
 
       // Son 7 gün transactions
       let weekTxQ = supabase
         .from('transactions')
-        .select('amount, transaction_type, transaction_date, is_exception, firm:firms(name)')
+        .select('amount, transaction_type, transaction_date, is_exception, firm:firms(name), project_id')
         .gte('transaction_date', sevenDaysAgo.toISOString().split('T')[0])
         .eq('is_exception', false);
       if (selectedFirm) weekTxQ = weekTxQ.eq('firm_id', selectedFirm.id);
+      if (selectedProject) weekTxQ = weekTxQ.eq('project_id', selectedProject.id);
       const { data: weekTx } = await weekTxQ;
 
       // Günlük veriler
@@ -153,13 +155,21 @@ export default function Dashboard() {
       });
 
       // Bağımsız kasa/banka işlemleri (transaction_id olmayanlar — mükerrer önlemek için)
-      const cashIds = (cash || []).map((c: any) => c.id);
-      const bankIds = (bank || []).map((b: any) => b.id);
+      // Proje seçiliyse project_id ile filtrele, değilse register/bank ile filtrele
+      let cashTxQuery = supabase.from('cash_transactions').select('amount, transaction_type, created_at, project_id, cari:cariler(name)').is('transaction_id', null);
+      let bankTxQuery = supabase.from('bank_transactions').select('amount, transaction_type, created_at, project_id, cari:cariler(name)').is('transaction_id', null);
 
-      const [cashTxRes, bankTxRes] = await Promise.all([
-        cashIds.length > 0 ? supabase.from('cash_transactions').select('amount, transaction_type, created_at, cari:cariler(name)').in('cash_register_id', cashIds).is('transaction_id', null) : { data: [] },
-        bankIds.length > 0 ? supabase.from('bank_transactions').select('amount, transaction_type, created_at, cari:cariler(name)').in('bank_account_id', bankIds).is('transaction_id', null) : { data: [] },
-      ]);
+      if (selectedProject) {
+        cashTxQuery = cashTxQuery.eq('project_id', selectedProject.id);
+        bankTxQuery = bankTxQuery.eq('project_id', selectedProject.id);
+      } else {
+        const cashIds = (cash || []).map((c: any) => c.id);
+        const bankIds = (bank || []).map((b: any) => b.id);
+        if (cashIds.length > 0) cashTxQuery = cashTxQuery.in('cash_register_id', cashIds);
+        if (bankIds.length > 0) bankTxQuery = bankTxQuery.in('bank_account_id', bankIds);
+      }
+
+      const [cashTxRes, bankTxRes] = await Promise.all([cashTxQuery, bankTxQuery]);
 
       (cashTxRes.data || []).forEach((t: any) => {
         const item = { ...t, transaction_date: t.created_at?.split('T')[0], description: `Kasa - ${t.cari?.name || ''}`, source: 'cash', _type: 'income' as const };
@@ -186,12 +196,23 @@ export default function Dashboard() {
       setIncomeData(incomeList);
       setExpenseData(expenseList);
 
-      setCashData(cash || []);
-      setBankData(bank || []);
+      // Proje seçiliyse kasa/banka verilerini proje bazlı hesapla
+      if (selectedProject) {
+        const projCashIn = (cashTxRes.data || []).filter((t: any) => t.transaction_type === 'in').reduce((s: number, t: any) => s + t.amount, 0);
+        const projCashOut = (cashTxRes.data || []).filter((t: any) => t.transaction_type === 'out').reduce((s: number, t: any) => s + t.amount, 0);
+        const projBankIn = (bankTxRes.data || []).filter((t: any) => t.transaction_type === 'in').reduce((s: number, t: any) => s + t.amount, 0);
+        const projBankOut = (bankTxRes.data || []).filter((t: any) => t.transaction_type === 'out').reduce((s: number, t: any) => s + t.amount, 0);
+        setCashData([{ name: 'Proje Kasa', cash_in: projCashIn, cash_out: projCashOut, net: projCashIn - projCashOut }]);
+        setBankData([{ name: 'Proje Banka', bank_in: projBankIn, bank_out: projBankOut, net: projBankIn - projBankOut }]);
+      } else {
+        setCashData(cash || []);
+        setBankData(bank || []);
+      }
 
       // Verilen çekler - bekleyen
       let givenPendingQ = supabase.from('checks').select('*').eq('status', 'pending').eq('check_type', 'given').order('due_date');
       if (selectedFirm) givenPendingQ = givenPendingQ.eq('firm_id', selectedFirm.id);
+      if (selectedProject) givenPendingQ = givenPendingQ.eq('project_id', selectedProject.id);
       const { data: pendingGivenRaw } = await givenPendingQ;
 
       const fiveDaysLater = new Date(today);
@@ -201,16 +222,19 @@ export default function Dashboard() {
       const allCheckData = [...(pendingGivenRaw || [])];
       let paidCheckQ = supabase.from('checks').select('*').eq('status', 'paid').eq('check_type', 'given').order('created_at', { ascending: false });
       if (selectedFirm) paidCheckQ = paidCheckQ.eq('firm_id', selectedFirm.id);
+      if (selectedProject) paidCheckQ = paidCheckQ.eq('project_id', selectedProject.id);
       const { data: paidChecksRaw } = await paidCheckQ;
       allCheckData.push(...(paidChecksRaw || []));
 
       let receivedPendingQ = supabase.from('checks').select('*').eq('status', 'pending').eq('check_type', 'received').order('due_date');
       if (selectedFirm) receivedPendingQ = receivedPendingQ.eq('firm_id', selectedFirm.id);
+      if (selectedProject) receivedPendingQ = receivedPendingQ.eq('project_id', selectedProject.id);
       const { data: pendingReceivedRaw } = await receivedPendingQ;
       allCheckData.push(...(pendingReceivedRaw || []));
 
       let collectedCheckQ = supabase.from('checks').select('*').eq('status', 'collected').eq('check_type', 'received').order('created_at', { ascending: false });
       if (selectedFirm) collectedCheckQ = collectedCheckQ.eq('firm_id', selectedFirm.id);
+      if (selectedProject) collectedCheckQ = collectedCheckQ.eq('project_id', selectedProject.id);
       const { data: collectedChecksRaw } = await collectedCheckQ;
       allCheckData.push(...(collectedChecksRaw || []));
 
@@ -250,11 +274,17 @@ export default function Dashboard() {
       setCollectedCheckData(enrichChecks(collectedChecksRaw || []));
       const collectedAmount = (collectedChecksRaw || []).reduce((sum: number, c: any) => sum + c.amount, 0);
 
+      // Proje bazlı kasa/banka toplamları
+      const projCashIn = (cashTxRes.data || []).filter((t: any) => t.transaction_type === 'in').reduce((s: number, t: any) => s + t.amount, 0);
+      const projCashOut = (cashTxRes.data || []).filter((t: any) => t.transaction_type === 'out').reduce((s: number, t: any) => s + t.amount, 0);
+      const projBankIn = (bankTxRes.data || []).filter((t: any) => t.transaction_type === 'in').reduce((s: number, t: any) => s + t.amount, 0);
+      const projBankOut = (bankTxRes.data || []).filter((t: any) => t.transaction_type === 'out').reduce((s: number, t: any) => s + t.amount, 0);
+
       setStats({
         totalIncome,
         totalExpense,
-        totalCash: (cash || []).reduce((sum: number, c: any) => sum + c.current_balance, 0),
-        totalBank: (bank || []).reduce((sum: number, b: any) => sum + b.current_balance, 0),
+        totalCash: selectedProject ? projCashIn : (cash || []).reduce((sum: number, c: any) => sum + c.current_balance, 0),
+        totalBank: selectedProject ? projBankIn : (bank || []).reduce((sum: number, b: any) => sum + b.current_balance, 0),
         pendingGiven: (pendingGiven || []).length,
         urgentGiven: urgentGiven.length,
         paidChecks: (paidChecksRaw || []).length,
@@ -327,8 +357,8 @@ export default function Dashboard() {
     { id: 'income' as FilterType, title: 'Toplam Gelir', value: formatCurrency(stats.totalIncome), icon: TrendingUp, color: 'bg-green-500', bgColor: 'bg-green-50' },
     { id: 'expense' as FilterType, title: 'Toplam Gider', value: formatCurrency(stats.totalExpense), icon: TrendingDown, color: 'bg-red-500', bgColor: 'bg-red-50' },
     { id: 'profitLoss' as FilterType, title: 'Kâr/Zarar', value: formatCurrency(stats.profitLoss), icon: stats.profitLoss >= 0 ? TrendingUp : TrendingDown, color: stats.profitLoss >= 0 ? 'bg-green-600' : 'bg-red-600', bgColor: stats.profitLoss >= 0 ? 'bg-green-50' : 'bg-red-50' },
-    { id: 'cash' as FilterType, title: 'Kasa Toplamı', value: formatCurrency(stats.totalCash), icon: Wallet, color: 'bg-blue-500', bgColor: 'bg-blue-50' },
-    { id: 'bank' as FilterType, title: 'Banka Toplamı', value: formatCurrency(stats.totalBank), icon: Building2, color: 'bg-purple-500', bgColor: 'bg-purple-50' },
+    { id: 'cash' as FilterType, title: selectedProject ? 'Kasa Girişi' : 'Kasa Toplamı', value: formatCurrency(stats.totalCash), icon: Wallet, color: 'bg-blue-500', bgColor: 'bg-blue-50' },
+    { id: 'bank' as FilterType, title: selectedProject ? 'Banka Girişi' : 'Banka Toplamı', value: formatCurrency(stats.totalBank), icon: Building2, color: 'bg-purple-500', bgColor: 'bg-purple-50' },
     { id: 'pending_given' as FilterType, title: 'Bekleyen Verilen Çek', value: `${stats.pendingGiven} adet`, icon: FileCheck, color: 'bg-orange-500', bgColor: 'bg-orange-50' },
     { id: 'urgent_given' as FilterType, title: 'Vadesi Yaklaşan Verilen', value: `${stats.urgentGiven} adet`, icon: AlertTriangle, color: 'bg-yellow-500', bgColor: 'bg-yellow-50' },
     { id: 'paid_checks' as FilterType, title: 'Ödenen Çek', value: `${stats.paidChecks} adet / ${formatCurrency(stats.paidChecksAmount)}`, icon: FileCheck, color: 'bg-red-600', bgColor: 'bg-red-50' },
@@ -344,11 +374,6 @@ export default function Dashboard() {
     purchase_invoice: 'Alış Faturası', sale_invoice: 'Satış Faturası',
     in: 'Giriş', out: 'Çıkış',
   }[type] || type);
-
-  const getTypeColor = (type: string) => {
-    if (['income', 'invoice', 'sale_invoice'].includes(type)) return 'text-green-600';
-    return 'text-red-600';
-  };
 
   return (
     <div>

@@ -5,9 +5,17 @@ export function formatInvoiceNumber(input: string): string {
 }
 
 export function formatInvoiceNumberOnSave(input: string): string {
-  // / sil, 16 haneye tamamla
   const clean = input.replace(/[^a-zA-Z0-9/]/g, '').toUpperCase();
   const withoutSlash = clean.replace(/\//g, '');
+
+  // Try to parse: prefix(letters) + year(4 digits) + sequence(rest)
+  const match = withoutSlash.match(/^([A-Z]+)(\d{4})(\d+)$/);
+  if (match) {
+    const [, prefix, year, seq] = match;
+    return `${prefix}${year}${seq.padStart(9, '0')}`;
+  }
+
+  // Fallback: padEnd
   return withoutSlash.padEnd(16, '0');
 }
 

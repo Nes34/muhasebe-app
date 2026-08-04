@@ -17,7 +17,7 @@ interface FirmSummary {
 }
 
 export default function Firms() {
-  const { selectedFirm } = useFirm();
+  const { selectedFirm, selectedProject } = useFirm();
   const [firms, setFirms] = useState<Firm[]>([]);
   const [firmSummaries, setFirmSummaries] = useState<FirmSummary[]>([]);
   const [_loading, setLoading] = useState(true);
@@ -30,7 +30,7 @@ export default function Firms() {
   const [similarWarning, setSimilarWarning] = useState<Firm[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  useEffect(() => { fetchFirms(); fetchFirmSummaries(); }, [selectedFirm]);
+  useEffect(() => { fetchFirms(); fetchFirmSummaries(); }, [selectedFirm, selectedProject]);
 
   useEffect(() => {
     if (formData.name && !editingFirm) {
@@ -55,40 +55,168 @@ export default function Firms() {
 
     const firmIds = firmsData.map(f => f.id);
 
-    // Sadece firm_id bazlı çek (transactions ve checks'te firm_id var)
+    const transferTypes = ['transfer', 'stock_transfer', 'cash_transfer', 'bank_transfer'];
+
+    // Dashboard ile aynı sorguları yap
+    let txQ = supabase.from('transactions').select('firm_id, amount, transaction_type, is_exception, project_id');
+    if (selectedFirm) txQ = txQ.eq('firm_id', selectedFirm.id);
+    if (selectedProject) txQ = txQ.eq('project_id', selectedProject.id);
     const [txRes, checkRes] = await Promise.all([
-      supabase.from('transactions').select('firm_id, amount, transaction_type, is_exception').in('firm_id', firmIds),
-      supabase.from('checks').select('firm_id, amount, check_type, status').in('firm_id', firmIds),
+      txQ,
+      (() => {
+        let q = supabase.from('checks').select('firm_id, amount, check_type, status');
+        if (selectedFirm) q = q.eq('firm_id', selectedFirm.id);
+        if (selectedProject) q = q.eq('project_id', selectedProject.id);
+        return q;
+      })(),
     ]);
 
+    // Kasa/banka ve junction tabloları (Dashboard ile aynı)
+    const { data: allCash } = await supabase.from('cash_registers').select('*').eq('is_active', true);
+    const { data: allBank } = await supabase.from('bank_accounts').select('*').eq('is_active', true);
+    const { data: cashFirmLinks } = await supabase.from('cash_register_firms').select('cash_register_id, firm_id');
+    const { data: bankFirmLinks } = await supabase.from('bank_account_firms').select('bank_account_id, firm_id');
+
+    // Seçili firmaya göre kasa/banka filtresi (Dashboard ile aynı mantık)
+    let cash = allCash;
+    let bank = allBank;
+    if (selectedFirm) {
+      const allowedCashIds = (cashFirmLinks || []).filter((l: any) => l.firm_id === selectedFirm.id).map((l: any) => l.cash_register_id);
+      const allowedBankIds = (bankFirmLinks || []).filter((l: any) => l.firm_id === selectedFirm.id).map((l: any) => l.bank_account_id);
+      cash = (allCash || []).filter((c: any) => allowedCashIds.includes(c.id));
+      bank = (allBank || []).filter((b: any) => allowedBankIds.includes(b.id));
+    }
+
+    const cashIds = (cash || []).map((c: any) => c.id);
+    const bankIds = (bank || []).map((b: any) => b.id);
+
+    const [cashTxRes, bankTxRes] = await Promise.all([
+      (() => {
+        let q = supabase.from('cash_transactions').select('cash_register_id, amount, transaction_type, transaction_id, project_id').is('transaction_id', null);
+        if (selectedProject) q = q.eq('project_id', selectedProject.id);
+        else if (cashIds.length > 0) q = q.in('cash_register_id', cashIds);
+        return q;
+      })(),
+      (() => {
+        let q = supabase.from('bank_transactions').select('bank_account_id, amount, transaction_type, transaction_id, project_id').is('transaction_id', null);
+        if (selectedProject) q = q.eq('project_id', selectedProject.id);
+        else if (bankIds.length > 0) q = q.in('bank_account_id', bankIds);
+        return q;
+      })(),
+    ]);
+
+    // Toplam gelir/gider hesapla (Dashboard ile birebir aynı formül)
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    (txRes.data || []).forEach((t: any) => {
+      if (transferTypes.includes(t.transaction_type)) return;
+      if (t.is_exception) return;
+      if (['income', 'invoice'].includes(t.transaction_type)) totalIncome += t.amount;
+      else totalExpense += t.amount;
+    });
+
+    (cashTxRes.data || []).forEach((t: any) => {
+      if (t.transaction_type === 'in') totalIncome += t.amount;
+      else totalExpense += t.amount;
+    });
+
+    (bankTxRes.data || []).forEach((t: any) => {
+      if (t.transaction_type === 'in') totalIncome += t.amount;
+      else totalExpense += t.amount;
+    });
+
+    // Açılış bakiyeleri — Dashboard ile aynı mantık
+    // Firma seçiliyse sadece bağlı kasalardan/bankalardan, değilse tümünden
+    (cash || []).forEach((c: any) => {
+      if (c.opening_balance > 0) totalIncome += c.opening_balance;
+      else if (c.opening_balance < 0) totalExpense += Math.abs(c.opening_balance);
+    });
+    (bank || []).forEach((b: any) => {
+      if (b.opening_balance > 0) totalIncome += b.opening_balance;
+      else if (b.opening_balance < 0) totalExpense += Math.abs(b.opening_balance);
+    });
+
+    // Firma özetlerini hesapla (her firma için)
     const summaries: FirmSummary[] = firmsData.map(firm => {
       const txs = txRes.data?.filter(t => t.firm_id === firm.id && !t.is_exception) || [];
       const checks = checkRes.data?.filter(c => c.firm_id === firm.id) || [];
 
-      const income = txs.filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice').reduce((s, t) => s + t.amount, 0);
-      const expense = txs.filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice').reduce((s, t) => s + t.amount, 0);
-      
-      // Bekleyen çekler (tahsil/ödenmemiş)
+      // Firma özeli kasa/banka (junction tablo ile bağlı kasalardan gelen bağımsız işlemler)
+      const firmCashIds = (cashFirmLinks || []).filter((l: any) => l.firm_id === firm.id).map((l: any) => l.cash_register_id);
+      const firmBankIds = (bankFirmLinks || []).filter((l: any) => l.firm_id === firm.id).map((l: any) => l.bank_account_id);
+      const firmCashTxs = (cashTxRes.data || []).filter((t: any) => firmCashIds.includes(t.cash_register_id));
+      const firmBankTxs = (bankTxRes.data || []).filter((t: any) => firmBankIds.includes(t.bank_account_id));
+
+      // Transactions: transfer hariç gelir/gider
+      let income = txs.filter(t => !transferTypes.includes(t.transaction_type) && (t.transaction_type === 'income' || t.transaction_type === 'invoice')).reduce((s, t) => s + t.amount, 0);
+      let expense = txs.filter(t => !transferTypes.includes(t.transaction_type) && t.transaction_type !== 'income' && t.transaction_type !== 'invoice').reduce((s, t) => s + t.amount, 0);
+
+      // Bağımsız kasa/banka işlemleri
+      firmCashTxs.forEach((t: any) => {
+        if (t.transaction_type === 'in') income += t.amount;
+        else expense += t.amount;
+      });
+      firmBankTxs.forEach((t: any) => {
+        if (t.transaction_type === 'in') income += t.amount;
+        else expense += t.amount;
+      });
+
+      // Firma özeli açılış bakiyeleri
+      firmCashIds.forEach((cashId: string) => {
+        const c = (allCash || []).find((ca: any) => ca.id === cashId);
+        if (c && c.opening_balance > 0) income += c.opening_balance;
+        else if (c && c.opening_balance < 0) expense += Math.abs(c.opening_balance);
+      });
+      firmBankIds.forEach((bankId: string) => {
+        const b = (allBank || []).find((ba: any) => ba.id === bankId);
+        if (b && b.opening_balance > 0) income += b.opening_balance;
+        else if (b && b.opening_balance < 0) expense += Math.abs(b.opening_balance);
+      });
+
+      // Bekleyen çekler
       const pendingReceivedChecks = checks.filter(c => c.check_type === 'received' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
       const pendingGivenChecks = checks.filter(c => c.check_type === 'given' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
-      
       const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
-      
-      // Kâr/Zarar = gelir + bekleyen alınan çekler - gider - bekleyen verilen çekler
-      // (tahsil/ödenen çekler zaten banka hareketi olarak gelir/gidere eklendi)
-      const profitLoss = (income + pendingReceivedChecks) - (expense + pendingGivenChecks);
+
+      const profitLoss = income - expense;
 
       return { firm, income, expense, checksGiven: pendingGivenChecks, checksPaid, profitLoss };
     });
 
+    // "Diğer" = Toplam - Firmalar (sadece tüm firmalar görünümünde)
+    if (!selectedFirm) {
+      const firmTotalIncome = summaries.reduce((s, f) => s + f.income, 0);
+      const firmTotalExpense = summaries.reduce((s, f) => s + f.expense, 0);
+      const digerIncome = totalIncome - firmTotalIncome;
+      const digerExpense = totalExpense - firmTotalExpense;
+
+      if (digerIncome > 0 || digerExpense > 0) {
+        const digerFirm: Firm = { id: '__diger__', name: 'Diğer (Atanmamış)', code: '', tax_number: '', address: '', phone: '', email: '', type: 'both', is_active: true, created_at: '' };
+        summaries.push({
+          firm: digerFirm,
+          income: Math.max(0, digerIncome),
+          expense: Math.max(0, digerExpense),
+          checksGiven: 0,
+          checksPaid: 0,
+          profitLoss: Math.max(0, digerIncome) - Math.max(0, digerExpense),
+        });
+      }
+    }
+
     setFirmSummaries(summaries);
+
+    // Sayfa toplamları — Dashboard ile birebir aynı formül (firma özetlerinin toplamı DEĞİL)
+    setPageTotals({ income: totalIncome, expense: totalExpense, profitLoss: totalIncome - totalExpense });
   };
 
-  const totalIncome = firmSummaries.reduce((s, f) => s + f.income, 0);
-  const totalExpense = firmSummaries.reduce((s, f) => s + f.expense, 0);
+  const [pageTotals, setPageTotals] = useState<{ income: number; expense: number; profitLoss: number }>({ income: 0, expense: 0, profitLoss: 0 });
+
+  const totalIncome = pageTotals.income;
+  const totalExpense = pageTotals.expense;
+  const totalProfitLoss = pageTotals.profitLoss;
   const totalChecksGiven = firmSummaries.reduce((s, f) => s + f.checksGiven, 0);
   const totalChecksPaid = firmSummaries.reduce((s, f) => s + f.checksPaid, 0);
-  const totalProfitLoss = firmSummaries.reduce((s, f) => s + f.profitLoss, 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

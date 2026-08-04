@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Search } from 'lucide-react';
 
 interface Option {
@@ -30,8 +31,9 @@ export default function SearchableSelect({
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find(o => o.id === value);
 
@@ -47,7 +49,7 @@ export default function SearchableSelect({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
         if (selectedOption) {
           setSearchTerm(selectedOption.code ? `${selectedOption.code} - ${selectedOption.name}` : selectedOption.name);
@@ -57,6 +59,13 @@ export default function SearchableSelect({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [selectedOption]);
+
+  const updatePosition = () => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    }
+  };
 
   const filtered = options.filter(o => {
     const search = searchTerm.toLowerCase();
@@ -77,6 +86,7 @@ export default function SearchableSelect({
     if (!isOpen) {
       if (e.key === 'ArrowDown' || e.key === 'Enter') {
         setIsOpen(true);
+        updatePosition();
         e.preventDefault();
       }
       return;
@@ -106,36 +116,14 @@ export default function SearchableSelect({
     }
   };
 
-  return (
-    <div className="relative" ref={dropdownRef}>
-      {label && (
-        <label className="block text-sm font-medium text-slate-700 mb-1">
-          {required && <span className="text-red-500">*</span>} {label}
-        </label>
-      )}
-      <div className="relative">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          ref={inputRef}
-          type="text"
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            setIsOpen(true);
-            if (selectedOption && e.target.value !== (selectedOption.code ? `${selectedOption.code} - ${selectedOption.name}` : selectedOption.name)) {
-              onChange('', undefined);
-            }
-          }}
-          onFocus={() => setIsOpen(true)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          required={required}
-        />
-      </div>
-      
-      {isOpen && filtered.length > 0 && (
-        <div className="absolute z-[70] w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+  const dropdown = isOpen ? createPortal(
+    <>
+      {filtered.length > 0 && (
+        <div
+          ref={containerRef}
+          style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 99999 }}
+          className="bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-auto"
+        >
           {filtered.slice(0, 20).map((option, index) => (
             <div
               key={option.id}
@@ -158,12 +146,47 @@ export default function SearchableSelect({
           ))}
         </div>
       )}
-      
-      {isOpen && searchTerm && filtered.length === 0 && (
-        <div className="absolute z-[70] w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-4 text-center text-slate-500">
+      {searchTerm && filtered.length === 0 && (
+        <div
+          style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 99999 }}
+          className="bg-white border border-slate-200 rounded-lg shadow-lg p-4 text-center text-slate-500"
+        >
           Sonuç bulunamadı
         </div>
       )}
+    </>,
+    document.body
+  ) : null;
+
+  return (
+    <div className="relative" ref={containerRef}>
+      {label && (
+        <label className="block text-sm font-medium text-slate-700 mb-1">
+          {required && <span className="text-red-500">*</span>} {label}
+        </label>
+      )}
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setIsOpen(true);
+            updatePosition();
+            if (selectedOption && e.target.value !== (selectedOption.code ? `${selectedOption.code} - ${selectedOption.name}` : selectedOption.name)) {
+              onChange('', undefined);
+            }
+          }}
+          onFocus={() => { setIsOpen(true); updatePosition(); }}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+          required={required}
+        />
+      </div>
+      {dropdown}
     </div>
   );
 }

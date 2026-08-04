@@ -110,6 +110,7 @@ export interface Check {
   check_type: 'received' | 'given';
   firm_id: string;
   cari_id?: string;
+  project_id?: string;
   bank_name?: string;
   bank_branch?: string;
   amount: number;
@@ -247,14 +248,19 @@ export interface TransactionItemInput {
   unit: string;
   unit_price: number;
   amount: number;
+  order_unit_price?: number;
   vat_rate?: number;
   vat_amount?: number;
-  withholding_rate?: number;  // Tevkifat oranı (%)
-  withholding_amount?: number; // Tevkifat tutarı
-  stopaj_rate?: number;       // Stopaj oranı (%)
-  stopaj_amount?: number;     // Stopaj tutarı
+  withholding_rate?: number;
+  withholding_amount?: number;
+  stopaj_rate?: number;
+  stopaj_amount?: number;
   discount_rate?: number;
   discount_amount?: number;
+  discount_rate_2?: number;
+  discount_amount_2?: number;
+  discount_rate_3?: number;
+  discount_amount_3?: number;
   sort_order?: number;
 }
 
@@ -263,6 +269,7 @@ export interface CheckInput {
   check_type: 'received' | 'given';
   firm_id: string;
   cari_id?: string;
+  project_id?: string;
   bank_name?: string;
   bank_branch?: string;
   amount: number;

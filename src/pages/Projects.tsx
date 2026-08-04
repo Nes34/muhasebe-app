@@ -67,11 +67,13 @@ export default function Projects() {
 
     const projectIds = projectsData.map(p => p.id);
 
-    const [txRes, checkRes, cashTxRes, bankTxRes] = await Promise.all([
+    const [txRes, checkRes, cashTxRes, bankTxRes, cashRegRes, bankAccRes] = await Promise.all([
       supabase.from('transactions').select('project_id, amount, transaction_type').in('project_id', projectIds).eq('is_exception', false),
       supabase.from('checks').select('project_id, amount, check_type, status').in('project_id', projectIds),
       supabase.from('cash_transactions').select('project_id, amount, transaction_type, transaction_id').in('project_id', projectIds),
       supabase.from('bank_transactions').select('project_id, amount, transaction_type, transaction_id').in('project_id', projectIds),
+      supabase.from('cash_registers').select('opening_balance'),
+      supabase.from('bank_accounts').select('opening_balance'),
     ]);
 
     const summaries: ProjectSummary[] = projectsData.map(project => {
@@ -84,7 +86,7 @@ export default function Projects() {
       const income = txs.filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice').reduce((s, t) => s + t.amount, 0);
       const expense = txs.filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice').reduce((s, t) => s + t.amount, 0);
 
-      // Kasa ve banka hareketleri
+      // Kasa ve banka hareketleri (transaction_id olmayanlar - mükerrer önlem)
       const cashIn = cashTx.filter(t => t.transaction_type === 'in').reduce((s, t) => s + t.amount, 0);
       const cashOut = cashTx.filter(t => t.transaction_type === 'out').reduce((s, t) => s + t.amount, 0);
       const bankIn = bankTx.filter(t => t.transaction_type === 'in').reduce((s, t) => s + t.amount, 0);
@@ -95,23 +97,35 @@ export default function Projects() {
       const pendingGivenChecks = checks.filter(c => c.check_type === 'given' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
       const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
 
-      // Kâr/Zarar = gelir + kasa girişi + banka girişi + bekleyen alınan çekler - gider - kasa çıkışı - banka çıkışı - bekleyen verilen çekler
-      const profitLoss = (income + cashIn + bankIn + pendingReceivedChecks) - (expense + cashOut + bankOut + pendingGivenChecks);
+      // Dashboard ile tutarlı: gelire kasa/banka giriş, gidere kasa/banka çıkış ekle
+      const totalInc = income + cashIn + bankIn;
+      const totalExp = expense + cashOut + bankOut;
+
+      // Kâr/Zarar = gelir - gider
+      const profitLoss = totalInc - totalExp;
       const budget = project.budget || 0;
       const completionRate = budget > 0 ? Math.min((expense / budget) * 100, 100) : 0;
 
-      return { project, income, expense, budget, checksGiven: pendingGivenChecks, checksPaid, profitLoss, completionRate };
+      return { project, income: totalInc, expense: totalExp, budget, checksGiven: pendingGivenChecks, checksPaid, profitLoss, completionRate };
     });
 
     setProjectSummaries(summaries);
+
+    // Açılış bakiyeleri firma seviyesinde, toplama eklenir
+    const cashOpeningIncome = (cashRegRes.data || []).reduce((s: number, c: any) => c.opening_balance > 0 ? s + c.opening_balance : s, 0);
+    const cashOpeningExpense = (cashRegRes.data || []).reduce((s: number, c: any) => c.opening_balance < 0 ? s + Math.abs(c.opening_balance) : s, 0);
+    const bankOpeningIncome = (bankAccRes.data || []).reduce((s: number, b: any) => b.opening_balance > 0 ? s + b.opening_balance : s, 0);
+    const bankOpeningExpense = (bankAccRes.data || []).reduce((s: number, b: any) => b.opening_balance < 0 ? s + Math.abs(b.opening_balance) : s, 0);
+    setOpeningBalances({ income: cashOpeningIncome + bankOpeningIncome, expense: cashOpeningExpense + bankOpeningExpense });
   };
 
-  const totalIncome = projectSummaries.reduce((s, p) => s + p.income, 0);
-  const totalExpense = projectSummaries.reduce((s, p) => s + p.expense, 0);
+  const [openingBalances, setOpeningBalances] = useState({ income: 0, expense: 0 });
+  const totalIncome = projectSummaries.reduce((s, p) => s + p.income, 0) + openingBalances.income;
+  const totalExpense = projectSummaries.reduce((s, p) => s + p.expense, 0) + openingBalances.expense;
   const totalBudget = projectSummaries.reduce((s, p) => s + p.budget, 0);
   const totalChecksGiven = projectSummaries.reduce((s, p) => s + p.checksGiven, 0);
   const totalChecksPaid = projectSummaries.reduce((s, p) => s + p.checksPaid, 0);
-  const totalProfitLoss = projectSummaries.reduce((s, p) => s + p.profitLoss, 0);
+  const totalProfitLoss = totalIncome - totalExpense;
   const avgCompletionRate = totalBudget > 0 ? Math.min((totalExpense / totalBudget) * 100, 100) : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatInvoiceNumberOnSave } from '../lib/invoice';
 import { checkDuplicateInvoice } from '../lib/validation';
-import { formatDateTR } from '../lib/utils';
+import { formatDateTR, formatCurrency } from '../lib/utils';
 import { importFromExcel } from '../lib/excel';
 import { useAuth } from '../hooks/useAuth';
 import { useFirm } from '../hooks/useFirm';
@@ -43,6 +43,7 @@ export default function TransactionEntry() {
   const { user } = useAuth();
   const { selectedFirm } = useFirm();
   const [transactionType, setTransactionType] = useState<string>('invoice');
+  const [subType, setSubType] = useState<'sale' | 'purchase'>('sale');
   const [transactionDate, setTransactionDate] = useState(formatDateTR(new Date()));
   const [firmId, setFirmId] = useState('');
   const [cariId, setCariId] = useState('');
@@ -80,6 +81,12 @@ export default function TransactionEntry() {
   
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [pendingOrderItems, setPendingOrderItems] = useState<any[]>([]);
+  const [showPendingModal, setShowPendingModal] = useState(false);
+  const [pendingHighlightIndex, setPendingHighlightIndex] = useState(0);
+  const [openProductDropdown, setOpenProductDropdown] = useState<number | null>(null);
+  const [hasPendingOrders, setHasPendingOrders] = useState(false);
+  const [discountCount, setDiscountCount] = useState(1);
   
   // Yeni işlem tipi ekleme modal
   const [showAddTypeModal, setShowAddTypeModal] = useState(false);
@@ -145,6 +152,162 @@ export default function TransactionEntry() {
     }
   };
 
+  // F1 tuşu - bekleyen sipariş kalemlerini göster
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F1' && cariId) {
+        e.preventDefault();
+        setOpenProductDropdown(null);
+        fetchPendingOrderItems(cariId, firmId, projectId);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [cariId, firmId, projectId]);
+
+  // Cari/firma/proje değiştiğinde bekleyen sipariş sayısını kontrol et
+  useEffect(() => {
+    const checkPendingOrders = async () => {
+      if (!cariId) { setHasPendingOrders(false); return; }
+      let query = supabase
+        .from('orders')
+        .select('id, items:order_items(quantity, delivered_quantity)')
+        .eq('cari_id', cariId)
+        .not('status', 'eq', 'cancelled');
+      if (firmId) query = query.eq('firm_id', firmId);
+      if (projectId) query = query.eq('project_id', projectId);
+      const { data } = await query;
+      const pending = (data || []).some((order: any) =>
+        (order.items || []).some((item: any) => item.quantity - item.delivered_quantity > 0)
+      );
+      setHasPendingOrders(pending);
+    };
+    checkPendingOrders();
+  }, [cariId, firmId, projectId]);
+
+  // Tıklama ile dropdown'u kapat
+  useEffect(() => {
+    if (openProductDropdown === null) return;
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.product-dropdown-container')) {
+        setOpenProductDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [openProductDropdown]);
+
+  const fetchPendingOrderItems = async (cariId: string, firmId?: string, projectId?: string) => {
+    let query = supabase
+      .from('orders')
+      .select('id, order_number, order_date, firm_id, project_id, items:order_items(*, product:products(name, unit))')
+      .eq('cari_id', cariId)
+      .not('status', 'eq', 'cancelled')
+      .order('order_date', { ascending: true });
+
+    if (firmId) query = query.eq('firm_id', firmId);
+    if (projectId) query = query.eq('project_id', projectId);
+
+    const { data: cariOrders } = await query;
+
+    const pending: any[] = [];
+    (cariOrders || []).forEach((order: any) => {
+      (order.items || []).forEach((item: any) => {
+        const remaining = item.quantity - item.delivered_quantity;
+        if (remaining > 0) {
+          pending.push({
+            order_number: order.order_number,
+            order_date: order.order_date,
+            product_name: item.product?.name || item.description,
+            description: item.description,
+            unit: item.unit,
+            total_quantity: item.quantity,
+            delivered_quantity: item.delivered_quantity,
+            remaining: remaining,
+            unit_price: item.unit_price,
+            selected: false,
+          });
+        }
+      });
+    });
+    setPendingOrderItems(pending);
+    setHasPendingOrders(pending.length > 0);
+    setPendingHighlightIndex(0);
+    setShowPendingModal(true);
+  };
+
+  const togglePendingItem = (index: number) => {
+    setPendingOrderItems(prev => prev.map((item, i) => i === index ? { ...item, selected: !item.selected } : item));
+  };
+
+  // Modal klavye kontrolü
+  useEffect(() => {
+    if (!showPendingModal) return;
+    const handleModalKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setPendingHighlightIndex(prev => Math.min(prev + 1, pendingOrderItems.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setPendingHighlightIndex(prev => Math.max(prev - 1, 0));
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        setPendingOrderItems(prev => prev.map((item, i) => i === pendingHighlightIndex ? { ...item, selected: !item.selected } : item));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        addSelectedPendingItems();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowPendingModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleModalKey);
+    return () => window.removeEventListener('keydown', handleModalKey);
+  }, [showPendingModal, pendingHighlightIndex, pendingOrderItems.length]);
+
+  // HighlightChangedığında satırı görünür alana kaydır
+  useEffect(() => {
+    if (showPendingModal) {
+      const row = document.querySelector(`[data-highlight="${pendingHighlightIndex}"]`);
+      row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [pendingHighlightIndex, showPendingModal]);
+
+  const addSelectedPendingItems = () => {
+    const selected = pendingOrderItems.filter(item => item.selected);
+    const newItems = selected.map((item, idx) => {
+      // Birim eşleştirmesi: name -> symbol
+      const matchedUnit = stockUnits.find(u => u.name.toLowerCase() === item.unit.toLowerCase() || u.symbol.toLowerCase() === item.unit.toLowerCase());
+      const unitSymbol = matchedUnit?.symbol || item.unit;
+      return {
+        description: item.product_name || item.description,
+        quantity: item.remaining,
+        unit: unitSymbol,
+        unit_price: item.unit_price,
+        amount: item.remaining * item.unit_price,
+        order_unit_price: item.unit_price,
+        vat_rate: 20,
+        vat_amount: (item.remaining * item.unit_price) * 0.2,
+        withholding_rate: 0,
+        withholding_amount: 0,
+        stopaj_rate: 0,
+        stopaj_amount: 0,
+        discount_rate: 0,
+        discount_amount: 0,
+        sort_order: items.length + idx,
+      };
+    });
+    // İlk kalem boşsa onu doldur, değilse arkasına ekle
+    setItems(prev => {
+      if (prev.length === 1 && !prev[0].description && prev[0].unit_price === 0) {
+        return newItems;
+      }
+      return [...prev, ...newItems];
+    });
+    setShowPendingModal(false);
+  };
+
   const handleInvoiceNumberChange = (value: string) => {
     // Sadece temizle, formatlamayı Enter'a bırak
     const clean = value.replace(/[^a-zA-Z0-9/]/g, '').toUpperCase();
@@ -182,7 +345,8 @@ export default function TransactionEntry() {
   // İşlem tipi değiştiğinde otomatik numara ata
   const handleTransactionTypeChange = async (newType: string) => {
     setTransactionType(newType);
-    
+    setSubType('sale'); // Varsayılan satış
+
     // Gelir veya gider ise ve numara boşsa otomatik ata
     if ((newType === 'income' || newType === 'expense') && !invoiceNumber) {
       const prefix = newType === 'income' ? 'GEL' : 'GID';
@@ -236,6 +400,21 @@ export default function TransactionEntry() {
     
     if (field === 'stopaj_rate') {
       newItems[index].stopaj_amount = (newItems[index].amount || 0) * (Number(value) / 100);
+    }
+
+    if (field === 'discount_rate' || field === 'discount_rate_2' || field === 'discount_rate_3') {
+      const amount = newItems[index].amount || 0;
+      const rate1 = field === 'discount_rate' ? Number(value) : (newItems[index].discount_rate || 0);
+      const rate2 = field === 'discount_rate_2' ? Number(value) : (newItems[index].discount_rate_2 || 0);
+      const rate3 = field === 'discount_rate_3' ? Number(value) : (newItems[index].discount_rate_3 || 0);
+      const disc1 = amount * (rate1 / 100);
+      const after1 = amount - disc1;
+      const disc2 = after1 * (rate2 / 100);
+      const after2 = after1 - disc2;
+      const disc3 = after2 * (rate3 / 100);
+      newItems[index].discount_amount = disc1;
+      newItems[index].discount_amount_2 = disc2;
+      newItems[index].discount_amount_3 = disc3;
     }
     
     setItems(newItems);
@@ -444,7 +623,7 @@ export default function TransactionEntry() {
     const totalVat = items.reduce((sum, item) => sum + (item.vat_amount || 0), 0);
     const totalWithholding = items.reduce((sum, item) => sum + (item.withholding_amount || 0), 0);
     const totalStopaj = items.reduce((sum, item) => sum + (item.stopaj_amount || 0), 0);
-    const totalDiscount = items.reduce((sum, item) => sum + (item.discount_amount || 0), 0);
+    const totalDiscount = items.reduce((sum, item) => sum + (item.discount_amount || 0) + (item.discount_amount_2 || 0) + (item.discount_amount_3 || 0), 0);
     const grandTotal = subTotal + totalVat - totalWithholding - totalStopaj - totalDiscount;
     return { subTotal, totalVat, totalWithholding, totalStopaj, totalDiscount, grandTotal };
   };
@@ -506,14 +685,14 @@ export default function TransactionEntry() {
         .from('transactions')
         .insert({
           transaction_date: transactionDate,
-          transaction_type: transactionType,
+          transaction_type: getDbTransactionType(),
           firm_id: firmId || null,
           cari_id: cariId || null,
           expense_category_id: expenseCategoryId || null,
           project_id: projectId || null,
           amount: totals.grandTotal,
           invoice_number: (isAnyInvoice || isIncomeType || isExpenseType) && finalInvoiceNumber ? finalInvoiceNumber : null,
-          delivery_note_number: transactionType === 'delivery_note' ? deliveryNoteNumber : null,
+          delivery_note_number: isDeliveryNoteType ? formatInvoiceNumberOnSave(deliveryNoteNumber) : null,
           is_exception: isException,
           exception_reason: isException ? exceptionReason : null,
           description,
@@ -524,14 +703,17 @@ export default function TransactionEntry() {
 
       if (transactionError) throw transactionError;
 
-      // Çek tipi seçildiyse çek kaydı oluştur
-      if (transactionType === 'check' && checkNumber && firmId) {
+      // Çek: check işlem tipi veya gelir/gider + çek ödeme yöntemi
+      if ((isCheckType || (paymentMethod === 'check' && (isIncomeType || isExpenseType))) && checkNumber && firmId) {
+        const finalCheckType = isCheckType ? checkType : (isIncomeType ? 'received' : 'given');
         const { error: checkError } = await supabase
           .from('checks')
           .insert({
             check_number: checkNumber,
-            check_type: checkType,
+            check_type: finalCheckType,
             firm_id: firmId,
+            cari_id: cariId || null,
+            project_id: projectId || null,
             bank_name: bankName || null,
             bank_branch: bankBranch || null,
             amount: totals.grandTotal,
@@ -545,8 +727,8 @@ export default function TransactionEntry() {
         if (checkError) throw checkError;
       }
 
-      // Gelir/Gider için ödeme yöntemi varsa ilgili kaydı oluştur
-      if ((transactionType === 'income' || transactionType === 'expense') && paymentMethod) {
+      // Gelir/Gider için ödeme yöntemi varsa ilgili kaydı oluştur (çek hariç)
+      if ((transactionType === 'income' || transactionType === 'expense') && paymentMethod && paymentMethod !== 'check') {
         const isIncome = transactionType === 'income';
         
         // Nakit ise kasa hareketi oluştur
@@ -601,27 +783,6 @@ export default function TransactionEntry() {
               : account.current_balance - totals.grandTotal;
             await supabase.from('bank_accounts').update({ current_balance: newBalance }).eq('id', bankAccountId);
           }
-        }
-
-        // Çek ise çek kaydı oluştur
-        if (paymentMethod === 'check' && checkNumber && firmId) {
-          const { error: checkError } = await supabase
-            .from('checks')
-            .insert({
-              check_number: checkNumber,
-              check_type: isIncome ? 'received' : 'given',
-              firm_id: firmId,
-              bank_name: bankName || null,
-              bank_branch: bankBranch || null,
-              amount: totals.grandTotal,
-              issue_date: transactionDate,
-              due_date: dueDate || transactionDate,
-              status: 'pending',
-              transaction_id: transaction.id,
-              notes: description || null,
-            });
-
-          if (checkError) throw checkError;
         }
       }
 
@@ -707,15 +868,31 @@ export default function TransactionEntry() {
   const isExpenseType = transactionType === 'expense';
   const isInvoiceType = transactionType === 'invoice';
   const isDeliveryNoteType = transactionType === 'delivery_note';
-  const isPurchaseInvoice = transactionType === 'purchase_invoice';
-  const isSaleInvoice = transactionType === 'sale_invoice';
+  const isCheckType = transactionType === 'check';
+  const isPurchaseInvoice = transactionType === 'purchase_invoice' || (isInvoiceType && subType === 'purchase');
+  const isSaleInvoice = transactionType === 'sale_invoice' || (isInvoiceType && subType === 'sale');
   const isAnyInvoice = isInvoiceType || isPurchaseInvoice || isSaleInvoice;
+
+  // Veritabanına gönderilen gerçek transaction_type
+  const getDbTransactionType = () => {
+    if (isInvoiceType) return subType === 'sale' ? 'sale_invoice' : 'purchase_invoice';
+    if (isDeliveryNoteType) return subType === 'sale' ? 'sale_delivery_note' : 'purchase_delivery_note';
+    return transactionType;
+  };
   
   const showFirm = true;
   const showExpenseCategory = isExpenseType;
   const showInvoiceNumber = isAnyInvoice || isIncomeType || isExpenseType;
   const showDeliveryNoteNumber = isDeliveryNoteType;
   const showItems = isAnyInvoice || isDeliveryNoteType;
+
+  // İşlem tipi değiştiğinde kalemler görünüyorsa ve boşsa ilk kalemi ekle
+  useEffect(() => {
+    if (showItems && items.length === 0) {
+      addItem();
+    }
+  }, [showItems]);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -779,6 +956,48 @@ export default function TransactionEntry() {
               );
             })}
           </div>
+
+          {/* Fatura alt seçim: Satış / Alış */}
+          {isInvoiceType && (
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => setSubType('sale')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subType === 'sale' ? 'bg-teal-100 text-teal-700 border border-teal-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
+                Satış Faturası
+              </button>
+              <button type="button" onClick={() => setSubType('purchase')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subType === 'purchase' ? 'bg-orange-100 text-orange-700 border border-orange-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
+                Alış Faturası
+              </button>
+            </div>
+          )}
+
+          {/* İrsaliye alt seçim: Satış / Alış */}
+          {isDeliveryNoteType && (
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => setSubType('sale')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subType === 'sale' ? 'bg-teal-100 text-teal-700 border border-teal-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
+                Satış İrsaliyesi
+              </button>
+              <button type="button" onClick={() => setSubType('purchase')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subType === 'purchase' ? 'bg-orange-100 text-orange-700 border border-orange-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
+                Alış İrsaliyesi
+              </button>
+            </div>
+          )}
+
+          {/* Çek alt seçim: Alınan / Verilen */}
+          {isCheckType && (
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => setCheckType('received')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${checkType === 'received' ? 'bg-green-100 text-green-700 border border-green-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
+                Alınan Çek
+              </button>
+              <button type="button" onClick={() => setCheckType('given')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${checkType === 'given' ? 'bg-red-100 text-red-700 border border-red-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
+                Verilen Çek
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-xl p-6 border border-slate-200">
@@ -918,7 +1137,16 @@ export default function TransactionEntry() {
                 <input
                   type="text"
                   value={deliveryNoteNumber}
-                  onChange={(e) => setDeliveryNoteNumber(e.target.value)}
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/[^a-zA-Z0-9/]/g, '').toUpperCase();
+                    setDeliveryNoteNumber(clean);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      setDeliveryNoteNumber(formatInvoiceNumberOnSave(deliveryNoteNumber));
+                    }
+                  }}
                   className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 />
               </ResizableCell>
@@ -972,7 +1200,7 @@ export default function TransactionEntry() {
               </ResizableCell>
             )}
 
-            {(isIncomeType || isExpenseType) && paymentMethod === 'check' && (
+            {(isCheckType || ((isIncomeType || isExpenseType) && paymentMethod === 'check')) && (
               <>
                 <ResizableCell cellId="giris-cek-no" minWidth={130}>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Çek No</label>
@@ -983,17 +1211,6 @@ export default function TransactionEntry() {
                     placeholder="Çek numarası"
                     className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   />
-                </ResizableCell>
-                <ResizableCell cellId="giris-cek-turu" minWidth={110}>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Çek Türü</label>
-                  <select
-                    value={checkType}
-                    onChange={(e) => setCheckType(e.target.value as 'received' | 'given')}
-                    className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  >
-                    <option value="received">Alınan</option>
-                    <option value="given">Verilen</option>
-                  </select>
                 </ResizableCell>
                 <ResizableCell cellId="giris-cek-banka">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Banka</label>
@@ -1016,18 +1233,6 @@ export default function TransactionEntry() {
                 </ResizableCell>
               </>
             )}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 border border-slate-200">
-          <div className="mt-4">
-            <DescriptionAutocomplete
-              value={description}
-              onChange={setDescription}
-              suggestions={previousDescriptions}
-              placeholder="Daha önce kullanılan açıklamalar otomatik gelecek..."
-              rows={2}
-            />
           </div>
         </div>
 
@@ -1060,6 +1265,51 @@ export default function TransactionEntry() {
                       <ResizableTh columnId="islem-kalem-kdv" className="text-right py-3 px-2">KDV</ResizableTh>
                       <ResizableTh columnId="islem-kalem-tevkifat" className="text-right py-3 px-2">Tevkifat %</ResizableTh>
                       <ResizableTh columnId="islem-kalem-stopaj" className="text-right py-3 px-2">Stopaj %</ResizableTh>
+                      <ResizableTh columnId="islem-kalem-iskonto" className="text-right py-3 px-2">
+                        <div className="flex items-center justify-end gap-1">
+                          <span>İskonto %</span>
+                          {discountCount < 3 && (
+                            <button
+                              type="button"
+                              onClick={() => setDiscountCount(discountCount + 1)}
+                              className="w-5 h-5 flex items-center justify-center bg-blue-100 text-blue-600 rounded hover:bg-blue-200 text-xs font-bold"
+                            >+</button>
+                          )}
+                        </div>
+                      </ResizableTh>
+                      {discountCount >= 2 && (
+                        <ResizableTh columnId="islem-kalem-iskonto2" className="text-right py-3 px-2">
+                          <div className="flex items-center justify-end gap-1">
+                            <span>İsk.2 %</span>
+                            {discountCount < 3 && (
+                              <button
+                                type="button"
+                                onClick={() => setDiscountCount(discountCount + 1)}
+                                className="w-5 h-5 flex items-center justify-center bg-blue-100 text-blue-600 rounded hover:bg-blue-200 text-xs font-bold"
+                              >+</button>
+                            )}
+                            {discountCount === 2 && (
+                              <button
+                                type="button"
+                                onClick={() => setDiscountCount(1)}
+                                className="w-5 h-5 flex items-center justify-center bg-red-100 text-red-600 rounded hover:bg-red-200 text-xs font-bold"
+                              >-</button>
+                            )}
+                          </div>
+                        </ResizableTh>
+                      )}
+                      {discountCount >= 3 && (
+                        <ResizableTh columnId="islem-kalem-iskonto3" className="text-right py-3 px-2">
+                          <div className="flex items-center justify-end gap-1">
+                            <span>İsk.3 %</span>
+                            <button
+                              type="button"
+                              onClick={() => setDiscountCount(2)}
+                              className="w-5 h-5 flex items-center justify-center bg-red-100 text-red-600 rounded hover:bg-red-200 text-xs font-bold"
+                            >-</button>
+                          </div>
+                        </ResizableTh>
+                      )}
                       <ResizableTh columnId="islem-kalem-islem" className="text-center py-3 px-2">İşlem</ResizableTh>
                     </tr>
                   </thead>
@@ -1070,7 +1320,7 @@ export default function TransactionEntry() {
                         <td className="py-2 px-2">
                           <div className="flex flex-col gap-1">
                             <div className="flex gap-1">
-                              <div className="relative flex-1">
+                              <div className="relative flex-1 product-dropdown-container">
                                 <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input
                                   type="text"
@@ -1078,19 +1328,55 @@ export default function TransactionEntry() {
                                   onChange={(e) => {
                                     updateItem(index, 'description', e.target.value);
                                     handleProductSelect(index, e.target.value);
+                                    if (e.target.value.length > 0) {
+                                      setOpenProductDropdown(index);
+                                    } else {
+                                      setOpenProductDropdown(null);
+                                    }
+                                  }}
+                                  onFocus={() => {
+                                    if (item.description.length > 0) {
+                                      setOpenProductDropdown(index);
+                                    }
                                   }}
                                   placeholder="Ürün ara veya yaz..."
                                   className="w-full pl-7 pr-2 py-1 border border-slate-300 rounded text-sm"
-                                  list={`products-${index}`}
                                 />
-                                <datalist id={`products-${index}`}>
-                                  {products.map(product => (
-                                    <option key={product.id} value={product.name}>
-                                      {product.code} - {product.name} (Stok: {product.stock_quantity})
-                                    </option>
-                                  ))}
-                                </datalist>
+                                {openProductDropdown === index && (
+                                  (() => {
+                                    const filtered = products.filter(p =>
+                                      p.name.toLowerCase().includes(item.description.toLowerCase()) ||
+                                      p.code?.toLowerCase().includes(item.description.toLowerCase())
+                                    ).slice(0, 5);
+                                    if (filtered.length === 0) return null;
+                                    return (
+                                      <div className="absolute left-0 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-[150px] overflow-auto">
+                                        {filtered.map(product => (
+                                          <div
+                                            key={product.id}
+                                            className="px-3 py-1.5 cursor-pointer hover:bg-blue-50 text-sm flex items-center gap-2"
+                                            onMouseDown={(e) => {
+                                              e.preventDefault();
+                                              updateItem(index, 'description', product.name);
+                                              handleProductSelect(index, product.name);
+                                              setOpenProductDropdown(null);
+                                            }}
+                                          >
+                                            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-mono font-bold">{product.code}</span>
+                                            <span className="font-medium">{product.name}</span>
+                                            <span className="text-xs text-slate-400 ml-auto">Stok: {product.stock_quantity}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()
+                                )}
                               </div>
+                              {index === 0 && hasPendingOrders && (
+                                <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                                  Tamamlanmamış sipariş var, F1 ile görüntüle
+                                </span>
+                              )}
                               {!item.product_id && item.description && (
                                 <button
                                   type="button"
@@ -1133,8 +1419,17 @@ export default function TransactionEntry() {
                             type="number"
                             value={item.unit_price}
                             onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                            className="w-24 px-2 py-1 border border-slate-300 rounded text-sm text-right"
+                            className={`w-24 px-2 py-1 border rounded text-sm text-right ${
+                              (item as any).order_unit_price && item.unit_price !== (item as any).order_unit_price
+                                ? item.unit_price > (item as any).order_unit_price ? 'border-orange-400 bg-orange-50' : 'border-amber-400 bg-amber-50'
+                                : 'border-slate-300'
+                            }`}
                           />
+                          {(item as any).order_unit_price && item.unit_price !== (item as any).order_unit_price && (
+                            <p className={`text-xs mt-0.5 ${item.unit_price > (item as any).order_unit_price ? 'text-orange-600' : 'text-amber-600'}`}>
+                              {item.unit_price > (item as any).order_unit_price ? '↑ Yüksek' : '↓ Düşük'} ({formatCurrency((item as any).order_unit_price)})
+                            </p>
+                          )}
                         </td>
                         <td className="py-2 px-2 text-right font-medium">
                           {(item.amount || 0).toLocaleString('tr-TR')} ₺
@@ -1168,6 +1463,37 @@ export default function TransactionEntry() {
                             placeholder="0"
                           />
                         </td>
+                        <td className="py-2 px-2">
+                          <input
+                            type="number"
+                            value={item.discount_rate || 0}
+                            onChange={(e) => updateItem(index, 'discount_rate', parseFloat(e.target.value) || 0)}
+                            className="w-16 px-2 py-1 border border-slate-300 rounded text-sm text-right"
+                            placeholder="0"
+                          />
+                        </td>
+                        {discountCount >= 2 && (
+                          <td className="py-2 px-2">
+                            <input
+                              type="number"
+                              value={item.discount_rate_2 || 0}
+                              onChange={(e) => updateItem(index, 'discount_rate_2', parseFloat(e.target.value) || 0)}
+                              className="w-16 px-2 py-1 border border-slate-300 rounded text-sm text-right"
+                              placeholder="0"
+                            />
+                          </td>
+                        )}
+                        {discountCount >= 3 && (
+                          <td className="py-2 px-2">
+                            <input
+                              type="number"
+                              value={item.discount_rate_3 || 0}
+                              onChange={(e) => updateItem(index, 'discount_rate_3', parseFloat(e.target.value) || 0)}
+                              className="w-16 px-2 py-1 border border-slate-300 rounded text-sm text-right"
+                              placeholder="0"
+                            />
+                          </td>
+                        )}
                         <td className="py-2 px-2 text-center">
                           <button
                             type="button"
@@ -1226,6 +1552,18 @@ export default function TransactionEntry() {
             )}
           </div>
         )}
+
+        <div className="bg-white rounded-xl p-6 border border-slate-200">
+          <div className="mt-4">
+            <DescriptionAutocomplete
+              value={description}
+              onChange={setDescription}
+              suggestions={previousDescriptions}
+              placeholder="Daha önce kullanılan açıklamalar otomatik gelecek..."
+              rows={2}
+            />
+          </div>
+        </div>
 
         {message && (
           <div
@@ -1477,6 +1815,66 @@ export default function TransactionEntry() {
                 Kapat
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bekleyen Sipariş Kalemleri Modal */}
+      {showPendingModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-800">Bekleyen Sipariş Kalemleri (F1)</h2>
+              <button onClick={() => setShowPendingModal(false)} className="text-slate-500 hover:text-slate-700">
+                <X size={20} />
+              </button>
+            </div>
+            {pendingOrderItems.length === 0 ? (
+              <p className="text-slate-500 text-center py-4">Bu cariye ait bekleyen sipariş kalemi bulunamadı.</p>
+            ) : (
+              <>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      <th className="py-2 px-2 w-10">
+                        <input type="checkbox" className="rounded" onChange={(e) => {
+                          const checked = e.target.checked;
+                          setPendingOrderItems(prev => prev.map(item => ({ ...item, selected: checked })));
+                        }} />
+                      </th>
+                      <th className="text-left py-2 px-2">Sipariş</th>
+                      <th className="text-left py-2 px-2">Ürün</th>
+                      <th className="text-right py-2 px-2">Kalan</th>
+                      <th className="text-right py-2 px-2">Birim Fiyat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingOrderItems.map((item, i) => (
+                      <tr key={i} data-highlight={i} className={`border-b border-slate-100 cursor-pointer transition-colors ${
+                        i === pendingHighlightIndex ? 'bg-blue-100 ring-2 ring-blue-400' : item.selected ? 'bg-blue-50' : 'hover:bg-slate-50'
+                      }`} onClick={() => togglePendingItem(i)}>
+                        <td className="py-2 px-2">
+                          <input type="checkbox" className="rounded" checked={item.selected} onChange={() => togglePendingItem(i)} onClick={(e) => e.stopPropagation()} />
+                        </td>
+                        <td className="py-2 px-2 font-medium">{item.order_number}</td>
+                        <td className="py-2 px-2">{item.product_name}</td>
+                        <td className="py-2 px-2 text-right font-bold text-blue-700">{item.remaining} {item.unit}</td>
+                        <td className="py-2 px-2 text-right">{formatCurrency(item.unit_price)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="flex justify-between items-center mt-4">
+                  <p className="text-sm text-slate-500">{pendingOrderItems.filter(i => i.selected).length} kalem seçildi</p>
+                  <div className="flex gap-2">
+                    <button onClick={() => setShowPendingModal(false)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Kapat</button>
+                    <button onClick={addSelectedPendingItems} disabled={!pendingOrderItems.some(i => i.selected)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                      Seçilenleri Ekle
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
