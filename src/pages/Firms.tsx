@@ -4,7 +4,7 @@ import { formatCurrency, findSimilar } from '../lib/utils';
 import { importFromExcel, exportFirmsToCSV } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
 import type { Firm } from '../types';
-import { Plus, Edit2, Trash2, Search, Building2, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Building2, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle, TrendingUp, TrendingDown, Wallet, FileCheck } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 
 interface FirmSummary {
@@ -29,6 +29,13 @@ export default function Firms() {
   const [importing, setImporting] = useState(false);
   const [similarWarning, setSimilarWarning] = useState<Firm[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  
+  // Check istatistikleri
+  const [checkStats, setCheckStats] = useState({
+    totalCash: 0, totalBank: 0,
+    pendingGiven: 0, urgentGiven: 0, paidChecks: 0, paidChecksAmount: 0,
+    pendingReceived: 0, urgentReceived: 0, collectedChecks: 0, collectedChecksAmount: 0,
+  });
 
   useEffect(() => { fetchFirms(); fetchFirmSummaries(); }, [selectedFirm, selectedProject]);
 
@@ -185,6 +192,53 @@ export default function Firms() {
 
     // Sayfa toplamları — Dashboard ile birebir aynı formül (firma özetlerinin toplamı DEĞİL)
     setPageTotals({ income: totalIncome, expense: totalExpense, profitLoss: totalIncome - totalExpense });
+
+    // Check istatistikleri (tüm firmalar veya seçili firma)
+    const sevenDaysLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    let checkQuery = supabase.from('checks').select('*');
+    if (selectedFirm) checkQuery = checkQuery.eq('firm_id', selectedFirm.id);
+    const { data: allChecks } = await checkQuery;
+    
+    const pendingGiven = (allChecks || []).filter(c => c.check_type === 'given' && c.status === 'pending').length;
+    const urgentGiven = (allChecks || []).filter(c => c.check_type === 'given' && c.status === 'pending' && c.due_date <= sevenDaysLater).length;
+    const paidChecksRaw = (allChecks || []).filter(c => c.check_type === 'given' && c.status === 'collected');
+    const paidAmount = paidChecksRaw.reduce((s, c) => s + c.amount, 0);
+    const pendingReceived = (allChecks || []).filter(c => c.check_type === 'received' && c.status === 'pending').length;
+    const urgentReceived = (allChecks || []).filter(c => c.check_type === 'received' && c.status === 'pending' && c.due_date <= sevenDaysLater).length;
+    const collectedChecksRaw = (allChecks || []).filter(c => c.check_type === 'received' && c.status === 'collected');
+    const collectedAmount = collectedChecksRaw.reduce((s, c) => s + c.amount, 0);
+
+    // Kasa/banka bakiyeleri
+    const { data: cashRegs } = await supabase.from('cash_registers').select('id, opening_balance').eq('is_active', true);
+    const { data: bankAccs } = await supabase.from('bank_accounts').select('id, opening_balance').eq('is_active', true);
+    
+    let cashBalance = (cashRegs || []).reduce((s, c) => s + c.opening_balance, 0);
+    let bankBalance = (bankAccs || []).reduce((s, b) => s + b.opening_balance, 0);
+    
+    // Kasa/banka hareketlerini ekle
+    const cashRegIds = (cashRegs || []).map(c => c.id);
+    const bankAccIds = (bankAccs || []).map(b => b.id);
+    
+    if (cashRegIds.length > 0) {
+      const { data: cashTx } = await supabase.from('cash_transactions').select('amount, transaction_type').in('cash_register_id', cashRegIds).is('transaction_id', null);
+      (cashTx || []).forEach(t => {
+        cashBalance += t.transaction_type === 'in' ? t.amount : -t.amount;
+      });
+    }
+    
+    if (bankAccIds.length > 0) {
+      const { data: bankTx } = await supabase.from('bank_transactions').select('amount, transaction_type').in('bank_account_id', bankAccIds).is('transaction_id', null);
+      (bankTx || []).forEach(t => {
+        bankBalance += t.transaction_type === 'in' ? t.amount : -t.amount;
+      });
+    }
+
+    setCheckStats({
+      totalCash: cashBalance, totalBank: bankBalance,
+      pendingGiven, urgentGiven, paidChecks: paidChecksRaw.length, paidChecksAmount: paidAmount,
+      pendingReceived, urgentReceived, collectedChecks: collectedChecksRaw.length, collectedChecksAmount: collectedAmount,
+    });
   };
 
   const [pageTotals, setPageTotals] = useState<{ income: number; expense: number; profitLoss: number }>({ income: 0, expense: 0, profitLoss: 0 });
@@ -328,26 +382,50 @@ export default function Firms() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
               <div className="bg-green-50 rounded-xl p-4 border border-green-200">
-                <div className="flex items-center gap-2 mb-2"><TrendingUp size={16} className="text-green-600" /><span className="text-xs text-green-700 font-medium">Firma Geliri</span></div>
+                <div className="flex items-center gap-2 mb-2"><TrendingUp size={16} className="text-green-600" /><span className="text-xs text-green-700 font-medium">Toplam Gelir</span></div>
                 <p className="text-lg font-bold text-green-600">{formatCurrency(totalIncome)}</p>
               </div>
               <div className="bg-red-50 rounded-xl p-4 border border-red-200">
-                <div className="flex items-center gap-2 mb-2"><TrendingDown size={16} className="text-red-600" /><span className="text-xs text-red-700 font-medium">Firma Gideri</span></div>
+                <div className="flex items-center gap-2 mb-2"><TrendingDown size={16} className="text-red-600" /><span className="text-xs text-red-700 font-medium">Toplam Gider</span></div>
                 <p className="text-lg font-bold text-red-600">{formatCurrency(totalExpense)}</p>
               </div>
-              <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
-                <div className="flex items-center gap-2 mb-2"><DollarSign size={16} className="text-orange-600" /><span className="text-xs text-orange-700 font-medium">Verilen Çekler</span></div>
-                <p className="text-lg font-bold text-orange-600">{formatCurrency(totalChecksGiven)}</p>
+              <div className={`rounded-xl p-4 border ${totalProfitLoss >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                <div className="flex items-center gap-2 mb-2"><TrendingUp size={16} className={totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'} /><span className={`text-xs font-medium ${totalProfitLoss >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>Kâr/Zarar</span></div>
+                <p className={`text-lg font-bold ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatCurrency(totalProfitLoss)}</p>
+              </div>
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                <div className="flex items-center gap-2 mb-2"><Wallet size={16} className="text-blue-600" /><span className="text-xs text-blue-700 font-medium">Kasa Bakiyesi</span></div>
+                <p className="text-lg font-bold text-blue-600">{formatCurrency(checkStats.totalCash)}</p>
               </div>
               <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
-                <div className="flex items-center gap-2 mb-2"><DollarSign size={16} className="text-purple-600" /><span className="text-xs text-purple-700 font-medium">Ödenen Çekler</span></div>
-                <p className="text-lg font-bold text-purple-600">{formatCurrency(totalChecksPaid)}</p>
+                <div className="flex items-center gap-2 mb-2"><Building2 size={16} className="text-purple-600" /><span className="text-xs text-purple-700 font-medium">Banka Bakiyesi</span></div>
+                <p className="text-lg font-bold text-purple-600">{formatCurrency(checkStats.totalBank)}</p>
               </div>
-              <div className={`rounded-xl p-4 border ${totalProfitLoss >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-                <div className="flex items-center gap-2 mb-2"><TrendingUp size={16} className={totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'} /><span className={`text-xs font-medium ${totalProfitLoss >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>Kar/Zarar</span></div>
-                <p className={`text-lg font-bold ${totalProfitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatCurrency(totalProfitLoss)}</p>
+              <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                <div className="flex items-center gap-2 mb-2"><FileCheck size={16} className="text-orange-600" /><span className="text-xs text-orange-700 font-medium">Bekleyen Verilen Çek</span></div>
+                <p className="text-lg font-bold text-orange-600">{checkStats.pendingGiven} adet</p>
+              </div>
+              <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+                <div className="flex items-center gap-2 mb-2"><AlertTriangle size={16} className="text-yellow-600" /><span className="text-xs text-yellow-700 font-medium">Vadesi Yaklaşan Verilen</span></div>
+                <p className="text-lg font-bold text-yellow-600">{checkStats.urgentGiven} adet</p>
+              </div>
+              <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+                <div className="flex items-center gap-2 mb-2"><FileCheck size={16} className="text-red-600" /><span className="text-xs text-red-700 font-medium">Ödenen Çek</span></div>
+                <p className="text-lg font-bold text-red-600">{checkStats.paidChecks} adet / {formatCurrency(checkStats.paidChecksAmount)}</p>
+              </div>
+              <div className="bg-teal-50 rounded-xl p-4 border border-teal-200">
+                <div className="flex items-center gap-2 mb-2"><FileCheck size={16} className="text-teal-600" /><span className="text-xs text-teal-700 font-medium">Bekleyen Alınan Çek</span></div>
+                <p className="text-lg font-bold text-teal-600">{checkStats.pendingReceived} adet</p>
+              </div>
+              <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                <div className="flex items-center gap-2 mb-2"><AlertTriangle size={16} className="text-amber-600" /><span className="text-xs text-amber-700 font-medium">Vadesi Yaklaşan Alınan</span></div>
+                <p className="text-lg font-bold text-amber-600">{checkStats.urgentReceived} adet</p>
+              </div>
+              <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                <div className="flex items-center gap-2 mb-2"><FileCheck size={16} className="text-green-600" /><span className="text-xs text-green-700 font-medium">Tahsil Edilen Çek</span></div>
+                <p className="text-lg font-bold text-green-600">{checkStats.collectedChecks} adet / {formatCurrency(checkStats.collectedChecksAmount)}</p>
               </div>
             </div>
 
