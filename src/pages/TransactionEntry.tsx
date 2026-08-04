@@ -88,6 +88,10 @@ export default function TransactionEntry() {
   const [hasPendingOrders, setHasPendingOrders] = useState(false);
   const [discountCount, setDiscountCount] = useState(1);
   
+  // Şablonlar
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  
   // Yeni işlem tipi ekleme modal
   const [showAddTypeModal, setShowAddTypeModal] = useState(false);
   const [newTypeName, setNewTypeName] = useState('');
@@ -150,6 +154,61 @@ export default function TransactionEntry() {
       const uniqueDescriptions = [...new Set(descriptionsRes.data.map(d => d.description).filter(Boolean))];
       setPreviousDescriptions(uniqueDescriptions);
     }
+
+    // Şablonları localStorage'dan yükle
+    const savedTemplates = localStorage.getItem('transaction_templates');
+    if (savedTemplates) setTemplates(JSON.parse(savedTemplates));
+  };
+
+  // Şablonu kaydet
+  const saveAsTemplate = () => {
+    const templateName = prompt('Şablon adı girin:');
+    if (!templateName) return;
+    const template = {
+      id: Date.now().toString(),
+      name: templateName,
+      transactionType,
+      subType,
+      firmId,
+      cariId,
+      projectId,
+      expenseCategoryId,
+      description,
+      paymentMethod,
+      items: items.map(i => ({ ...i })),
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [...templates, template];
+    setTemplates(updated);
+    localStorage.setItem('transaction_templates', JSON.stringify(updated));
+    setMessage({ type: 'success', text: `"${templateName}" şablonu kaydedildi!` });
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  // Şablonu yükle
+  const loadTemplate = (template: any) => {
+    setTransactionType(template.transactionType);
+    setSubType(template.subType);
+    setFirmId(template.firmId);
+    setCariId(template.cariId);
+    setProjectId(template.projectId);
+    setExpenseCategoryId(template.expenseCategoryId);
+    setDescription(template.description);
+    setPaymentMethod(template.paymentMethod);
+    if (template.items && template.items.length > 0) {
+      setItems(template.items.map((i: any, idx: number) => ({ ...i, _key: Date.now() + idx })));
+    }
+    setShowTemplates(false);
+    setMessage({ type: 'success', text: `"${template.name}" şablonu yüklendi!` });
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  // Şablonu sil
+  const deleteTemplate = (id: string) => {
+    if (!confirm('Bu şablonu silmek istediğinize emin misiniz?')) return;
+    const updated = templates.filter(t => t.id !== id);
+    setTemplates(updated);
+    localStorage.setItem('transaction_templates', JSON.stringify(updated));
   };
 
   // F1 tuşu - bekleyen sipariş kalemlerini göster
@@ -905,6 +964,22 @@ export default function TransactionEntry() {
         <div className="flex gap-2">
           <button
             type="button"
+            onClick={() => setShowTemplates(!showTemplates)}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <Save size={16} />
+            Şablonlar ({templates.length})
+          </button>
+          <button
+            type="button"
+            onClick={saveAsTemplate}
+            className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+          >
+            <Plus size={16} />
+            Şablon Kaydet
+          </button>
+          <button
+            type="button"
             onClick={() => setShowExcelImport(true)}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
@@ -913,6 +988,27 @@ export default function TransactionEntry() {
           </button>
         </div>
       </div>
+
+      {/* Şablonlar Listesi */}
+      {showTemplates && templates.length > 0 && (
+        <div className="bg-white rounded-xl p-4 border border-slate-200 mb-6">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">Kayıtlı Şablonlar</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {templates.map(template => (
+              <div key={template.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <div>
+                  <p className="font-medium text-slate-800">{template.name}</p>
+                  <p className="text-xs text-slate-500">{template.transactionType} • {template.items?.length || 0} kalem</p>
+                </div>
+                <div className="flex gap-1">
+                  <button type="button" onClick={() => loadTemplate(template)} className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Yükle</button>
+                  <button type="button" onClick={() => deleteTemplate(template.id)} className="px-2 py-1 text-sm bg-red-100 text-red-600 rounded hover:bg-red-200">Sil</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="bg-white rounded-xl p-6 border border-slate-200">
