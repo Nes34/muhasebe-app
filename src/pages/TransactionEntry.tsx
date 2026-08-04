@@ -711,7 +711,7 @@ export default function TransactionEntry() {
   const isSaleInvoice = transactionType === 'sale_invoice';
   const isAnyInvoice = isInvoiceType || isPurchaseInvoice || isSaleInvoice;
   
-  const showFirm = !isExpenseType;
+  const showFirm = true;
   const showExpenseCategory = isExpenseType;
   const showInvoiceNumber = isAnyInvoice || isIncomeType || isExpenseType;
   const showDeliveryNoteNumber = isDeliveryNoteType;
