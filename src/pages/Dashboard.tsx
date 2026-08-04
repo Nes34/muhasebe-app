@@ -100,7 +100,7 @@ export default function Dashboard() {
         if (day) {
           if (transferTypes.includes(t.transaction_type)) {
             // Transferler gelir/gider olarak sayılmaz
-          } else if (['income', 'invoice'].includes(t.transaction_type)) {
+          } else if (['income', 'invoice', 'sale_invoice'].includes(t.transaction_type)) {
             day.income += t.amount;
           } else {
             day.expense += t.amount;
