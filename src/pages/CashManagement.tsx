@@ -12,7 +12,7 @@ interface CashRegisterWithFirms extends CashRegister {
 }
 
 export default function CashManagement() {
-  const { selectedFirm } = useFirm();
+  const { selectedFirm, selectedProject } = useFirm();
   const [registers, setRegisters] = useState<CashRegisterWithFirms[]>([]);
   const [transactions, setTransactions] = useState<CashTransaction[]>([]);
   const [firms, setFirms] = useState<Firm[]>([]);
@@ -32,7 +32,7 @@ export default function CashManagement() {
 
   useEffect(() => {
     fetchRegisters();
-  }, [selectedFirm]);
+  }, [selectedFirm, selectedProject]);
 
   const fetchData = async () => {
     const [firmsRes, carilerRes, projectsRes] = await Promise.all([

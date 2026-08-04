@@ -9,7 +9,7 @@ import { Search, Download, FileText } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 
 export default function AccountStatement() {
-  const { selectedFirm } = useFirm();
+  const { selectedFirm, selectedProject } = useFirm();
   const [cariler, setCariler] = useState<Cari[]>([]);
   const [allCariler, setAllCariler] = useState<Cari[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -48,7 +48,7 @@ export default function AccountStatement() {
     }
     setSelectedCariId('');
     setTransactions([]);
-  }, [selectedFirm]);
+  }, [selectedFirm, selectedProject]);
   useEffect(() => { if (selectedCariId) fetchStatement(); }, [selectedCariId, selectedProjectId, startDate, endDate, includeException]);
 
   const fetchCariler = async () => {

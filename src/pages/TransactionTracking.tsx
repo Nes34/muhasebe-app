@@ -10,7 +10,7 @@ import { Search, Edit2, Trash2, ArrowRightLeft, ChevronDown, ChevronRight, Save,
 import ResizableTh from '../components/tables/ResizableTh';
 
 export default function TransactionTracking() {
-  const { selectedFirm } = useFirm();
+  const { selectedFirm, selectedProject } = useFirm();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [cashTransactions, setCashTransactions] = useState<any[]>([]);
   const [bankTransactions, setBankTransactions] = useState<any[]>([]);
@@ -36,7 +36,7 @@ export default function TransactionTracking() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedFirm]);
+  }, [selectedFirm, selectedProject]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -45,6 +45,9 @@ export default function TransactionTracking() {
     // Header'da firma seçiliyse sadece o firmaya ait işlemleri göster
     if (selectedFirm) {
       txQuery = txQuery.eq('firm_id', selectedFirm.id);
+    }
+    if (selectedProject) {
+      txQuery = txQuery.eq('project_id', selectedProject.id);
     }
     
     let projectsQuery = supabase.from('projects').select('*');
@@ -58,6 +61,11 @@ export default function TransactionTracking() {
       cashQuery = cashQuery.eq('firm_id', selectedFirm.id);
       bankQuery = bankQuery.eq('firm_id', selectedFirm.id);
       checkQuery = checkQuery.eq('firm_id', selectedFirm.id);
+    }
+    if (selectedProject) {
+      cashQuery = cashQuery.eq('project_id', selectedProject.id);
+      bankQuery = bankQuery.eq('project_id', selectedProject.id);
+      checkQuery = checkQuery.eq('project_id', selectedProject.id);
     }
 
     const [transactionsRes, typesRes, firmsRes, projectsRes, cashRes, bankRes, checkRes] = await Promise.all([

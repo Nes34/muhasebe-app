@@ -9,7 +9,7 @@ import { Plus, Edit2, Trash2, Search, AlertTriangle, Send, Download } from 'luci
 import ResizableTh from '../components/tables/ResizableTh';
 
 export default function CheckManagement() {
-  const { selectedFirm } = useFirm();
+  const { selectedFirm, selectedProject } = useFirm();
   const [checks, setChecks] = useState<Check[]>([]);
   const [cariler, setCariler] = useState<Cari[]>([]);
   const [firms, setFirms] = useState<Firm[]>([]);
@@ -84,7 +84,7 @@ export default function CheckManagement() {
       setChecks(data);
       setLoading(false);
     })();
-  }, [selectedFirm]);
+  }, [selectedFirm, selectedProject]);
 
   const fetchFirmBankAccounts = async (firmId: string) => {
     if (!firmId) { setFirmBankAccounts([]); return; }
@@ -96,6 +96,7 @@ export default function CheckManagement() {
     setLoading(true);
     let query = supabase.from('checks').select('*').order('due_date', { ascending: true });
     if (selectedFirm) query = query.eq('firm_id', selectedFirm.id);
+    if (selectedProject) query = query.eq('project_id', selectedProject.id);
     const { data } = await query;
     if (data) setChecks(data);
     setLoading(false);

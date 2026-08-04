@@ -26,7 +26,7 @@ interface TransactionLog {
 
 export default function Reports() {
   const { user } = useAuth();
-  const { selectedFirm } = useFirm();
+  const { selectedFirm, selectedProject } = useFirm();
   const [firmReports, setFirmReports] = useState<Report[]>([]);
   const [projectReports, setProjectReports] = useState<Report[]>([]);
   const [transactionLogs, setTransactionLogs] = useState<TransactionLog[]>([]);
@@ -41,7 +41,7 @@ export default function Reports() {
     fetchReports(); 
     fetchUserProfiles();
     fetchUserRole();
-  }, [selectedFirm]);
+  }, [selectedFirm, selectedProject]);
 
   const fetchUserRole = async () => {
     if (!user) return;

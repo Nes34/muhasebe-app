@@ -62,7 +62,7 @@ interface PendingItem {
 }
 
 export default function OrderTracking() {
-  const { selectedFirm } = useFirm();
+  const { selectedFirm, selectedProject } = useFirm();
   const [orders, setOrders] = useState<OrderWithDetails[]>([]);
   const [cariler, setCariler] = useState<Cari[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,7 +99,7 @@ export default function OrderTracking() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedFirm]);
+  }, [selectedFirm, selectedProject]);
 
   // F1 tuşu için全局 dinleyici
   useEffect(() => {

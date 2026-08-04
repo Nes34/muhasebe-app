@@ -20,7 +20,7 @@ interface CariWithBalance extends Cari {
 }
 
 export default function Cariler() {
-  const { selectedFirm } = useFirm();
+  const { selectedFirm, selectedProject } = useFirm();
   const [cariler, setCariler] = useState<CariWithBalance[]>([]);
   const [_loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,7 +40,7 @@ export default function Cariler() {
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { fetchMeta(); }, []);
-  useEffect(() => { fetchCariler(); }, [selectedFirm, filterFirmId, filterProjectId]);
+  useEffect(() => { fetchCariler(); }, [selectedFirm, selectedProject, filterFirmId, filterProjectId]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

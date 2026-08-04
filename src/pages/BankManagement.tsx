@@ -12,7 +12,7 @@ interface BankAccountWithFirms extends BankAccount {
 }
 
 export default function BankManagement() {
-  const { selectedFirm } = useFirm();
+  const { selectedFirm, selectedProject } = useFirm();
   const [accounts, setAccounts] = useState<BankAccountWithFirms[]>([]);
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
   const [firms, setFirms] = useState<Firm[]>([]);
@@ -37,7 +37,7 @@ export default function BankManagement() {
     fetchAccounts();
     setSelectedAccount('');
     setTransactions([]);
-  }, [selectedFirm]);
+  }, [selectedFirm, selectedProject]);
 
   const fetchData = async () => {
     const [firmsRes, carilerRes, projectsRes] = await Promise.all([
