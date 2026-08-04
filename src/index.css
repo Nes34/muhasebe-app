@@ -48,3 +48,99 @@ body {
   color: hsl(var(--foreground));
   font-family: system-ui, -apple-system, sans-serif;
 }
+
+/* Dark mode utility classes */
+.dark .bg-white {
+  background-color: #1e293b;
+}
+
+.dark .bg-slate-50 {
+  background-color: #0f172a;
+}
+
+.dark .bg-slate-100 {
+  background-color: #1e293b;
+}
+
+.dark .bg-slate-200 {
+  background-color: #334155;
+}
+
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: #e2e8f0;
+}
+
+.dark .text-slate-500 {
+  color: #94a3b8;
+}
+
+.dark .text-slate-400 {
+  color: #64748b;
+}
+
+.dark .border-slate-200,
+.dark .border-slate-300 {
+  border-color: #334155;
+}
+
+.dark .hover\:bg-slate-50:hover {
+  background-color: #1e293b;
+}
+
+.dark .hover\:bg-slate-100:hover {
+  background-color: #334155;
+}
+
+.dark .bg-blue-50 {
+  background-color: #1e3a5f;
+}
+
+.dark .bg-green-50 {
+  background-color: #14532d;
+}
+
+.dark .bg-red-50 {
+  background-color: #7f1d1d;
+}
+
+.dark .bg-orange-50 {
+  background-color: #7c2d12;
+}
+
+.dark .bg-yellow-50 {
+  background-color: #713f12;
+}
+
+.dark .bg-purple-50 {
+  background-color: #581c87;
+}
+
+.dark .bg-teal-50 {
+  background-color: #134e4a;
+}
+
+.dark .bg-amber-50 {
+  background-color: #78350f;
+}
+
+.dark .bg-emerald-50 {
+  background-color: #064e3b;
+}
+
+.dark .bg-rose-50 {
+  background-color: #4c0519;
+}
+
+.dark .bg-indigo-50 {
+  background-color: #312e81;
+}
+
+.dark .bg-violet-50 {
+  background-color: #4c1d95;
+}
+
+.dark .bg-fuchsia-50 {
+  background-color: #701a75;
+}

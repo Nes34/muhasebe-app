@@ -1,7 +1,8 @@
-import { Bell, Search, User, LogOut, Menu, Settings, Lock, X, CheckCircle, AlertTriangle, Building2, ChevronDown, Plus, FolderKanban } from 'lucide-react';
+import { Bell, Search, User, LogOut, Menu, Settings, Lock, X, CheckCircle, AlertTriangle, Building2, ChevronDown, Plus, FolderKanban, Sun, Moon } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useFirm } from '../../hooks/useFirm';
+import { useDarkMode } from '../../hooks/useDarkMode';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency, formatDateTR } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +15,7 @@ interface HeaderProps {
 export function Header({ onMenuClick }: HeaderProps) {
   const { user, signOut, updatePassword } = useAuth();
   const { selectedFirm, firms, setSelectedFirm, selectedProject, projects, setSelectedProject } = useFirm();
+  const { isDark, toggleDark } = useDarkMode();
   const navigate = useNavigate();
   const [showSettings, setShowSettings] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -251,6 +253,15 @@ export function Header({ onMenuClick }: HeaderProps) {
           </div>
         )}
 
+        {/* Dark Mode Toggle */}
+        <button
+          onClick={toggleDark}
+          className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          title={isDark ? 'Aydınlık Mod' : 'Karanlık Mod'}
+        >
+          {isDark ? <Sun size={20} className="text-yellow-500" /> : <Moon size={20} className="text-slate-600" />}
+        </button>
+
         {/* Bildirimler */}
         <div className="relative" ref={notifRef}>
           <button 
@@ -272,10 +283,26 @@ export function Header({ onMenuClick }: HeaderProps) {
                   <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                     <Bell size={16} />
                     Bildirimler
+                    {urgentChecks.length > 0 && (
+                      <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">{urgentChecks.length}</span>
+                    )}
                   </h3>
-                  <button onClick={() => setShowNotifications(false)} className="p-1 hover:bg-slate-200 rounded">
-                    <X size={16} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {urgentChecks.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setUrgentChecks([]);
+                          setShowNotifications(false);
+                        }}
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-1 hover:bg-blue-50 rounded"
+                      >
+                        Tümünü Okundu İşaretle
+                      </button>
+                    )}
+                    <button onClick={() => setShowNotifications(false)} className="p-1 hover:bg-slate-200 rounded">
+                      <X size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="max-h-80 overflow-y-auto">
