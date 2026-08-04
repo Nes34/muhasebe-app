@@ -30,6 +30,14 @@
 - `src/lib/` → Yardımcı fonksiyonlar
 - `src/hooks/useAuth.tsx` → Giriş Yetkilendirme
 - `src/components/layout/` → Sidebar, Header, MobileNav
+- `src/lib/ai.ts` → AI Asistanı (sistem promptu burada)
+- `src/components/ai/` → AI bileşenleri
+
+## ⚠️ ÖNEMLİ: AI Asistanı
+- Header'daki Bot butonu ile açılır
+- Kullanıcı kendi API key'ini girer (Gemini, Groq, HF, OpenAI)
+- **Yeni özellik eklendiğinde `src/lib/ai.ts` dosyasındaki SYSTEM_PROMPT'u güncelle!**
+- Kullanıcı "nasıl yaparım" dediğinde asistan yeni özellikleri bilmeli
 
 ## Kullanıcı Bilgileri
 - GitHub: Nes34
