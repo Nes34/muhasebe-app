@@ -1,4 +1,4 @@
-import { Bell, Search, User, LogOut, Menu, Settings, Lock, X, CheckCircle, AlertTriangle, Building2, ChevronDown, Plus } from 'lucide-react';
+import { Bell, Search, User, LogOut, Menu, Settings, Lock, X, CheckCircle, AlertTriangle, Building2, ChevronDown, Plus, FolderKanban } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useFirm } from '../../hooks/useFirm';
@@ -13,11 +13,12 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { user, signOut, updatePassword } = useAuth();
-  const { selectedFirm, firms, setSelectedFirm } = useFirm();
+  const { selectedFirm, firms, setSelectedFirm, selectedProject, projects, setSelectedProject } = useFirm();
   const navigate = useNavigate();
   const [showSettings, setShowSettings] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showFirmSelect, setShowFirmSelect] = useState(false);
+  const [showProjectSelect, setShowProjectSelect] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -27,6 +28,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const settingsRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const firmRef = useRef<HTMLDivElement>(null);
+  const projectRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchUrgentChecks();
@@ -42,6 +44,9 @@ export function Header({ onMenuClick }: HeaderProps) {
       }
       if (firmRef.current && !firmRef.current.contains(e.target as Node)) {
         setShowFirmSelect(false);
+      }
+      if (projectRef.current && !projectRef.current.contains(e.target as Node)) {
+        setShowProjectSelect(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -190,6 +195,61 @@ export function Header({ onMenuClick }: HeaderProps) {
             </div>
           )}
         </div>
+
+        {/* Proje Seçici */}
+        {selectedFirm && projects.length > 0 && (
+          <div className="relative" ref={projectRef}>
+            <button
+              onClick={() => { setShowProjectSelect(!showProjectSelect); setShowFirmSelect(false); setShowSettings(false); setShowNotifications(false); }}
+              className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
+            >
+              <FolderKanban size={16} className="text-purple-600" />
+              <span className="text-sm font-medium text-purple-700 max-w-[150px] truncate">
+                {selectedProject ? selectedProject.name : 'Tüm Projeler'}
+              </span>
+              <ChevronDown size={14} className="text-purple-500" />
+            </button>
+
+            {showProjectSelect && (
+              <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 z-[60] overflow-hidden">
+                <div className="p-3 border-b border-slate-200 bg-slate-50">
+                  <p className="text-xs font-semibold text-slate-500 uppercase">Proje Seçin</p>
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  <button
+                    onClick={() => { setSelectedProject(null); setShowProjectSelect(false); }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors ${!selectedProject ? 'bg-purple-50 border-l-2 border-purple-500' : ''}`}
+                  >
+                    <div className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center">
+                      <FolderKanban size={14} className="text-slate-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">Tüm Projeler</p>
+                      <p className="text-xs text-slate-500">Genel görünüm</p>
+                    </div>
+                  </button>
+                  {projects.map(project => (
+                    <button
+                      key={project.id}
+                      onClick={() => { setSelectedProject(project); setShowProjectSelect(false); }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors ${selectedProject?.id === project.id ? 'bg-purple-50 border-l-2 border-purple-500' : ''}`}
+                    >
+                      <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                        <FolderKanban size={14} className="text-purple-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">{project.name}</p>
+                      </div>
+                      {selectedProject?.id === project.id && (
+                        <CheckCircle size={16} className="text-purple-500 flex-shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Bildirimler */}
         <div className="relative" ref={notifRef}>
