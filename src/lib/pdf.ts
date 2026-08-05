@@ -138,22 +138,20 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   doc.setLineWidth(0.3);
   doc.line(15, y, 65, y);
 
-  y += 3;
+  y += 1;
 
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 14);
   doc.text('FATURA', pageWidth / 2, y, { align: 'center' });
 
-  y += 3;
+  drawGibEmblem(doc, pageWidth / 2, y + 12, 30);
+
+  y += 24;
 
   doc.setDrawColor(0, 0, 0);
   doc.line(15, y, 65, y);
 
-  y += 4;
-
-  drawGibEmblem(doc, pageWidth / 2, y + 10, 30);
-
-  y += 22;
+  y += 1;
 
   // ══════════════════════════════════════════════════════════════
   // ALICI BİLGİLERİ + FATURA TARİHİ/NO (Sağ)
