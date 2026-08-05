@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { importFromExcel, exportCarilerToCSV } from '../lib/excel';
 import { generateNextCode, findSimilar, formatCurrency } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
+import SearchableSelect from '../components/SearchableSelect';
 import type { Cari, Firm, Project } from '../types';
-import { Plus, Edit2, Trash2, Search, Users, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle, Filter } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, FileSpreadsheet, Upload, Download, AlertTriangle, CheckCircle, Filter } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 
 interface CariWithBalance extends Cari {
@@ -36,21 +37,10 @@ export default function Cariler() {
   const [similarWarning, setSimilarWarning] = useState<CariWithBalance[]>([]);
   const [autoCode, setAutoCode] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => { fetchMeta(); }, []);
   useEffect(() => { fetchCariler(); }, [selectedFirm, selectedProject, filterFirmId, filterProjectId]);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSearchOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   useEffect(() => {
     if (formData.name && !editingCari) {
@@ -94,10 +84,16 @@ export default function Cariler() {
     const { data: checks } = await checkQuery;
 
     // Kasa hareketlerini çek (transaction_id olanlar transactions tablosunda zaten sayıldı)
-    const { data: cashTx } = await supabase.from('cash_transactions').select('cari_id, amount, transaction_type, transaction_id').in('cari_id', cariIds);
+    let cashQuery = supabase.from('cash_transactions').select('cari_id, amount, transaction_type, transaction_id').in('cari_id', cariIds);
+    if (filterFirmId) cashQuery = cashQuery.eq('firm_id', filterFirmId);
+    else if (selectedFirm) cashQuery = cashQuery.eq('firm_id', selectedFirm.id);
+    const { data: cashTx } = await cashQuery;
 
     // Banka hareketlerini çek (transaction_id olanlar transactions tablosunda zaten sayıldı)
-    const { data: bankTx } = await supabase.from('bank_transactions').select('cari_id, amount, transaction_type, transaction_id').in('cari_id', cariIds);
+    let bankQuery = supabase.from('bank_transactions').select('cari_id, amount, transaction_type, transaction_id').in('cari_id', cariIds);
+    if (filterFirmId) bankQuery = bankQuery.eq('firm_id', filterFirmId);
+    else if (selectedFirm) bankQuery = bankQuery.eq('firm_id', selectedFirm.id);
+    const { data: bankTx } = await bankQuery;
 
     // Her cari için verileri hesapla
     const withBalance: CariWithBalance[] = cariData.map(c => {
@@ -107,12 +103,15 @@ export default function Cariler() {
       const cariCashTx = cashTx?.filter(t => t.cari_id === c.id && !t.transaction_id) || [];
       const cariBankTx = bankTx?.filter(t => t.cari_id === c.id && !t.transaction_id) || [];
 
+      // Hariç tutulacak tipler (para hareketi değil)
+      const excludedTypes = ['delivery_note', 'sale_delivery_note', 'purchase_delivery_note', 'transfer', 'stock_transfer', 'cash_transfer', 'bank_transfer'];
+
       const totalIncome = cariTransactions
-        .filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice')
+        .filter(t => ['income', 'invoice', 'sale_invoice'].includes(t.transaction_type))
         .reduce((sum, t) => sum + t.amount, 0);
 
       const totalExpense = cariTransactions
-        .filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice')
+        .filter(t => !['income', 'invoice', 'sale_invoice'].includes(t.transaction_type) && !excludedTypes.includes(t.transaction_type))
         .reduce((sum, t) => sum + t.amount, 0);
 
       const issuedInvoices = cariTransactions
@@ -131,15 +130,6 @@ export default function Cariler() {
         .filter(ch => ch.check_type === 'given' && ch.status !== 'cancelled')
         .reduce((sum, ch) => sum + ch.amount, 0);
 
-      // Bekleyen çekler (tahsil/ödenmemiş) → gelir/gider olarak ekle
-      const pendingReceivedChecks = cariChecks
-        .filter(ch => ch.check_type === 'received' && ch.status === 'pending')
-        .reduce((sum, ch) => sum + ch.amount, 0);
-
-      const pendingIssuedChecks = cariChecks
-        .filter(ch => ch.check_type === 'given' && ch.status === 'pending')
-        .reduce((sum, ch) => sum + ch.amount, 0);
-
       // Kasa hareketleri: giren para = alacak, çıkan para = borç
       const cashIn = cariCashTx.filter(t => t.transaction_type === 'in').reduce((sum, t) => sum + t.amount, 0);
       const cashOut = cariCashTx.filter(t => t.transaction_type === 'out').reduce((sum, t) => sum + t.amount, 0);
@@ -148,10 +138,10 @@ export default function Cariler() {
       const bankIn = cariBankTx.filter(t => t.transaction_type === 'in').reduce((sum, t) => sum + t.amount, 0);
       const bankOut = cariBankTx.filter(t => t.transaction_type === 'out').reduce((sum, t) => sum + t.amount, 0);
 
-      // Borç = gider + fatura + bekleyen verilen çekler + kasa çıkışı + banka çıkışı
-      const debt = totalExpense + issuedInvoices + pendingIssuedChecks + cashOut + bankOut;
-      // Alacak = gelir + bekleyen alınan çekler + kasa girişi + banka girişi
-      const credit = totalIncome + pendingReceivedChecks + cashIn + bankIn;
+      // Borç = gider + fatura + verilen çekler + kasa çıkışı + banka çıkışı
+      const debt = totalExpense + issuedInvoices + issuedChecks + cashOut + bankOut;
+      // Alacak = gelir + alınan çekler + kasa girişi + banka girişi
+      const credit = totalIncome + receivedChecks + cashIn + bankIn;
       // Bakiye = alacak - borç
       const balance = credit - debt;
 
@@ -173,11 +163,56 @@ export default function Cariler() {
     setLoading(false);
   };
 
+  // Form validasyonu
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    // Cari Adı - zorunlu, min 2 karakter
+    if (!formData.name.trim()) {
+      errors.name = 'Cari adı zorunludur';
+    } else if (formData.name.trim().length < 2) {
+      errors.name = 'Cari adı en az 2 karakter olmalıdır';
+    }
+
+    // Vergi No - verildiyse 10 veya 11 haneli rakamlardan oluşmalı
+    if (formData.tax_number.trim()) {
+      const taxClean = formData.tax_number.replace(/\s/g, '');
+      if (!/^\d+$/.test(taxClean)) {
+        errors.tax_number = 'Vergi numarası sadece rakamlardan oluşmalıdır';
+      } else if (taxClean.length !== 10 && taxClean.length !== 11) {
+        errors.tax_number = 'Vergi numarası 10 veya 11 haneli olmalıdır';
+      }
+    }
+
+    // Telefon - verildiyse rakamlardan ve boşluklardan oluşmalı
+    if (formData.phone.trim()) {
+      const phoneClean = formData.phone.replace(/[\s()-]/g, '');
+      if (!/^\d+$/.test(phoneClean)) {
+        errors.phone = 'Telefon numarası sadece rakamlardan oluşmalıdır';
+      } else if (phoneClean.length < 7) {
+        errors.phone = 'Telefon numarası en az 7 haneli olmalıdır';
+      }
+    }
+
+    // E-posta - verildiyse geçerli formatta olmalı
+    if (formData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email.trim())) {
+        errors.email = 'Geçerli bir e-posta adresi giriniz';
+      }
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!validateForm()) return;
+
     if (editingCari) {
-      await supabase.from('cariler').update({ name: formData.name, tax_number: formData.tax_number, address: formData.address, phone: formData.phone, email: formData.email, type: formData.type }).eq('id', editingCari.id);
+      await supabase.from('cariler').update({ name: formData.name.trim(), tax_number: formData.tax_number.trim() || null, address: formData.address.trim() || null, phone: formData.phone.trim() || null, email: formData.email.trim() || null, type: formData.type }).eq('id', editingCari.id);
       setMessage({ type: 'success', text: 'Cari başarıyla güncellendi!' });
     } else {
       const codes = cariler.map(c => c.code || '').filter(Boolean);
@@ -208,6 +243,7 @@ export default function Cariler() {
   const handleEdit = (cari: CariWithBalance) => {
     setEditingCari(cari);
     setFormData({ name: cari.name, tax_number: cari.tax_number || '', address: cari.address || '', phone: cari.phone || '', email: cari.email || '', type: cari.type });
+    setFormErrors({});
     setShowForm(true);
   };
 
@@ -218,11 +254,9 @@ export default function Cariler() {
     }
   };
 
-  const filtered = cariler.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.tax_number?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = searchTerm
+    ? cariler.filter(c => c.id === searchTerm)
+    : cariler;
 
   const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -303,7 +337,7 @@ export default function Cariler() {
           <button onClick={() => setShowExcelImport(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             <FileSpreadsheet size={16} />Excel'den İçe Aktar
           </button>
-          <button onClick={() => { setEditingCari(null); setFormData({ name: '', tax_number: '', address: '', phone: '', email: '', type: 'both' }); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors"><Plus size={16} />Yeni Cari</button>
+          <button onClick={() => { setEditingCari(null); setFormData({ name: '', tax_number: '', address: '', phone: '', email: '', type: 'both' }); setFormErrors({}); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors"><Plus size={16} />Yeni Cari</button>
         </div>
       </div>
 
@@ -319,48 +353,24 @@ export default function Cariler() {
         <div className="flex items-center gap-2 mb-3">
           <Filter size={16} className="text-slate-500" />
           <span className="text-sm font-medium text-slate-700">Filtreleme</span>
-          {(filterFirmId || filterProjectId) && (
-            <button onClick={() => { setFilterFirmId(''); setFilterProjectId(''); }} className="text-xs text-blue-600 hover:text-blue-800 ml-2">Filtreleri Temizle</button>
+          {(filterFirmId || filterProjectId || searchTerm) && (
+            <button onClick={() => { setFilterFirmId(''); setFilterProjectId(''); setSearchTerm(''); }} className="text-xs text-blue-600 hover:text-blue-800 ml-2">Filtreleri Temizle</button>
           )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Cari Ara</label>
-            <div className="relative" ref={searchRef}>
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Kod, isim veya vergi no..."
-                value={searchTerm}
-                onChange={(e) => { setSearchTerm(e.target.value); setSearchOpen(true); }}
-                onFocus={() => setSearchOpen(true)}
-                className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              />
-              {searchOpen && searchTerm && filtered.length > 0 && (
-                <div className="absolute z-[70] w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-                  {filtered.slice(0, 15).map((cari) => (
-                    <div
-                      key={cari.id}
-                      className="px-4 py-2 cursor-pointer hover:bg-blue-50 flex items-center gap-2"
-                      onClick={() => { setSearchTerm(cari.code || cari.name); setSearchOpen(false); }}
-                    >
-                      {cari.code && (
-                        <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-mono font-bold">{cari.code}</span>
-                      )}
-                      <span className="font-medium text-sm">{cari.name}</span>
-                      {cari.tax_number && (
-                        <span className="text-xs text-slate-400 ml-auto">Vergi: {cari.tax_number}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {searchOpen && searchTerm && filtered.length === 0 && (
-                <div className="absolute z-[70] w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg p-4 text-center text-slate-500 text-sm">
-                  Sonuç bulunamadı
-                </div>
-              )}
-            </div>
+            <label className="block text-xs text-slate-500 mb-1">Cari Seç</label>
+            <SearchableSelect
+              options={cariler.map(c => ({
+                id: c.id,
+                code: c.code,
+                name: c.name,
+              }))}
+              value={searchTerm}
+              onChange={(id) => setSearchTerm(id)}
+              placeholder="Cari seçin..."
+              showCode={true}
+            />
           </div>
           <div>
             <label className="block text-xs text-slate-500 mb-1">Firma Filtresi</label>
@@ -487,12 +497,51 @@ export default function Cariler() {
                 </div>
               )}
 
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Cari Adı</label><input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Vergi No</label><input type="text" value={formData.tax_number} onChange={(e) => setFormData({ ...formData, tax_number: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Tür</label><select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value as 'customer' | 'supplier' | 'both' })} className="w-full px-4 py-2 border border-slate-300 rounded-lg"><option value="customer">Alıcı</option><option value="supplier">Satıcı</option><option value="both">Alıcı/Satıcı</option></select></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Adres</label><textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} rows={2} className="w-full px-4 py-2 border border-slate-300 rounded-lg resize-none" /></div>
-              <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Telefon</label><input type="text" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">E-posta</label><input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div></div>
-              <div className="flex gap-2 justify-end"><button type="button" onClick={() => { setShowForm(false); setEditingCari(null); setSimilarWarning([]); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button><button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button></div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Cari Adı <span className="text-red-500">*</span></label>
+                <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className={`w-full px-4 py-2 border rounded-lg ${formErrors.name ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} required />
+                {formErrors.name && <p className="text-xs text-red-600 mt-1">{formErrors.name}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Vergi No</label>
+                <input type="text" value={formData.tax_number} onChange={(e) => setFormData({ ...formData, tax_number: e.target.value })}
+                  placeholder="10 veya 11 haneli"
+                  className={`w-full px-4 py-2 border rounded-lg ${formErrors.tax_number ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} />
+                {formErrors.tax_number && <p className="text-xs text-red-600 mt-1">{formErrors.tax_number}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tür</label>
+                <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value as 'customer' | 'supplier' | 'both' })} className="w-full px-4 py-2 border border-slate-300 rounded-lg">
+                  <option value="customer">Alıcı</option>
+                  <option value="supplier">Satıcı</option>
+                  <option value="both">Alıcı/Satıcı</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Adres</label>
+                <textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} rows={2} className="w-full px-4 py-2 border border-slate-300 rounded-lg resize-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Telefon</label>
+                  <input type="text" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="0212 555 1234"
+                    className={`w-full px-4 py-2 border rounded-lg ${formErrors.phone ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} />
+                  {formErrors.phone && <p className="text-xs text-red-600 mt-1">{formErrors.phone}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">E-posta</label>
+                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="ornek@mail.com"
+                    className={`w-full px-4 py-2 border rounded-lg ${formErrors.email ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} />
+                  {formErrors.email && <p className="text-xs text-red-600 mt-1">{formErrors.email}</p>}
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={() => { setShowForm(false); setEditingCari(null); setSimilarWarning([]); setFormErrors({}); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button>
+              </div>
             </form>
           </div>
         </div>
