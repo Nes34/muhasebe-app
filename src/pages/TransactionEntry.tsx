@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatInvoiceNumberOnSave } from '../lib/invoice';
 import { checkDuplicateInvoice } from '../lib/validation';
@@ -45,6 +45,7 @@ function getTypeIcon(value: string) {
 export default function TransactionEntry() {
   const { user } = useAuth();
   const { selectedFirm } = useFirm();
+  const firmInputRef = useRef<HTMLInputElement>(null);
   const [transactionType, setTransactionType] = useState<string>('invoice');
   const [subType, setSubType] = useState<'sale' | 'purchase'>('sale');
   const [transactionDate, setTransactionDate] = useState(formatDateTR(new Date()));
@@ -1006,6 +1007,25 @@ export default function TransactionEntry() {
       setPaymentMethod('');
       setCashRegisterId('');
       setBankAccountId('');
+      setSelectedDNIds([]);
+
+      // İlk kalemi tekrar ekle
+      setTimeout(() => {
+        if (showItems) {
+          setItems([{
+            description: '',
+            quantity: 1,
+            unit: 'adet',
+            unit_price: 0,
+            amount: 0,
+            vat_rate: 20,
+            vat_amount: 0,
+            discount_rate: 0,
+            discount_amount: 0,
+          } as TransactionItemInput]);
+        }
+        firmInputRef.current?.focus();
+      }, 100);
     } catch (error) {
       console.error('İşlem kaydedilirken hata:', error);
       setMessage({ type: 'error', text: 'İşlem kaydedilirken bir hata oluştu.' });
@@ -1308,6 +1328,7 @@ export default function TransactionEntry() {
                   </button>
                 </div>
                 <SearchableSelect
+                  ref={firmInputRef}
                   options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
                   value={firmId}
                   onChange={(id) => setFirmId(id)}

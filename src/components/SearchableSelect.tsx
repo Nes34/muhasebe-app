@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
 import { Search } from 'lucide-react';
 
@@ -19,7 +19,7 @@ interface SearchableSelectProps {
   showCode?: boolean;
 }
 
-export default function SearchableSelect({
+export default forwardRef<HTMLInputElement, SearchableSelectProps>(function SearchableSelect({
   options,
   value,
   onChange,
@@ -27,13 +27,15 @@ export default function SearchableSelect({
   label,
   required = false,
   showCode = true,
-}: SearchableSelectProps) {
+}, ref) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useImperativeHandle(ref, () => inputRef.current!);
 
   const selectedOption = options.find(o => o.id === value);
 
@@ -195,4 +197,4 @@ export default function SearchableSelect({
       {dropdown}
     </div>
   );
-}
+});
