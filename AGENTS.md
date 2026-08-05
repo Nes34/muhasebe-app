@@ -158,3 +158,18 @@ onMouseEnter={() => setHighlightIndex(index)}
 - `SearchableSelect` → Zaten klavye navigasyonu var
 - `DescriptionAutocomplete` → Zaten klavye navigasyonu var
 - Ürün dropdown'ı → Klavye navigasyonu eklendi
+
+### Dropdown Kaydırma (ÖNEMLİ):
+Yön tuşlarıyla gezinirken dropdown otomatik kaydırılmalı:
+```tsx
+// useEffect ile:
+useEffect(() => {
+  if (isOpen) {
+    const el = document.querySelector(`[data-highlight="${highlightedIndex}"]`);
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}, [highlightedIndex, isOpen]);
+
+// Dropdown öğesinde:
+data-highlight={index}
+```

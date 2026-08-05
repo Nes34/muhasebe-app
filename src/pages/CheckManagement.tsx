@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency, toISODate, parseDateTR, todayISO } from '../lib/utils';
 import { exportChecksToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
-import SearchableSelect from '../components/SearchableSelect';
 import DateInput from '../components/DateInput';
 import type { Check, Cari, BankAccount, Firm } from '../types';
 import { Plus, Edit2, Trash2, Search, AlertTriangle, Send, Download } from 'lucide-react';
@@ -27,6 +26,91 @@ export default function CheckManagement() {
     check_number: '', check_type: 'received' as 'received' | 'given', cari_id: '', bank_name: '', bank_branch: '', amount: 0, issue_date: formatDateTR(new Date()), due_date: '', notes: '',
   });
 
+  // Çoklu çek kalemleri
+  interface CheckItem {
+    check_number: string;
+    cari_id: string;
+    bank_name: string;
+    bank_branch: string;
+    amount: number;
+    due_date: string;
+  }
+  const [checkItems, setCheckItems] = useState<CheckItem[]>([]);
+
+  // İlk kalemi oluştur
+  const initCheckItems = () => {
+    setCheckItems([{
+      check_number: '',
+      cari_id: '',
+      bank_name: '',
+      bank_branch: '',
+      amount: 0,
+      due_date: '',
+    }]);
+  };
+
+  // Yeni kalem ekle (son kalemi kopyala, çek no +1, vade +1 ay)
+  const addCheckItem = () => {
+    if (checkItems.length === 0) {
+      initCheckItems();
+      return;
+    }
+    const lastItem = checkItems[checkItems.length - 1];
+    
+    // Çek numarasını 1 artır
+    let newCheckNumber = '';
+    const lastNum = parseInt(lastItem.check_number);
+    if (!isNaN(lastNum)) {
+      newCheckNumber = String(lastNum + 1);
+    } else {
+      // Sayısal kısmı bul ve artır
+      const match = lastItem.check_number.match(/(.*?)(\d+)(\D*)$/);
+      if (match) {
+        newCheckNumber = match[1] + String(parseInt(match[2]) + 1).padStart(match[2].length, '0') + match[3];
+      } else {
+        newCheckNumber = lastItem.check_number;
+      }
+    }
+
+    // Vade tarihini 1 ay ileri al
+    let newDueDate = '';
+    if (lastItem.due_date) {
+      const parts = lastItem.due_date.split('.');
+      if (parts.length === 3) {
+        let day = parseInt(parts[0]);
+        let month = parseInt(parts[1]);
+        let year = parseInt(parts[2]);
+        month += 1;
+        if (month > 12) { month = 1; year += 1; }
+        // Ay sonu kontrolü
+        const daysInMonth = new Date(year, month, 0).getDate();
+        if (day > daysInMonth) day = daysInMonth;
+        newDueDate = String(day).padStart(2, '0') + '.' + String(month).padStart(2, '0') + '.' + String(year);
+      }
+    }
+
+    setCheckItems([...checkItems, {
+      check_number: newCheckNumber,
+      cari_id: lastItem.cari_id,
+      bank_name: lastItem.bank_name,
+      bank_branch: lastItem.bank_branch,
+      amount: lastItem.amount,
+      due_date: newDueDate,
+    }]);
+  };
+
+  // Kalem güncelle
+  const updateCheckItem = (index: number, field: keyof CheckItem, value: any) => {
+    const updated = [...checkItems];
+    updated[index] = { ...updated[index], [field]: value };
+    setCheckItems(updated);
+  };
+
+  // Kalem sil
+  const removeCheckItem = (index: number) => {
+    setCheckItems(checkItems.filter((_, i) => i !== index));
+  };
+
   const [showEndorseModal, setShowEndorseModal] = useState(false);
   const [endorsingCheck, setEndorsingCheck] = useState<Check | null>(null);
   const [endorseData, setEndorseData] = useState({
@@ -46,7 +130,7 @@ export default function CheckManagement() {
       const _cariler = carilerRes.data || [];
       const _bankAccounts = bankRes.data || [];
       if (carilerRes.data) setCariler(_cariler);
-      if (bankRes.data) setBankAccounts(_bankAccounts);
+      if (bankRes.data) { setBankAccounts(_bankAccounts); setFirmBankAccounts(_bankAccounts); }
       if (firmsRes.data) setFirms(firmsRes.data);
 
       let query = supabase.from('checks').select('*').order('due_date', { ascending: true });
@@ -87,12 +171,6 @@ export default function CheckManagement() {
     })();
   }, [selectedFirm, selectedProject]);
 
-  const fetchFirmBankAccounts = async (firmId: string) => {
-    if (!firmId) { setFirmBankAccounts([]); return; }
-    const { data } = await supabase.from('bank_accounts').select('*').eq('is_active', true).eq('firm_id', firmId).order('bank_name');
-    if (data) setFirmBankAccounts(data);
-  };
-
   const reload = async () => {
     setLoading(true);
     let query = supabase.from('checks').select('*').order('due_date', { ascending: true });
@@ -103,14 +181,33 @@ export default function CheckManagement() {
     setLoading(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingCheck) {
-      await supabase.from('checks').update({ check_number: formData.check_number, check_type: formData.check_type, cari_id: formData.cari_id, bank_name: formData.bank_name, bank_branch: formData.bank_branch, amount: formData.amount, issue_date: formData.issue_date, due_date: formData.due_date, notes: formData.notes }).eq('id', editingCheck.id);
-    } else {
-      await supabase.from('checks').insert({ check_number: formData.check_number, check_type: formData.check_type, cari_id: formData.cari_id, firm_id: selectedFirm?.id, bank_name: formData.bank_name, bank_branch: formData.bank_branch, amount: formData.amount, issue_date: formData.issue_date, due_date: formData.due_date, notes: formData.notes });
+  // Çoklu çek kaydetme
+  const handleSubmitMultiple = async () => {
+    if (checkItems.length === 0) return;
+    
+    const checksToInsert = checkItems
+      .filter(item => item.cari_id && item.amount > 0)
+      .map(item => ({
+        check_number: item.check_number,
+        check_type: formData.check_type,
+        cari_id: item.cari_id,
+        firm_id: selectedFirm?.id,
+        bank_name: item.bank_name,
+        bank_branch: item.bank_branch,
+        amount: item.amount,
+        issue_date: formData.issue_date,
+        due_date: item.due_date,
+        notes: '',
+      }));
+
+    if (checksToInsert.length === 0) {
+      alert('Lütfen en az bir çek için cari ve tutar girin.');
+      return;
     }
-    setShowForm(false); setEditingCheck(null);
+
+    await supabase.from('checks').insert(checksToInsert);
+    setShowForm(false);
+    setCheckItems([]);
     setFormData({ check_number: '', check_type: 'received', cari_id: '', bank_name: '', bank_branch: '', amount: 0, issue_date: formatDateTR(new Date()), due_date: '', notes: '' });
     reload();
   };
@@ -190,7 +287,7 @@ export default function CheckManagement() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Çek Yönetimi{selectedFirm ? ` - ${selectedFirm.name}` : ''}</h1>
-        <button onClick={() => { setEditingCheck(null); setFormData({ check_number: '', check_type: 'received', cari_id: '', bank_name: '', bank_branch: '', amount: 0, issue_date: formatDateTR(new Date()), due_date: '', notes: '' }); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+        <button onClick={() => { setEditingCheck(null); setFormData({ check_number: '', check_type: 'received', cari_id: '', bank_name: '', bank_branch: '', amount: 0, issue_date: formatDateTR(new Date()), due_date: '', notes: '' }); initCheckItems(); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
           <Plus size={16} />Yeni Çek
         </button>
       </div>
@@ -281,45 +378,132 @@ export default function CheckManagement() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4">{editingCheck ? 'Çek Düzenle' : 'Yeni Çek'}</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Çek Numarası</label><input type="text" value={formData.check_number} onChange={(e) => setFormData({ ...formData, check_number: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Çek Türü</label><select value={formData.check_type} onChange={(e) => setFormData({ ...formData, check_type: e.target.value as 'received' | 'given', bank_name: '' })} className="w-full px-4 py-2 border border-slate-300 rounded-lg"><option value="received">Alınan Çek</option><option value="given">Verilen Çek</option></select></div>
-              <SearchableSelect
-                options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
-                value={formData.cari_id}
-                onChange={(id) => { setFormData({ ...formData, cari_id: id, bank_name: '' }); fetchFirmBankAccounts(selectedFirm?.id || ''); }}
-                label="Cari"
-                placeholder="Kod veya isim ile cari ara..."
-                required
-              />
-              {formData.check_type === 'given' && selectedFirm ? (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Banka Hesabı *</label>
-                  <select
-                    value={formData.bank_name}
-                    onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                    required
-                  >
-                    <option value="">Banka seçin...</option>
-                    {firmBankAccounts.map(ba => (
-                      <option key={ba.id} value={ba.bank_name}>{ba.bank_name} - {ba.account_number || ba.branch || ''}</option>
-                    ))}
-                  </select>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">{editingCheck ? 'Çek Düzenle' : 'Yeni Çek'}</h2>
+              <button onClick={() => { setShowForm(false); setEditingCheck(null); setCheckItems([]); }} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+            </div>
+
+            {/* Üst Kısım: Sabit Bilgiler */}
+            <div className="grid grid-cols-4 gap-4 mb-4 pb-4 border-b border-slate-200">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Firma</label>
+                <input type="text" value={firms.find(f => f.id === selectedFirm?.id)?.name || ''} disabled className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Çek Türü</label>
+                <select value={formData.check_type} onChange={(e) => setFormData({ ...formData, check_type: e.target.value as 'received' | 'given' })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                  <option value="received">Alınan Çek</option>
+                  <option value="given">Verilen Çek</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Düzenleme Tarihi</label>
+                <DateInput value={formData.issue_date} onChange={(val) => setFormData({ ...formData, issue_date: val })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+              </div>
+              <div className="flex items-end">
+                <button type="button" onClick={addCheckItem} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                  <Plus size={16} /> Kalem Ekle
+                </button>
+              </div>
+            </div>
+
+            {/* Kalemler Tablosu */}
+            <div className="flex-1 overflow-auto">
+              {checkItems.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <p className="mb-2">Henüz kalem eklenmedi</p>
+                  <button type="button" onClick={initCheckItems} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                    <Plus size={16} className="inline mr-1" /> İlk Kalemi Ekle
+                  </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Banka</label><input type="text" value={formData.bank_name} onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Şube</label><input type="text" value={formData.bank_branch} onChange={(e) => setFormData({ ...formData, bank_branch: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div></div>
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 sticky top-0">
+                    <tr>
+                      <th className="py-2 px-2 text-left text-xs">#</th>
+                      <th className="py-2 px-2 text-left text-xs">Çek No</th>
+                      <th className="py-2 px-2 text-left text-xs">Cari</th>
+                      <th className="py-2 px-2 text-left text-xs">Banka</th>
+                      <th className="py-2 px-2 text-left text-xs">Şube</th>
+                      <th className="py-2 px-2 text-left text-xs">Vade</th>
+                      <th className="py-2 px-2 text-right text-xs">Tutar</th>
+                      <th className="py-2 px-2 w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {checkItems.map((item, idx) => (
+                      <tr key={idx} className="border-t border-slate-100 hover:bg-slate-50">
+                        <td className="py-2 px-2 text-slate-400 text-xs">{idx + 1}</td>
+                        <td className="py-2 px-2">
+                          <input type="text" value={item.check_number} onChange={(e) => updateCheckItem(idx, 'check_number', e.target.value)}
+                            className="w-full px-2 py-1 border border-slate-200 rounded text-sm" />
+                        </td>
+                        <td className="py-2 px-2">
+                          <select value={item.cari_id} onChange={(e) => updateCheckItem(idx, 'cari_id', e.target.value)}
+                            className="w-full px-2 py-1 border border-slate-200 rounded text-sm">
+                            <option value="">Cari seçin...</option>
+                            {cariler.map(c => <option key={c.id} value={c.id}>{c.code ? `${c.code} - ` : ''}{c.name}</option>)}
+                          </select>
+                        </td>
+                        <td className="py-2 px-2">
+                          {formData.check_type === 'given' && selectedFirm ? (
+                            <select value={item.bank_name} onChange={(e) => updateCheckItem(idx, 'bank_name', e.target.value)}
+                              className="w-full px-2 py-1 border border-slate-200 rounded text-sm">
+                              <option value="">Banka seçin...</option>
+                              {firmBankAccounts.map(ba => <option key={ba.id} value={ba.bank_name}>{ba.bank_name}</option>)}
+                            </select>
+                          ) : (
+                            <input type="text" value={item.bank_name} onChange={(e) => updateCheckItem(idx, 'bank_name', e.target.value)}
+                              className="w-full px-2 py-1 border border-slate-200 rounded text-sm" />
+                          )}
+                        </td>
+                        <td className="py-2 px-2">
+                          <input type="text" value={item.bank_branch} onChange={(e) => updateCheckItem(idx, 'bank_branch', e.target.value)}
+                            className="w-full px-2 py-1 border border-slate-200 rounded text-sm" />
+                        </td>
+                        <td className="py-2 px-2">
+                          <DateInput value={item.due_date} onChange={(val) => updateCheckItem(idx, 'due_date', val)}
+                            className="w-full px-2 py-1 border border-slate-200 rounded text-sm" />
+                        </td>
+                        <td className="py-2 px-2">
+                          <input type="number" value={item.amount} onChange={(e) => updateCheckItem(idx, 'amount', parseFloat(e.target.value) || 0)}
+                            className="w-full px-2 py-1 border border-slate-200 rounded text-sm text-right" />
+                        </td>
+                        <td className="py-2 px-2">
+                          {checkItems.length > 1 && (
+                            <button onClick={() => removeCheckItem(idx)} className="p-1 text-red-500 hover:text-red-700">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-50 font-bold">
+                      <td colSpan={6} className="py-2 px-2 text-right text-sm">Toplam:</td>
+                      <td className="py-2 px-2 text-right text-sm">{formatCurrency(checkItems.reduce((s, i) => s + i.amount, 0))}</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
               )}
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Tutar</label><input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
-              <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Düzenleme</label><DateInput value={formData.issue_date} onChange={(val) => setFormData({ ...formData, issue_date: val })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Vade</label><DateInput value={formData.due_date} onChange={(val) => setFormData({ ...formData, due_date: val })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div></div>
-              <div className="flex gap-2 justify-end">
-                <button type="button" onClick={() => { setShowForm(false); setEditingCheck(null); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button>
+            </div>
+
+            {/* Alt Butonlar */}
+            <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-200">
+              <button type="button" onClick={addCheckItem} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                <Plus size={16} /> Kalem Ekle
+              </button>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => { setShowForm(false); setEditingCheck(null); setCheckItems([]); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm">İptal</button>
+                <button onClick={handleSubmitMultiple} disabled={checkItems.length === 0} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm disabled:opacity-50">
+                  {checkItems.length} Çek Kaydet
+                </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

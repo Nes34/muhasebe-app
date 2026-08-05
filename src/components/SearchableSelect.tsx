@@ -49,6 +49,14 @@ export default forwardRef<HTMLInputElement, SearchableSelectProps>(function Sear
     setHighlightedIndex(0);
   }, [searchTerm]);
 
+  // Yön tuşlarıyla gezinirken seçili öğeyi görünür alana kaydır
+  useEffect(() => {
+    if (isOpen) {
+      const el = document.querySelector(`[data-highlight="${highlightedIndex}"]`);
+      el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [highlightedIndex, isOpen]);
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -135,6 +143,7 @@ export default forwardRef<HTMLInputElement, SearchableSelectProps>(function Sear
           {filtered.slice(0, 20).map((option, index) => (
             <div
               key={option.id}
+              data-highlight={index}
               className={`px-4 py-2 cursor-pointer flex items-center gap-2 ${
                 index === highlightedIndex ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50'
               }`}
