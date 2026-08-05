@@ -1621,7 +1621,8 @@ export default function TransactionEntry() {
                                     ).slice(0, 5);
                                     if (filtered.length === 0) return null;
                                     return (
-                                      <div className="absolute left-0 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-[150px] overflow-auto">
+                                      <div className="fixed left-0 right-0 bottom-0 top-0 z-[99999]" onClick={() => setOpenProductDropdown(null)}>
+                                        <div className="absolute left-0 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-[99999] max-h-[150px] overflow-auto" onClick={(e) => e.stopPropagation()}>
                                         {filtered.map(product => (
                                           <div
                                             key={product.id}
@@ -1638,6 +1639,7 @@ export default function TransactionEntry() {
                                             <span className="text-xs text-slate-400 ml-auto">Stok: {product.stock_quantity}</span>
                                           </div>
                                         ))}
+                                      </div>
                                       </div>
                                     );
                                   })()
