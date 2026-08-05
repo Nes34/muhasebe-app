@@ -107,7 +107,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   return (
-    <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-3 lg:px-6">
+    <header className="h-14 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-3 lg:px-6">
       <div className="flex items-center gap-2">
         <button
           onClick={onMenuClick}
@@ -116,7 +116,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <Menu size={20} />
         </button>
         
-        <div className="hidden sm:flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-2">
+        <div className="hidden sm:flex items-center gap-2 bg-slate-100 dark:bg-slate-700 rounded-lg px-3 py-2">
           <Search size={18} className="text-slate-400" />
           <input
             type="text"
@@ -141,8 +141,8 @@ export function Header({ onMenuClick }: HeaderProps) {
           </button>
 
           {showFirmSelect && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 z-[60] overflow-hidden">
-              <div className="p-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+            <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-[60] overflow-hidden">
+              <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700 flex items-center justify-between">
                 <p className="text-xs font-semibold text-slate-500 uppercase">Firma Seçin</p>
                 <button
                   onClick={() => { setShowFirmSelect(false); navigate('/firmalar'); }}
@@ -155,9 +155,9 @@ export function Header({ onMenuClick }: HeaderProps) {
               <div className="max-h-64 overflow-y-auto">
                 <button
                   onClick={() => { setSelectedFirm(null); setShowFirmSelect(false); }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors ${!selectedFirm ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${!selectedFirm ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}
                 >
-                  <div className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center">
+                  <div className="w-8 h-8 bg-slate-200 dark:bg-slate-600 rounded-lg flex items-center justify-center">
                     <Building2 size={14} className="text-slate-500" />
                   </div>
                   <div>
@@ -181,7 +181,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   <button
                     key={firm.id}
                     onClick={() => { setSelectedFirm(firm); setShowFirmSelect(false); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors ${selectedFirm?.id === firm.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${selectedFirm?.id === firm.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''}`}
                   >
                     <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                       <Building2 size={14} className="text-blue-600" />
@@ -215,16 +215,16 @@ export function Header({ onMenuClick }: HeaderProps) {
             </button>
 
             {showProjectSelect && (
-              <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 z-[60] overflow-hidden">
-                <div className="p-3 border-b border-slate-200 bg-slate-50">
+              <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-[60] overflow-hidden">
+                <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700">
                   <p className="text-xs font-semibold text-slate-500 uppercase">Proje Seçin</p>
                 </div>
                 <div className="max-h-64 overflow-y-auto">
                   <button
                     onClick={() => { setSelectedProject(null); setShowProjectSelect(false); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors ${!selectedProject ? 'bg-purple-50 border-l-2 border-purple-500' : ''}`}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${!selectedProject ? 'bg-purple-50 border-l-2 border-purple-500' : ''}`}
                   >
-                    <div className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center">
+                    <div className="w-8 h-8 bg-slate-200 dark:bg-slate-600 rounded-lg flex items-center justify-center">
                       <FolderKanban size={14} className="text-slate-500" />
                     </div>
                     <div>
@@ -236,7 +236,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                     <button
                       key={project.id}
                       onClick={() => { setSelectedProject(project); setShowProjectSelect(false); }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors ${selectedProject?.id === project.id ? 'bg-purple-50 border-l-2 border-purple-500' : ''}`}
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${selectedProject?.id === project.id ? 'bg-purple-50 border-l-2 border-purple-500' : ''}`}
                     >
                       <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                         <FolderKanban size={14} className="text-purple-600" />
@@ -293,8 +293,8 @@ export function Header({ onMenuClick }: HeaderProps) {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 bg-white rounded-xl shadow-xl border border-slate-200 z-[60] overflow-hidden">
-              <div className="p-4 border-b border-slate-200 bg-slate-50">
+            <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-[60] overflow-hidden">
+              <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                     <Bell size={16} />
@@ -331,7 +331,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   urgentChecks.map(check => {
                     const days = getDaysUntilDue(check.due_date);
                     return (
-                      <div key={check.id} className="p-3 border-b border-slate-100 hover:bg-slate-50 flex items-start gap-3">
+                      <div key={check.id} className="p-3 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-start gap-3">
                         <div className={`p-2 rounded-lg ${days < 0 ? 'bg-red-100' : days === 0 ? 'bg-red-500' : 'bg-orange-100'}`}>
                           <AlertTriangle size={16} className={days < 0 ? 'text-red-600' : days === 0 ? 'text-white' : 'text-orange-600'} />
                         </div>
@@ -366,8 +366,8 @@ export function Header({ onMenuClick }: HeaderProps) {
           </button>
 
           {showSettings && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 z-[60] overflow-hidden">
-              <div className="p-4 border-b border-slate-200 bg-slate-50">
+            <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 z-[60] overflow-hidden">
+              <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-slate-800 flex items-center gap-2">
                     <Settings size={16} />
@@ -421,7 +421,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   {changingPassword ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
                 </button>
               </form>
-              <div className="p-4 border-t border-slate-200 bg-slate-50">
+              <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700">
                 <button
                   onClick={signOut}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"

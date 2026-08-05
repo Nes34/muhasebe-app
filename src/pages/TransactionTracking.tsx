@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDateTR } from '../lib/utils';
 import { exportTransactionsToExcel } from '../lib/excel';
-import { generateInvoicePDF } from '../lib/pdf';
+import { generateInvoicePDF, generateDeliveryNotePDF } from '../lib/pdf';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import type { Transaction, TransactionType, Firm, Project } from '../types';
@@ -419,7 +419,14 @@ export default function TransactionTracking() {
                           <td className="py-3 px-4 text-center">
                             <div className="flex items-center justify-center gap-1">
                               {(t.type === 'invoice' || t.type === 'delivery_note' || t.type === 'sale_invoice' || t.type === 'purchase_invoice' || t.type === 'sale_delivery_note' || t.type === 'purchase_delivery_note') && (
-                                <button onClick={() => generateInvoicePDF(t._raw)} className="p-1 text-green-600 hover:bg-green-50 rounded" title="PDF İndir">
+                                <button onClick={() => {
+                                  const isDeliveryNote = ['delivery_note', 'sale_delivery_note', 'purchase_delivery_note'].includes(t.type);
+                                  if (isDeliveryNote) {
+                                    generateDeliveryNotePDF(t._raw);
+                                  } else {
+                                    generateInvoicePDF(t._raw);
+                                  }
+                                }} className="p-1 text-green-600 hover:bg-green-50 rounded" title="PDF İndir">
                                   <FileText size={14} />
                                 </button>
                               )}

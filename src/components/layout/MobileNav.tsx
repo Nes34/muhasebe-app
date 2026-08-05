@@ -18,6 +18,14 @@ import {
   Receipt,
   CreditCard,
   UserCircle,
+  Car,
+  Link2,
+  Clock,
+  TrendingUp,
+  ClipboardCheck,
+  Ruler,
+  GitMerge,
+  FolderOpen,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
@@ -42,20 +50,36 @@ const managementMenuItems = [
   { to: '/projeler', icon: FolderKanban, label: 'Projeler' },
   { to: '/cariler', icon: Users, label: 'Cariler' },
   { to: '/raporlar', icon: BarChart3, label: 'Raporlar' },
+  { to: '/dokumanlar', icon: FolderOpen, label: 'Dokümanlar' },
+  { to: '/kullanici-yonetimi', icon: Users, label: 'Kullanıcılar' },
 ];
 
 const personnelMenuItems = [
   { to: '/personel', icon: Users, label: 'Personel' },
   { to: '/puantaj', icon: Calendar, label: 'Puantaj' },
   { to: '/bordro', icon: FileText, label: 'Bordro' },
-  { to: '/izin', icon: Calendar, label: 'İzin' },
+  { to: '/izin', icon: Clock, label: 'İzin' },
+  { to: '/kidem-ihbar', icon: TrendingUp, label: 'Kıdem/İhbar' },
 ];
 
 const orderMenuItems = [
   { to: '/siparis-girisi', icon: ShoppingCart, label: 'Sipariş Girişi' },
   { to: '/siparis-takibi', icon: Truck, label: 'Sipariş Takibi' },
   { to: '/islem-takibi', icon: ArrowRightLeft, label: 'İşlem Takibi' },
-  { to: '/kidem-ihbar', icon: FileText, label: 'Kıdem/İhbar' },
+];
+
+const stockMenuItems = [
+  { to: '/stok', icon: Package, label: 'Stok' },
+  { to: '/stok-sayim', icon: ClipboardCheck, label: 'Stok Sayım' },
+  { to: '/demirbaslar', icon: Car, label: 'Demirbaş' },
+  { to: '/stok-birimleri', icon: Ruler, label: 'Stok Birimleri' },
+  { to: '/stok-birlesme', icon: GitMerge, label: 'Stok Birleştirme' },
+];
+
+const invoiceMenuItems = [
+  { to: '/irsaliye-fatura', icon: Truck, label: 'İrsaliyeden Fatura' },
+  { to: '/irsaliye-baglanti', icon: Link2, label: 'İrsaliye Bağlantı' },
+  { to: '/bagli-irsaliyeler', icon: Link2, label: 'Bağlı İrsaliyeler' },
 ];
 
 export function MobileNav() {
@@ -70,7 +94,7 @@ export function MobileNav() {
   return (
     <>
       {/* Ana Alt Menü */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 lg:hidden z-50 safe-area-bottom shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 lg:hidden z-50 safe-area-bottom shadow-lg">
         <div className="flex items-center justify-around py-1.5 px-1">
           {mainMenuItems.map((item) => (
             <NavLink
@@ -106,7 +130,7 @@ export function MobileNav() {
       {showMenu && (
         <div className="fixed inset-0 bg-black/50 lg:hidden z-50" onClick={() => setShowMenu(false)}>
           <div 
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto"
+            className="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-800 rounded-t-3xl max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Handle */}
@@ -214,8 +238,80 @@ export function MobileNav() {
                   <Menu size={16} className={cn('text-slate-400 transition-transform', activeSection === 'orders' && 'rotate-90')} />
                 </button>
                 {activeSection === 'orders' && (
-                  <div className="grid grid-cols-4 gap-2 p-3">
+                  <div className="grid grid-cols-3 gap-2 p-3">
                     {orderMenuItems.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        onClick={() => setShowMenu(false)}
+                        className={({ isActive }) =>
+                          cn(
+                            'flex flex-col items-center gap-1 p-3 rounded-xl transition-all',
+                            isActive
+                              ? 'text-blue-600 bg-blue-50 shadow-sm'
+                              : 'text-slate-600 hover:bg-slate-50'
+                          )
+                        }
+                      >
+                        <item.icon size={24} />
+                        <span className="text-[11px] font-medium text-center">{item.label}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* İrsaliye & Fatura */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <button 
+                  onClick={() => toggleSection('invoice')}
+                  className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Truck size={18} className="text-indigo-600" />
+                    <span className="font-semibold text-slate-700">İrsaliye & Fatura</span>
+                  </div>
+                  <Menu size={16} className={cn('text-slate-400 transition-transform', activeSection === 'invoice' && 'rotate-90')} />
+                </button>
+                {activeSection === 'invoice' && (
+                  <div className="grid grid-cols-3 gap-2 p-3">
+                    {invoiceMenuItems.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        onClick={() => setShowMenu(false)}
+                        className={({ isActive }) =>
+                          cn(
+                            'flex flex-col items-center gap-1 p-3 rounded-xl transition-all',
+                            isActive
+                              ? 'text-blue-600 bg-blue-50 shadow-sm'
+                              : 'text-slate-600 hover:bg-slate-50'
+                          )
+                        }
+                      >
+                        <item.icon size={24} />
+                        <span className="text-[11px] font-medium text-center">{item.label}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Stok & Envanter */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <button 
+                  onClick={() => toggleSection('stock')}
+                  className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Package size={18} className="text-cyan-600" />
+                    <span className="font-semibold text-slate-700">Stok & Envanter</span>
+                  </div>
+                  <Menu size={16} className={cn('text-slate-400 transition-transform', activeSection === 'stock' && 'rotate-90')} />
+                </button>
+                {activeSection === 'stock' && (
+                  <div className="grid grid-cols-3 gap-2 p-3">
+                    {stockMenuItems.map((item) => (
                       <NavLink
                         key={item.to}
                         to={item.to}
@@ -302,7 +398,7 @@ export function MobileNav() {
             </div>
 
             {/* Safe area bottom */}
-            <div className="h-8 bg-white"></div>
+            <div className="h-8 bg-white dark:bg-slate-800"></div>
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@ export interface Firm {
   code?: string;
   name: string;
   tax_number?: string;
+  tax_office?: string;
   address?: string;
   phone?: string;
   email?: string;
@@ -16,6 +17,7 @@ export interface Cari {
   code?: string;
   name: string;
   tax_number?: string;
+  tax_office?: string;
   address?: string;
   phone?: string;
   email?: string;
@@ -69,6 +71,10 @@ export interface Transaction {
   project?: Project;
   expense_category?: ExpenseCategory;
   items?: TransactionItem[];
+  linked_delivery_notes?: { delivery_note_number: string; }[];
+  linked_order?: { order_date?: string; order_number?: string; };
+  withholding_tax_code?: string;
+  withholding_tax_description?: string;
 }
 
 export interface TransactionItem {
@@ -84,6 +90,10 @@ export interface TransactionItem {
   vat_amount: number;
   discount_rate: number;
   discount_amount: number;
+  withholding_tax_rate?: number;
+  stoppage_rate?: number;
+  withholding_tax_amount?: number;
+  stoppage_amount?: number;
   sort_order: number;
   created_at: string;
   product?: Product;
@@ -255,6 +265,8 @@ export interface TransactionItemInput {
   vat_amount?: number;
   withholding_rate?: number;
   withholding_amount?: number;
+  withholding_code?: string;
+  withholding_description?: string;
   stopaj_rate?: number;
   stopaj_amount?: number;
   discount_rate?: number;

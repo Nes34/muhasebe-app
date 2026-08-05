@@ -8,10 +8,12 @@ import { useAuth } from '../hooks/useAuth';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import DescriptionAutocomplete from '../components/DescriptionAutocomplete';
+import WithholdingTaxModal from '../components/WithholdingTaxModal';
 import { Plus, Trash2, Save, AlertCircle, CheckCircle, X, Upload, FileSpreadsheet, Search, Package, Download, TrendingUp, TrendingDown, FileText, Truck, Receipt } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 import ResizableCell from '../components/tables/ResizableCell';
 import type { Firm, Cari, Project, ExpenseCategory, TransactionItemInput, TransactionType, CashRegister, BankAccount, Product, StockUnit } from '../types';
+import type { WithholdingTaxCode } from '../lib/withholdingTaxCodes';
 
 // İşlem tipine göre renk eşleme
 const TYPE_COLORS: Record<string, { bg: string; border: string; text: string; icon: string }> = {
@@ -87,6 +89,11 @@ export default function TransactionEntry() {
   const [openProductDropdown, setOpenProductDropdown] = useState<number | null>(null);
   const [hasPendingOrders, setHasPendingOrders] = useState(false);
   const [discountCount, setDiscountCount] = useState(1);
+  
+  // Tevkifat modal
+  const [showWithholdingModal, setShowWithholdingModal] = useState(false);
+  const [activeWithholdingIndex, setActiveWithholdingIndex] = useState<number | null>(null);
+  const [activeWithholdingFilterRate, setActiveWithholdingFilterRate] = useState<number | undefined>(undefined);
   
   // Şablonlar
   const [templates, setTemplates] = useState<any[]>([]);
@@ -252,6 +259,14 @@ export default function TransactionEntry() {
     const updated = templates.filter(t => t.id !== id);
     setTemplates(updated);
     localStorage.setItem('transaction_templates', JSON.stringify(updated));
+  };
+
+  // Tevkifat kodu seçimi
+  const handleWithholdingSelect = (code: WithholdingTaxCode) => {
+    if (activeWithholdingIndex === null) return;
+    updateItem(activeWithholdingIndex, 'withholding_rate', code.rate);
+    updateItem(activeWithholdingIndex, 'withholding_code', code.code);
+    updateItem(activeWithholdingIndex, 'withholding_description', code.description);
   };
 
   // F1 tuşu - bekleyen sipariş kalemlerini göster
@@ -1588,13 +1603,54 @@ export default function TransactionEntry() {
                           {(item.vat_amount || 0).toLocaleString('tr-TR')} ₺
                         </td>}
                         {!hidePriceColumns && <td className="py-2 px-2">
-                          <input
-                            type="number"
-                            value={item.withholding_rate || 0}
-                            onChange={(e) => updateItem(index, 'withholding_rate', parseFloat(e.target.value) || 0)}
-                            className="w-16 px-2 py-1 border border-slate-300 rounded text-sm text-right"
-                            placeholder="0"
-                          />
+                          <div className="flex flex-col gap-1">
+                            <div className="flex gap-1">
+                              <input
+                                type="number"
+                                value={item.withholding_rate || 0}
+                                onChange={(e) => {
+                                  const newRate = parseFloat(e.target.value) || 0;
+                                  updateItem(index, 'withholding_rate', newRate);
+                                  // Oran girildiğinde modalı aç (sıfırdan farklıysa)
+                                  if (newRate > 0) {
+                                    setTimeout(() => {
+                                      setActiveWithholdingIndex(index);
+                                      setActiveWithholdingFilterRate(newRate);
+                                      setShowWithholdingModal(true);
+                                    }, 100);
+                                  }
+                                }}
+                                onKeyDown={(e) => {
+                                  // Alt+F10: Tüm tevkifat kodlarını göster
+                                  if (e.key === 'F10' && e.altKey) {
+                                    e.preventDefault();
+                                    setActiveWithholdingIndex(index);
+                                    setActiveWithholdingFilterRate(undefined);
+                                    setShowWithholdingModal(true);
+                                  }
+                                }}
+                                className="w-14 px-2 py-1 border border-slate-300 rounded text-sm text-right"
+                                placeholder="0"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveWithholdingIndex(index);
+                                  setActiveWithholdingFilterRate(item.withholding_rate || undefined);
+                                  setShowWithholdingModal(true);
+                                }}
+                                className="px-1.5 py-1 bg-slate-100 text-slate-600 rounded hover:bg-slate-200 text-xs"
+                                title="Tevkifat kodu seç (Alt+F10)"
+                              >
+                                ...
+                              </button>
+                            </div>
+                            {item.withholding_code && (
+                              <span className="text-[10px] text-blue-600 truncate" title={item.withholding_description}>
+                                {item.withholding_code} - {item.withholding_description}
+                              </span>
+                            )}
+                          </div>
                         </td>}
                         {!hidePriceColumns && <td className="py-2 px-2">
                           <input
@@ -1740,6 +1796,18 @@ export default function TransactionEntry() {
           </button>
         </div>
       </form>
+
+      {/* Tevkifat Kodu Seçim Modal */}
+      <WithholdingTaxModal
+        isOpen={showWithholdingModal}
+        onClose={() => {
+          setShowWithholdingModal(false);
+          setActiveWithholdingIndex(null);
+          setActiveWithholdingFilterRate(undefined);
+        }}
+        onSelect={handleWithholdingSelect}
+        filterRate={activeWithholdingFilterRate}
+      />
 
       {/* Yeni İşlem Tipi Ekleme Modal */}
       {showAddTypeModal && (

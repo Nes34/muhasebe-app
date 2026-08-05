@@ -7,8 +7,7 @@ import { useFirm } from '../hooks/useFirm';
 import { BarChart3, TrendingUp, TrendingDown, Download, Users, Search, FileText, AlertTriangle } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 import type { UserProfile } from '../types';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { generateReportPDF, generateLogPDF } from '../lib/pdf';
 
 interface Report { id: string; name: string; income: number; expense: number; net: number; }
 
@@ -132,88 +131,11 @@ export default function Reports() {
   );
 
   const exportToPDF = (data: Report[], title: string, filename: string) => {
-    const doc = new jsPDF();
-    
-    // Başlık
-    doc.setFontSize(18);
-    doc.text(title, 14, 22);
-    doc.setFontSize(10);
-    doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 14, 30);
-    
-    // Tablo başlıkları
-    const headers = [['Firma/Proje', 'Gelir', 'Gider', 'Net']];
-    
-    // Satırlar
-    const rows = data.map(r => [
-      r.name,
-      formatCurrency(r.income),
-      formatCurrency(r.expense),
-      formatCurrency(r.net)
-    ]);
-    
-    // Toplam satırı
-    const totalIncome = data.reduce((s, r) => s + r.income, 0);
-    const totalExpense = data.reduce((s, r) => s + r.expense, 0);
-    rows.push(['TOPLAM', formatCurrency(totalIncome), formatCurrency(totalExpense), formatCurrency(totalIncome - totalExpense)]);
-    
-    (doc as any).autoTable({
-      head: headers,
-      body: rows,
-      startY: 35,
-      theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246] },
-      styles: { fontSize: 9 },
-      columnStyles: {
-        0: { cellWidth: 60 },
-        1: { halign: 'right' },
-        2: { halign: 'right' },
-        3: { halign: 'right' },
-      },
-    });
-    
-    doc.save(`${filename}.pdf`);
+    generateReportPDF(data, title, filename);
   };
 
   const exportLogsToPDF = () => {
-    const doc = new jsPDF();
-    
-    // Başlık
-    doc.setFontSize(18);
-    doc.text('İşlem Logları', 14, 22);
-    doc.setFontSize(10);
-    doc.text(`Tarih: ${new Date().toLocaleDateString('tr-TR')}`, 14, 30);
-    
-    // Tablo başlıkları
-    const headers = [['Tarih', 'Tür', 'Firma', 'Tutar', 'Açıklama', 'Giren']];
-    
-    // Satırlar
-    const rows = filteredLogs.map(l => [
-      l.transaction_date,
-      getTransactionTypeLabel(l.transaction_type),
-      l.firm?.name || '-',
-      formatCurrency(l.amount),
-      (l.description || '-').substring(0, 30),
-      getUserName(l.created_by)
-    ]);
-    
-    (doc as any).autoTable({
-      head: headers,
-      body: rows,
-      startY: 35,
-      theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246] },
-      styles: { fontSize: 8 },
-      columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 35 },
-        3: { halign: 'right', cellWidth: 25 },
-        4: { cellWidth: 35 },
-        5: { cellWidth: 30 },
-      },
-    });
-    
-    doc.save('islem-loglari.pdf');
+    generateLogPDF(filteredLogs);
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>;

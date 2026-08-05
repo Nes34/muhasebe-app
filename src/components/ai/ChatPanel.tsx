@@ -47,7 +47,7 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 sm:absolute sm:inset-auto sm:top-14 sm:right-4 z-50 flex flex-col w-full h-full sm:w-[400px] sm:h-[600px] bg-white dark:bg-slate-900 sm:rounded-xl shadow-2xl sm:border border-slate-200 dark:border-slate-800 overflow-hidden">
+    <div className="fixed inset-0 sm:absolute sm:inset-auto sm:top-14 sm:right-4 z-[9999] flex flex-col w-full h-full sm:w-[400px] sm:h-[600px] bg-white dark:bg-slate-900 sm:rounded-xl shadow-2xl sm:border border-slate-200 dark:border-slate-800 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b dark:border-slate-800 bg-slate-50 dark:bg-slate-900 shrink-0">
         <div className="flex items-center gap-2">

@@ -301,7 +301,7 @@ export default function DeliveryNoteLink() {
         </div>
 
         {/* Sağ: Faturalar */}
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="p-4 border-b border-slate-200 bg-slate-50">
             <h3 className="font-semibold text-slate-800 mb-2">Faturalar</h3>
             <div className="relative">
