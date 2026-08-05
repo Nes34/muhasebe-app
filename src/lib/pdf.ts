@@ -138,22 +138,22 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   doc.setLineWidth(0.3);
   doc.line(15, y, 65, y);
 
-  y += 4;
+  y += 3;
 
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 14);
   doc.text('FATURA', pageWidth / 2, y, { align: 'center' });
 
-  y += 4;
+  y += 3;
 
   doc.setDrawColor(0, 0, 0);
   doc.line(15, y, 65, y);
 
-  y += 5;
+  y += 4;
 
   drawGibEmblem(doc, pageWidth / 2, y + 10, 30);
 
-  y += 24;
+  y += 22;
 
   // ══════════════════════════════════════════════════════════════
   // ALICI BİLGİLERİ + FATURA TARİHİ/NO (Sağ)
@@ -334,56 +334,57 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.2);
 
-  // Dikey çizgi (başlık | tutar) - en üstten en alta
-  doc.line(boxX + 35, boxStartY, boxX + 35, boxStartY + 50);
-
   // Ara toplam satırı
-  doc.rect(boxX, boxY - 4, boxW, 8, 'S');
+  doc.rect(boxX, boxY - 4, boxW, 7, 'S');
   setFont(doc, 'normal', 8);
   doc.text('Ara Toplam:', boxX + 2, boxY);
   doc.text(pdfCurrency(totals.subtotal + totals.discountTotal), boxX + boxW - 2, boxY, { align: 'right' });
 
   // KDV satırı
   if (totals.vatTotal > 0) {
-    boxY += 8;
-    doc.rect(boxX, boxY - 4, boxW, 8, 'S');
+    boxY += 7;
+    doc.rect(boxX, boxY - 4, boxW, 7, 'S');
     doc.text('KDV Toplamı:', boxX + 2, boxY);
     doc.text(pdfCurrency(totals.vatTotal), boxX + boxW - 2, boxY, { align: 'right' });
   }
 
   // İskonto satırı
   if (totals.discountTotal > 0) {
-    boxY += 8;
-    doc.rect(boxX, boxY - 4, boxW, 8, 'S');
+    boxY += 7;
+    doc.rect(boxX, boxY - 4, boxW, 7, 'S');
     doc.text('İskonto:', boxX + 2, boxY);
     doc.text(`-${pdfCurrency(totals.discountTotal)}`, boxX + boxW - 2, boxY, { align: 'right' });
   }
 
   // Stopaj satırı
   if (totals.stoppageTotal > 0) {
-    boxY += 8;
-    doc.rect(boxX, boxY - 4, boxW, 8, 'S');
+    boxY += 7;
+    doc.rect(boxX, boxY - 4, boxW, 7, 'S');
     doc.text('Stopaj:', boxX + 2, boxY);
     doc.text(`-${pdfCurrency(totals.stoppageTotal)}`, boxX + boxW - 2, boxY, { align: 'right' });
   }
 
   // Tevkifat satırı
   if (totals.withholdingTaxTotal > 0) {
-    boxY += 8;
-    doc.rect(boxX, boxY - 4, boxW, 8, 'S');
+    boxY += 7;
+    doc.rect(boxX, boxY - 4, boxW, 7, 'S');
     doc.text('Tevkifat:', boxX + 2, boxY);
     doc.text(`-${pdfCurrency(totals.withholdingTaxTotal)}`, boxX + boxW - 2, boxY, { align: 'right' });
   }
 
+  // Dikey çizgi (başlık | tutar) - sadece satırlar kadar
+  const dikeyCizgiH = boxY - boxStartY + 3;
+  doc.line(boxX + 35, boxStartY, boxX + 35, boxStartY + dikeyCizgiH);
+
   // Kalın çizgi (genel toplam öncesi)
-  boxY += 6;
+  boxY += 5;
   doc.setLineWidth(0.6);
   doc.line(boxX, boxY, boxX + boxW, boxY);
 
   // Genel toplam satırı
-  boxY += 6;
+  boxY += 5;
   doc.setLineWidth(0.2);
-  doc.rect(boxX, boxY - 4, boxW, 9, 'S');
+  doc.rect(boxX, boxY - 4, boxW, 8, 'S');
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 10);
   doc.text('GENEL TOPLAM:', boxX + 2, boxY);
