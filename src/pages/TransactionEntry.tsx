@@ -43,7 +43,6 @@ export default function TransactionEntry() {
   const { user } = useAuth();
   const { selectedFirm } = useFirm();
   const [transactionType, setTransactionType] = useState<string>('invoice');
-  const [subType, setSubType] = useState<'sale' | 'purchase'>('sale');
   const [transactionDate, setTransactionDate] = useState(formatDateTR(new Date()));
   const [firmId, setFirmId] = useState('');
   const [cariId, setCariId] = useState('');
@@ -168,7 +167,6 @@ export default function TransactionEntry() {
       id: Date.now().toString(),
       name: templateName,
       transactionType,
-      subType,
       firmId,
       cariId,
       projectId,
@@ -188,7 +186,6 @@ export default function TransactionEntry() {
   // Şablonu yükle
   const loadTemplate = (template: any) => {
     setTransactionType(template.transactionType);
-    setSubType(template.subType);
     setFirmId(template.firmId);
     setCariId(template.cariId);
     setProjectId(template.projectId);
@@ -404,7 +401,6 @@ export default function TransactionEntry() {
   // İşlem tipi değiştiğinde otomatik numara ata
   const handleTransactionTypeChange = async (newType: string) => {
     setTransactionType(newType);
-    setSubType('sale'); // Varsayılan satış
 
     // Gelir veya gider ise ve numara boşsa otomatik ata
     if ((newType === 'income' || newType === 'expense') && !invoiceNumber) {
@@ -928,14 +924,12 @@ export default function TransactionEntry() {
   const isInvoiceType = transactionType === 'invoice';
   const isDeliveryNoteType = transactionType === 'delivery_note';
   const isCheckType = transactionType === 'check';
-  const isPurchaseInvoice = transactionType === 'purchase_invoice' || (isInvoiceType && subType === 'purchase');
-  const isSaleInvoice = transactionType === 'sale_invoice' || (isInvoiceType && subType === 'sale');
+  const isPurchaseInvoice = transactionType === 'purchase_invoice';
+  const isSaleInvoice = transactionType === 'sale_invoice';
   const isAnyInvoice = isInvoiceType || isPurchaseInvoice || isSaleInvoice;
 
   // Veritabanına gönderilen gerçek transaction_type
   const getDbTransactionType = () => {
-    if (isInvoiceType) return subType === 'sale' ? 'sale_invoice' : 'purchase_invoice';
-    if (isDeliveryNoteType) return subType === 'sale' ? 'sale_delivery_note' : 'purchase_delivery_note';
     return transactionType;
   };
   
@@ -1044,34 +1038,6 @@ export default function TransactionEntry() {
               );
             })}
           </div>
-
-          {/* Fatura alt seçim: Satış / Alış */}
-          {isInvoiceType && (
-            <div className="mt-3 flex gap-2">
-              <button type="button" onClick={() => setSubType('sale')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subType === 'sale' ? 'bg-teal-100 text-teal-700 border border-teal-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
-                Satış Faturası
-              </button>
-              <button type="button" onClick={() => setSubType('purchase')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subType === 'purchase' ? 'bg-orange-100 text-orange-700 border border-orange-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
-                Alış Faturası
-              </button>
-            </div>
-          )}
-
-          {/* İrsaliye alt seçim: Satış / Alış */}
-          {isDeliveryNoteType && (
-            <div className="mt-3 flex gap-2">
-              <button type="button" onClick={() => setSubType('sale')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subType === 'sale' ? 'bg-teal-100 text-teal-700 border border-teal-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
-                Satış İrsaliyesi
-              </button>
-              <button type="button" onClick={() => setSubType('purchase')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${subType === 'purchase' ? 'bg-orange-100 text-orange-700 border border-orange-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
-                Alış İrsaliyesi
-              </button>
-            </div>
-          )}
 
           {/* Çek alt seçim: Alınan / Verilen */}
           {isCheckType && (
