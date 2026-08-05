@@ -465,144 +465,108 @@ export function generateDeliveryNotePDF(transaction: Transaction, companyName = 
   const doc = new jsPDF();
   initFont(doc);
   const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
 
   // İrsaliye türü
   const isSale = ['sale_delivery_note', 'delivery_note'].includes(transaction.transaction_type);
   const seller = isSale ? transaction.firm : (cariData || transaction.cari);
   const buyer = isSale ? (cariData || transaction.cari) : transaction.firm;
 
-  let y = 15;
+  let y = 46;
 
   // ══════════════════════════════════════════════════════════════
-  // HEADER: Koyu arka plan + mor accent
+  // 3 SÜTUNLU ÜST KISIM: SOL | ORTA | SAĞ (ayırıcı çizgi yok)
   // ══════════════════════════════════════════════════════════════
-  doc.setFillColor(30, 41, 59);
-  doc.rect(0, 0, pageWidth, 45, 'F');
-  doc.setFillColor(124, 58, 237);
-  doc.rect(0, 45, pageWidth, 2, 'F');
+  const colLeft = 15;
+  const colCenter = 70;
+  const colRight = 140;
+  const colEnd = pageWidth - 15;
 
-  // Firma adı
-  doc.setTextColor(255, 255, 255);
-  setFont(doc, 'bold', 18);
-  doc.text(seller?.name || companyName, 15, 20);
-  setFont(doc, 'normal', 9);
-  doc.setTextColor(148, 163, 184);
-  doc.text('Muhasebe Uygulaması', 15, 30);
-
-  // İrsaliye badge
-  doc.setFillColor(124, 58, 237);
-  doc.roundedRect(pageWidth - 55, 10, 40, 12, 2, 2, 'F');
-  doc.setTextColor(255, 255, 255);
-  setFont(doc, 'bold', 10);
-  doc.text('İRSALİYE', pageWidth - 35, 18, { align: 'center' });
-
-  // GİB amblemi
-  drawGibEmblem(doc, pageWidth / 2, 22, 20);
-
-  // GİB amblemi (header ortası)
-  doc.setTextColor(200, 200, 200);
-  setFont(doc, 'normal', 7);
-  doc.text('GELİR İDARESİ BAŞKANLIĞI', pageWidth / 2, 14, { align: 'center' });
-  doc.text('E-İRSALİYE', pageWidth / 2, 20, { align: 'center' });
-
-  // İrsaliye numarası
-  setFont(doc, 'normal', 9);
-  doc.setTextColor(148, 163, 184);
-  doc.text(`No: ${transaction.delivery_note_number || transaction.invoice_number || '-'}`, pageWidth - 15, 30, { align: 'right' });
-
-  y = 55;
-
-  // ══════════════════════════════════════════════════════════════
-  // SATICI BİLGİLERİ
-  // ══════════════════════════════════════════════════════════════
-  doc.setTextColor(100, 116, 139);
-  setFont(doc, 'bold', 7);
-  doc.text('SATICI', 15, y);
-  doc.setTextColor(30, 41, 59);
-  setFont(doc, 'bold', 8);
-  doc.text(seller?.name || companyName, 15, y + 5);
-  setFont(doc, 'normal', 7);
-  doc.text(`Vergi No: ${seller?.tax_number || '-'}`, 15, y + 10);
-  doc.text(`Vergi Dairesi: ${seller?.tax_office || '-'}`, 15, y + 15);
-
-  y += 22;
-
-  // ══════════════════════════════════════════════════════════════
-  // İKİ AYRAÇ ÇİZGİSİ
-  // ══════════════════════════════════════════════════════════════
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.3);
-  doc.line(15, y, pageWidth - 15, y);
-  doc.line(15, y + 2, pageWidth - 15, y + 2);
-
-  y += 4;
-
-  // ══════════════════════════════════════════════════════════════
-  // ALICI BİLGİLERİ + İRSALİYE TARİHİ/NO (Sağ)
-  // ══════════════════════════════════════════════════════════════
-  const rightX = pageWidth - 15;
+  // ── SOL: SATICI + ALICI ──────────────────────────────────────
+  const solY = 25;
 
   doc.setTextColor(100, 116, 139);
   setFont(doc, 'bold', 7);
-  doc.text('ALICI', 15, y);
+  doc.text('SATICI', colLeft, solY);
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 8);
-  doc.text(buyer?.name || '-', 15, y + 5);
+  doc.text(seller?.name || companyName || '-', colLeft, solY + 5);
   setFont(doc, 'normal', 7);
-  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, 15, y + 10);
-  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, 15, y + 15);
-  if (buyer?.address) {
-    doc.text(buyer.address, 15, y + 20);
-  }
+  doc.text(`Vergi No: ${seller?.tax_number || '-'}`, colLeft, solY + 10);
+  doc.text(`Vergi Dairesi: ${seller?.tax_office || '-'}`, colLeft, solY + 15);
 
-  // Sağ: İrsaliye tarihi ve no (tablo şeklinde çerçeve)
-  const irsBoxX = rightX - 55;
-  const irsBoxW = 55;
-  const irsBoxStartY = y - 4;
-
-  // Başlık satırı
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.3);
-  doc.rect(irsBoxX, irsBoxStartY, irsBoxW, 7, 'S');
-  doc.setTextColor(30, 41, 59);
-  setFont(doc, 'bold', 7);
-  doc.text('İRSALİYE BİLGİLERİ', irsBoxX + 2, y);
-
-  // Tarih satırı
-  doc.rect(irsBoxX, irsBoxStartY + 7, irsBoxW, 8, 'S');
-  doc.setTextColor(30, 41, 59);
-  setFont(doc, 'bold', 7);
-  doc.text('Tarih:', irsBoxX + 2, y + 7);
-  setFont(doc, 'normal', 7);
-  doc.text(transaction.transaction_date, irsBoxX + 18, y + 7);
-
-  // No satırı
-  doc.rect(irsBoxX, irsBoxStartY + 15, irsBoxW, 8, 'S');
-  setFont(doc, 'bold', 7);
-  doc.text('No:', irsBoxX + 2, y + 15);
-  setFont(doc, 'normal', 7);
-  doc.text(transaction.delivery_note_number || transaction.invoice_number || '-', irsBoxX + 18, y + 15);
-
-  // Sipariş satırı (varsa)
-  let siparisRowH = 0;
-  if (transaction.linked_order) {
-    doc.rect(irsBoxX, irsBoxStartY + 23, irsBoxW, 8, 'S');
-    doc.setTextColor(124, 58, 237);
-    setFont(doc, 'bold', 6);
-    doc.text('Sipariş:', irsBoxX + 2, y + 23);
-    setFont(doc, 'normal', 6);
-    doc.text(`${transaction.linked_order.order_date || '-'} - ${formatDeliveryNoteNumber(transaction.linked_order.order_number || '-')}`, irsBoxX + 18, y + 23);
-    siparisRowH = 8;
-  }
-
-  // Dikey çizgi (başlık | değer)
-  const irsBoxH = 23 + siparisRowH + 7;
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.15);
-  doc.line(irsBoxX + 16, irsBoxStartY, irsBoxX + 16, irsBoxStartY + irsBoxH);
+  doc.line(colLeft, solY + 18, colCenter - 4, solY + 18);
 
-  y += 27;
+  doc.setTextColor(100, 116, 139);
+  setFont(doc, 'bold', 7);
+  doc.text('ALICI', colLeft, solY + 22);
+  doc.setTextColor(30, 41, 59);
+  setFont(doc, 'bold', 8);
+  doc.text(buyer?.name || '-', colLeft, solY + 27);
+  setFont(doc, 'normal', 7);
+  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, colLeft, solY + 32);
+  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, colLeft, solY + 37);
+
+  // ── ORTA: İRSALİYE + GİB AMBLEMİ ────────────────────────────
+  const ortaX = (colCenter + colRight - 4) / 2;
+
+  doc.setTextColor(30, 41, 59);
+  setFont(doc, 'bold', 14);
+  doc.text('İRSALİYE', ortaX, y + 4, { align: 'center' });
+
+  drawGibEmblem(doc, ortaX, y + 22, 28);
+
+  // ── SAĞ: İRSALİYE BİLGİLERİ (yumuşak kenarlık, dinamik) ─────
+  const sagW = colEnd - colRight;
+  const diagX = colRight;
+  const hasSiparis = !!transaction.linked_order;
+  const irsSatirH = 7;
+  const irsBaslikH = 7;
+  const irsBoxH = irsBaslikH + (hasSiparis ? 3 : 2) * irsSatirH + 2;
+
+  // Dış çerçeve (yumuşak gri, yuvarlak)
+  doc.setDrawColor(200, 210, 220);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(diagX - 1, y - 4, sagW + 2, irsBoxH, 2, 2, 'S');
+
+  // Başlık satırı (açık gri arka plan)
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(diagX, y - 3, sagW, irsBaslikH, 1, 1, 'F');
+  doc.setTextColor(80, 90, 100);
+  setFont(doc, 'bold', 7);
+  doc.text('İRSALİYE BİLGİLERİ', diagX + 2, y + 2);
+
+  // Tarih satırı
+  doc.setDrawColor(220, 225, 235);
+  doc.setLineWidth(0.15);
+  doc.line(diagX + 1, y + 4, diagX + sagW - 1, y + 4);
+  setFont(doc, 'bold', 7);
+  doc.setTextColor(80, 90, 100);
+  doc.text('Tarih:', diagX + 3, y + 9);
+  setFont(doc, 'normal', 7);
+  doc.setTextColor(30, 41, 59);
+  doc.text(transaction.transaction_date, diagX + 18, y + 9);
+
+  // No satırı
+  doc.line(diagX + 1, y + 11, diagX + sagW - 1, y + 11);
+  setFont(doc, 'bold', 7);
+  doc.setTextColor(80, 90, 100);
+  doc.text('No:', diagX + 3, y + 16);
+  setFont(doc, 'normal', 7);
+  doc.setTextColor(30, 41, 59);
+  doc.text(transaction.delivery_note_number || transaction.invoice_number || '-', diagX + 18, y + 16);
+
+  // Sipariş satırı (varsa)
+  if (hasSiparis) {
+    doc.line(diagX + 1, y + 18, diagX + sagW - 1, y + 18);
+    setFont(doc, 'bold', 7);
+    doc.setTextColor(80, 90, 100);
+    doc.text('Sipariş:', diagX + 3, y + 23);
+    setFont(doc, 'normal', 7);
+    doc.setTextColor(30, 41, 59);
+    doc.text(`${transaction.linked_order?.order_date || '-'} - ${formatDeliveryNoteNumber(transaction.linked_order?.order_number || '-')}`, diagX + 18, y + 23);
+  }
 
   // ══════════════════════════════════════════════════════════════
   // KALEMLER TABLOSU
@@ -625,12 +589,12 @@ export function generateDeliveryNotePDF(transaction: Transaction, companyName = 
         fontSize: 8,
         cellPadding: 3,
         textColor: [30, 41, 59],
-        lineColor: [0, 0, 0],
+        lineColor: [200, 210, 220],
         lineWidth: 0.2,
       },
       headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: [255, 255, 255],
+        fillColor: [241, 245, 249],
+        textColor: [30, 41, 59],
         fontStyle: 'bold',
         fontSize: 8,
         cellPadding: 4,
@@ -659,65 +623,61 @@ export function generateDeliveryNotePDF(transaction: Transaction, companyName = 
         fontSize: 8,
         cellPadding: 3,
         textColor: [30, 41, 59],
-        lineColor: [0, 0, 0],
+        lineColor: [200, 210, 220],
         lineWidth: 0.2,
       },
       headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: [255, 255, 255],
+        fillColor: [241, 245, 249],
+        textColor: [30, 41, 59],
         fontStyle: 'bold',
         fontSize: 8,
         cellPadding: 4,
       },
+      columnStyles: {
+        0: { cellWidth: 15, halign: 'center' },
+        1: { cellWidth: 110 },
+        2: { cellWidth: 25, halign: 'center' },
+        3: { cellWidth: 25, halign: 'center' },
+      },
     });
+
     // @ts-ignore
     y = doc.lastAutoTable.finalY + 10;
   }
 
   // ══════════════════════════════════════════════════════════════
-  // AÇIKLAMA VE NOT
+  // AÇIKLAMA (varsa)
   // ══════════════════════════════════════════════════════════════
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(10, y - 3, pageWidth - 20, 30, 2, 2, 'F');
-  doc.setDrawColor(226, 232, 240);
-  doc.roundedRect(10, y - 3, pageWidth - 20, 30, 2, 2, 'S');
-
-  setFont(doc, 'bold', 8);
-  doc.setTextColor(100, 116, 139);
-  doc.text('AÇIKLAMA VE NOTLAR', 15, y + 3);
-  y += 8;
-
-  setFont(doc, 'normal', 8);
-  doc.setTextColor(30, 41, 59);
   if (transaction.description) {
-    y = fitText(doc, transaction.description, pageWidth - 30, 15, y, 4);
-    y += 2;
-  }
-
-  // Sipariş notu
-  if (transaction.linked_order) {
-    doc.setTextColor(124, 58, 237);
+    doc.setTextColor(100, 116, 139);
+    setFont(doc, 'bold', 7);
+    doc.text('Açıklama:', 15, y);
+    doc.setTextColor(30, 41, 59);
     setFont(doc, 'normal', 7);
-    const orderNote = `${transaction.linked_order.order_date || '-'}-${formatDeliveryNoteNumber(transaction.linked_order.order_number || '-')} nolu siparişe istinaden düzenlenmiştir.`;
-    y = fitText(doc, orderNote, pageWidth - 30, 15, y, 4);
+    const descLines = doc.splitTextToSize(transaction.description, pageWidth - 30);
+    doc.text(descLines, 15, y + 5);
+    y += 5 + descLines.length * 4 + 5;
   }
 
   // ══════════════════════════════════════════════════════════════
-  // FOOTER
+  // İMZA ALANI
   // ══════════════════════════════════════════════════════════════
-  const footerY = pageHeight - 15;
-  doc.setDrawColor(226, 232, 240);
+  const signY = Math.max(y + 10, 250);
+
+  doc.setDrawColor(200, 210, 220);
   doc.setLineWidth(0.3);
-  doc.line(15, footerY - 10, pageWidth - 15, footerY - 10);
 
-  doc.setTextColor(148, 163, 184);
+  // Sol imza
+  doc.line(15, signY, 75, signY);
+  doc.setTextColor(100, 116, 139);
   setFont(doc, 'normal', 7);
-  doc.text('Bu belge Muhasebe Uygulaması tarafından otomatik olarak oluşturulmuştur.', 15, footerY);
-  doc.text(`Oluşturma Tarihi: ${new Date().toLocaleString('tr-TR')}`, pageWidth - 15, footerY, { align: 'right' });
+  doc.text('Teslim Eden', 45, signY + 5, { align: 'center' });
 
-  // Save
-  const fileName = `irsaliye-${transaction.delivery_note_number || transaction.transaction_number}.pdf`;
-  doc.save(fileName);
+  // Sağ imza
+  doc.line(pageWidth - 75, signY, pageWidth - 15, signY);
+  doc.text('Teslim Alan', pageWidth - 45, signY + 5, { align: 'center' });
+
+  doc.save(`irsaliye-${transaction.delivery_note_number || transaction.id}.pdf`);
 }
 
 export function generateReportPDF(data: { name: string; income: number; expense: number; net: number }[], title: string, filename: string) {
