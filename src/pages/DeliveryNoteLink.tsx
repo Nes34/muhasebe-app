@@ -52,20 +52,23 @@ export default function DeliveryNoteLink() {
     if (dnData && dnData.length > 0) {
       const dnCariIds = [...new Set(dnData.map(d => d.cari_id).filter(Boolean))];
       const dnProjIds = [...new Set(dnData.map(d => d.project_id).filter(Boolean))];
+      const dnFirmIds = [...new Set(dnData.map(d => d.firm_id).filter(Boolean))];
       
-      const [dnCariRes, dnProjRes] = await Promise.all([
+      const [dnCariRes, dnProjRes, dnFirmRes] = await Promise.all([
         dnCariIds.length > 0 ? supabase.from('cariler').select('id, name').in('id', dnCariIds) : { data: [] },
         dnProjIds.length > 0 ? supabase.from('projects').select('id, name').in('id', dnProjIds) : { data: [] },
+        dnFirmIds.length > 0 ? supabase.from('firms').select('id, name').in('id', dnFirmIds) : { data: [] },
       ]);
       
       const dnCariMap = new Map((dnCariRes.data || []).map(c => [c.id, c.name]));
       const dnProjMap = new Map((dnProjRes.data || []).map(p => [p.id, p.name]));
+      const dnFirmMap = new Map((dnFirmRes.data || []).map(f => [f.id, f.name]));
       
       const enrichedDN = dnData.map(dn => ({
         ...dn,
-        invoice_number: null,
         cari: { name: dnCariMap.get(dn.cari_id) || '-' },
         project: { name: dnProjMap.get(dn.project_id) || '-' },
+        firm: { name: dnFirmMap.get(dn.firm_id) || '-' },
       }));
       setDeliveryNotes(enrichedDN);
     } else {
@@ -83,18 +86,21 @@ export default function DeliveryNoteLink() {
     if (selectedProject) invQuery = invQuery.eq('project_id', selectedProject.id);
     const { data: invData } = await invQuery;
 
-    // Cari ve proje bilgilerini ayrı çek
+    // Cari, proje ve firma bilgilerini ayrı çek
     if (invData && invData.length > 0) {
       const cariIds = [...new Set(invData.map(i => i.cari_id).filter(Boolean))];
       const projectIds = [...new Set(invData.map(i => i.project_id).filter(Boolean))];
+      const firmIds = [...new Set(invData.map(i => i.firm_id).filter(Boolean))];
       
-      const [cariRes, projRes] = await Promise.all([
+      const [cariRes, projRes, firmRes] = await Promise.all([
         cariIds.length > 0 ? supabase.from('cariler').select('id, name').in('id', cariIds) : { data: [] },
         projectIds.length > 0 ? supabase.from('projects').select('id, name').in('id', projectIds) : { data: [] },
+        firmIds.length > 0 ? supabase.from('firms').select('id, name').in('id', firmIds) : { data: [] },
       ]);
       
       const cariMap = new Map((cariRes.data || []).map(c => [c.id, c.name]));
       const projMap = new Map((projRes.data || []).map(p => [p.id, p.name]));
+      const firmMap = new Map((firmRes.data || []).map(f => [f.id, f.name]));
       
       const enriched = invData.map(inv => ({
         ...inv,
@@ -102,7 +108,7 @@ export default function DeliveryNoteLink() {
         linked_invoice_id: null,
         cari: { name: cariMap.get(inv.cari_id) || '-' },
         project: { name: projMap.get(inv.project_id) || '-' },
-        firm: null,
+        firm: { name: firmMap.get(inv.firm_id) || '-' },
       }));
       setInvoices(enriched);
     } else {
@@ -233,9 +239,9 @@ export default function DeliveryNoteLink() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Sol: İrsaliyeler */}
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="lg:col-span-4 bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="p-4 border-b border-slate-200 bg-slate-50">
             <h3 className="font-semibold text-slate-800 mb-2">Bağlı Olmayan İrsaliyeler</h3>
             <div className="relative">
@@ -244,24 +250,36 @@ export default function DeliveryNoteLink() {
             </div>
           </div>
           <div className="max-h-[400px] overflow-y-auto">
-            {filteredDN.map(dn => (
-              <div
-                key={dn.id}
-                onClick={() => setSelectedDN(dn.id)}
-                className={`p-3 border-b border-slate-100 cursor-pointer transition-colors ${
-                  selectedDN === dn.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-purple-700 bg-purple-100 px-2 py-0.5 rounded">{getTypeLabel(dn.transaction_type)}</span>
-                  <span className="text-xs text-slate-500">{formatDateTR(dn.transaction_date)}</span>
-                </div>
-                <p className="text-sm font-medium text-slate-800">{dn.cari?.name || '-'}</p>
-                {!selectedFirm && <p className="text-xs text-slate-500">Firma: {dn.firm?.name || '-'}</p>}
-                {!selectedProject && <p className="text-xs text-slate-500">Proje: {dn.project?.name || '-'}</p>}
-                <p className="text-sm font-bold text-slate-700 mt-1">{formatCurrency(dn.amount)}</p>
-              </div>
-            ))}
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 sticky top-0">
+                <tr>
+                  <th className="text-left py-2 px-2">Tür</th>
+                  <th className="text-left py-2 px-2">Tarih</th>
+                  <th className="text-left py-2 px-2">Cari</th>
+                  {!selectedFirm && <th className="text-left py-2 px-2">Firma</th>}
+                  {!selectedProject && <th className="text-left py-2 px-2">Proje</th>}
+                  <th className="text-right py-2 px-2">Tutar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDN.map(dn => (
+                  <tr
+                    key={dn.id}
+                    onClick={() => setSelectedDN(dn.id)}
+                    className={`cursor-pointer transition-colors ${
+                      selectedDN === dn.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'hover:bg-slate-50 border-b border-slate-100'
+                    }`}
+                  >
+                    <td className="py-2 px-2"><span className="text-xs font-medium text-purple-700 bg-purple-100 px-2 py-0.5 rounded">{getTypeLabel(dn.transaction_type)}</span></td>
+                    <td className="py-2 px-2 text-xs text-slate-500">{formatDateTR(dn.transaction_date)}</td>
+                    <td className="py-2 px-2 text-sm font-medium">{dn.cari?.name || '-'}</td>
+                    {!selectedFirm && <td className="py-2 px-2 text-xs text-slate-500">{dn.firm?.name || '-'}</td>}
+                    {!selectedProject && <td className="py-2 px-2 text-xs text-slate-500">{dn.project?.name || '-'}</td>}
+                    <td className="py-2 px-2 text-sm font-bold text-right">{formatCurrency(dn.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
             {filteredDN.length === 0 && <p className="text-center py-8 text-slate-500 text-sm">Tüm irsaliyeler bağlı</p>}
           </div>
         </div>
@@ -291,27 +309,38 @@ export default function DeliveryNoteLink() {
             </div>
           </div>
           <div className="max-h-[400px] overflow-y-auto">
-            {filteredInvoices.map(inv => (
-              <div
-                key={inv.id}
-                onClick={() => setSelectedInvoice(inv.id)}
-                className={`p-3 border-b border-slate-100 cursor-pointer transition-colors ${
-                  selectedInvoice === inv.id ? 'bg-green-50 border-l-4 border-l-green-500' : 'hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded">{getTypeLabel(inv.transaction_type)}</span>
-                  <span className="text-xs text-slate-500">{formatDateTR(inv.transaction_date)}</span>
-                </div>
-                <p className="text-sm font-medium text-slate-800">{inv.cari?.name || '-'}</p>
-                {!selectedFirm && <p className="text-xs text-slate-500">Firma: {inv.firm?.name || '-'}</p>}
-                {!selectedProject && <p className="text-xs text-slate-500">Proje: {inv.project?.name || '-'}</p>}
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs text-slate-500">No: {inv.invoice_number || '-'}</span>
-                  <span className="text-sm font-bold text-slate-700">{formatCurrency(inv.amount)}</span>
-                </div>
-              </div>
-            ))}
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 sticky top-0">
+                <tr>
+                  <th className="text-left py-2 px-2">Tür</th>
+                  <th className="text-left py-2 px-2">Tarih</th>
+                  <th className="text-left py-2 px-2">Cari</th>
+                  {!selectedFirm && <th className="text-left py-2 px-2">Firma</th>}
+                  {!selectedProject && <th className="text-left py-2 px-2">Proje</th>}
+                  <th className="text-left py-2 px-2">No</th>
+                  <th className="text-right py-2 px-2">Tutar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredInvoices.map(inv => (
+                  <tr
+                    key={inv.id}
+                    onClick={() => setSelectedInvoice(inv.id)}
+                    className={`cursor-pointer transition-colors ${
+                      selectedInvoice === inv.id ? 'bg-green-50 border-l-4 border-l-green-500' : 'hover:bg-slate-50 border-b border-slate-100'
+                    }`}
+                  >
+                    <td className="py-2 px-2"><span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded">{getTypeLabel(inv.transaction_type)}</span></td>
+                    <td className="py-2 px-2 text-xs text-slate-500">{formatDateTR(inv.transaction_date)}</td>
+                    <td className="py-2 px-2 text-sm font-medium">{inv.cari?.name || '-'}</td>
+                    {!selectedFirm && <td className="py-2 px-2 text-xs text-slate-500">{inv.firm?.name || '-'}</td>}
+                    {!selectedProject && <td className="py-2 px-2 text-xs text-slate-500">{inv.project?.name || '-'}</td>}
+                    <td className="py-2 px-2 text-xs text-slate-500">{inv.invoice_number || '-'}</td>
+                    <td className="py-2 px-2 text-sm font-bold text-right">{formatCurrency(inv.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
             {filteredInvoices.length === 0 && <p className="text-center py-8 text-slate-500 text-sm">Fatura bulunamadı</p>}
           </div>
         </div>
