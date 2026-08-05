@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDateTR } from '../lib/utils';
 import { exportTransactionsToExcel } from '../lib/excel';
@@ -65,6 +65,14 @@ export default function TransactionTracking() {
     is_exception: false, exception_reason: '',
   });
   const [editItems, setEditItems] = useState<EditItem[]>([]);
+
+  // İrsaliye seçim modal state (düzenleme için)
+  const [editSaleDNs, setEditSaleDNs] = useState<any[]>([]);
+  const [editSelectedDNIds, setEditSelectedDNIds] = useState<string[]>([]);
+  const [editShowDNModal, setEditShowDNModal] = useState(false);
+  const [editExpandedDNId, setEditExpandedDNId] = useState<string | null>(null);
+  const [editDNItems, setEditDNItems] = useState<any[]>([]);
+  const [editLoadingDN, setEditLoadingDN] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -216,6 +224,60 @@ export default function TransactionTracking() {
   const isInvoiceType = (type: string) => ['invoice', 'sale_invoice', 'purchase_invoice', 'delivery_note', 'sale_delivery_note', 'purchase_delivery_note'].includes(type);
   const isDeliveryNote = (type: string) => ['delivery_note', 'sale_delivery_note', 'purchase_delivery_note'].includes(type);
 
+  // Düzenleme modalı için irsaliye fonksiyonları
+  const fetchEditDNs = async (firmId: string, transactionType: string) => {
+    const dnType = transactionType === 'sale_invoice' ? 'sale_delivery_note' : 'purchase_delivery_note';
+    const { data } = await supabase
+      .from('transactions')
+      .select('id, delivery_note_number, transaction_date, amount, description, firm_id, project_id, cari_id')
+      .eq('transaction_type', dnType)
+      .eq('firm_id', firmId)
+      .order('transaction_date', { ascending: false });
+    setEditSaleDNs(data || []);
+  };
+
+  const fetchEditDNItems = async (dnId: string) => {
+    setEditLoadingDN(true);
+    setEditExpandedDNId(editExpandedDNId === dnId ? null : dnId);
+    if (editExpandedDNId === dnId) { setEditLoadingDN(false); return; }
+    const { data } = await supabase.from('transaction_items').select('*').eq('transaction_id', dnId);
+    setEditDNItems(data || []);
+    setEditLoadingDN(false);
+  };
+
+  const toggleEditDNSelection = (dn: any) => {
+    const isSelected = editSelectedDNIds.includes(dn.id);
+    const newIds = isSelected ? editSelectedDNIds.filter(id => id !== dn.id) : [...editSelectedDNIds, dn.id];
+    setEditSelectedDNIds(newIds);
+    const selectedNotes = editSaleDNs.filter(dn => newIds.includes(dn.id));
+    const dnNumbers = selectedNotes.map(d => d.delivery_note_number).filter(Boolean).join(', ');
+    setEditFormData(prev => ({ ...prev, delivery_note_number: dnNumbers }));
+  };
+
+  const applyEditSelectedDNs = async () => {
+    const selectedNotes = editSaleDNs.filter(dn => editSelectedDNIds.includes(dn.id));
+    const allItems: any[] = [];
+    for (const dn of selectedNotes) {
+      const { data: items } = await supabase.from('transaction_items').select('*').eq('transaction_id', dn.id);
+      if (items) allItems.push(...items);
+    }
+    if (allItems.length > 0) {
+      setEditItems(allItems.map((item: any) => ({
+        id: item.id, product_id: item.product_id || '', description: item.description || '',
+        unit: item.unit || 'adet', quantity: item.quantity || 0, unit_price: item.unit_price || 0,
+        vat_rate: item.vat_rate || 20, vat_amount: item.vat_amount || 0,
+        discount_rate: item.discount_rate || 0, discount_amount: item.discount_amount || 0,
+        amount: item.amount || 0,
+      })));
+    }
+    setEditShowDNModal(false);
+  };
+
+  const clearEditDNSelection = () => {
+    setEditSelectedDNIds([]);
+    setEditFormData(prev => ({ ...prev, delivery_note_number: '' }));
+  };
+
   // Düzenleme modalını aç
   const handleEdit = async (raw: Transaction) => {
     setEditModalOpen(true);
@@ -249,6 +311,14 @@ export default function TransactionTracking() {
       })));
     } else {
       setEditItems([]);
+    }
+
+    // Satış/Alış faturası ise irsaliyeleri çek
+    const txType = raw.transaction_type as string;
+    if ((txType === 'sale_invoice' || txType === 'purchase_invoice') && raw.firm_id) {
+      fetchEditDNs(raw.firm_id, txType);
+    } else {
+      setEditSaleDNs([]);
     }
 
     setEditLoading(false);
@@ -575,9 +645,21 @@ export default function TransactionTracking() {
                     )}
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">İrsaliye No</label>
-                      <input type="text" value={editFormData.delivery_note_number}
-                        onChange={(e) => setEditFormData({ ...editFormData, delivery_note_number: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                      {(editFormData.transaction_type === 'sale_invoice' || editFormData.transaction_type === 'purchase_invoice') ? (
+                        <div className="flex gap-2">
+                          <input type="text" value={editFormData.delivery_note_number} readOnly
+                            placeholder={editSelectedDNIds.length > 0 ? `${editSelectedDNIds.length} irsaliye seçildi` : "İrsaliye seçin..."}
+                            className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-50 cursor-default" />
+                          <button type="button" onClick={() => setEditShowDNModal(true)}
+                            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+                            {editSelectedDNIds.length > 0 ? `${editSelectedDNIds.length} Seçili` : 'İrsaliye Seç'}
+                          </button>
+                        </div>
+                      ) : (
+                        <input type="text" value={editFormData.delivery_note_number}
+                          onChange={(e) => setEditFormData({ ...editFormData, delivery_note_number: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                      )}
                     </div>
                   </div>
                 )}
@@ -656,6 +738,122 @@ export default function TransactionTracking() {
                 <Save size={16} />
                 {editSaving ? 'Kaydediliyor...' : 'Kaydet'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* İrsaliye Seçim Modalı (Düzenleme) */}
+      {editShowDNModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={() => setEditShowDNModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <h3 className="text-lg font-bold text-slate-800">
+                {editFormData.transaction_type === 'sale_invoice' ? 'Satış İrsaliyeleri' : 'Alış İrsaliyeleri'}
+              </h3>
+              <button onClick={() => setEditShowDNModal(false)} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {editSaleDNs.length === 0 ? (
+                <p className="text-center text-slate-400 py-10">Bu firmaya ait irsaliye bulunamadı.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-600">
+                      <th className="py-2 px-2 text-left w-10"></th>
+                      <th className="py-2 px-2 text-left">İrsaliye No</th>
+                      <th className="py-2 px-2 text-left">Tarih</th>
+                      <th className="py-2 px-2 text-left">Cari</th>
+                      <th className="py-2 px-2 text-right">Tutar</th>
+                      <th className="py-2 px-2 text-center">İçerik</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {editSaleDNs.map((dn) => {
+                      const isSelected = editSelectedDNIds.includes(dn.id);
+                      const isExpanded = editExpandedDNId === dn.id;
+                      const cariName = cariler.find(c => c.id === dn.cari_id)?.name || '-';
+                      return (
+                        <Fragment key={dn.id}>
+                          <tr className={`border-b border-slate-100 transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-slate-50'}`}>
+                            <td className="py-2 px-2">
+                              <input type="checkbox" checked={isSelected} onChange={() => toggleEditDNSelection(dn)} className="rounded text-blue-600" />
+                            </td>
+                            <td className="py-2 px-2 font-mono font-bold text-slate-800">{dn.delivery_note_number || 'Numarasız'}</td>
+                            <td className="py-2 px-2 text-slate-600">{formatDateTR(dn.transaction_date)}</td>
+                            <td className="py-2 px-2 text-slate-600">{cariName}</td>
+                            <td className="py-2 px-2 text-right font-medium text-blue-700">{formatCurrency(dn.amount)}</td>
+                            <td className="py-2 px-2 text-center">
+                              <button onClick={() => fetchEditDNItems(dn.id)} className="text-xs px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded transition-colors">
+                                {isExpanded ? 'Kapat' : 'Görüntüle'}
+                              </button>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={6} className="bg-slate-50 p-3">
+                                {editLoadingDN ? (
+                                  <p className="text-center text-slate-400 py-3">Yükleniyor...</p>
+                                ) : editDNItems.length === 0 ? (
+                                  <p className="text-center text-slate-400 py-3">Kalem bulunamadı</p>
+                                ) : (
+                                  <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
+                                    <thead>
+                                      <tr className="bg-slate-100">
+                                        <th className="py-1.5 px-2 text-left">Açıklama</th>
+                                        <th className="py-1.5 px-2 text-right">Miktar</th>
+                                        <th className="py-1.5 px-2 text-left">Birim</th>
+                                        <th className="py-1.5 px-2 text-right">Birim Fiyat</th>
+                                        <th className="py-1.5 px-2 text-right">KDV</th>
+                                        <th className="py-1.5 px-2 text-right">Tutar</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {editDNItems.map((item, idx) => (
+                                        <tr key={idx} className="border-t border-slate-200">
+                                          <td className="py-1.5 px-2 font-medium">{item.description}</td>
+                                          <td className="py-1.5 px-2 text-right">{item.quantity}</td>
+                                          <td className="py-1.5 px-2">{item.unit}</td>
+                                          <td className="py-1.5 px-2 text-right">{formatCurrency(item.unit_price)}</td>
+                                          <td className="py-1.5 px-2 text-right">%{item.vat_rate || 0}</td>
+                                          <td className="py-1.5 px-2 text-right font-bold">{formatCurrency(item.amount)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                    <tfoot>
+                                      <tr className="bg-slate-100 font-bold">
+                                        <td colSpan={5} className="py-1.5 px-2 text-right">Toplam:</td>
+                                        <td className="py-1.5 px-2 text-right">{formatCurrency(editDNItems.reduce((s, i) => s + (i.amount || 0), 0))}</td>
+                                      </tr>
+                                    </tfoot>
+                                  </table>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="flex justify-between items-center p-4 border-t border-slate-200 bg-slate-50 rounded-b-xl">
+              <div className="flex gap-2">
+                {editSelectedDNIds.length > 0 && (
+                  <button onClick={clearEditDNSelection} className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    Seçimi Temizle
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setEditShowDNModal(false)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors text-sm">
+                  Kapat
+                </button>
+                <button onClick={applyEditSelectedDNs} disabled={editSelectedDNIds.length === 0} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                  {editSelectedDNIds.length > 0 ? `${editSelectedDNIds.length} İrsaliyeyi Faturaya Aktar` : 'İrsaliye Seçin'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
