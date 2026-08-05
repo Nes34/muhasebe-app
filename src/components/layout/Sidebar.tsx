@@ -70,6 +70,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { to: '/islem-girisi', icon: ArrowRightLeft, label: 'İşlem Girişi' },
       { to: '/islem-takibi', icon: ArrowRightLeft, label: 'İşlem Takibi' },
+      { to: '/irsaliye-fatura', icon: Truck, label: 'İrsaliyeden Fatura' },
     ],
   },
   {

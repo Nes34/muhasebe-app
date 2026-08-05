@@ -36,6 +36,7 @@ import StockCount from './pages/StockCount';
 import DueDateCalendar from './pages/DueDateCalendar';
 import DocumentManagement from './pages/DocumentManagement';
 import AssetManagement from './pages/AssetManagement';
+import DeliveryNoteToInvoice from './pages/DeliveryNoteToInvoice';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -97,6 +98,7 @@ function AppLayout() {
             <Route path="/vade-takvimi" element={<DueDateCalendar />} />
             <Route path="/dokumanlar" element={<DocumentManagement />} />
             <Route path="/demirbaslar" element={<AssetManagement />} />
+            <Route path="/irsaliye-fatura" element={<DeliveryNoteToInvoice />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>
