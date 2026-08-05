@@ -22,7 +22,7 @@ interface Transaction {
 }
 
 export default function DeliveryNoteLink() {
-  const { selectedFirm } = useFirm();
+  const { selectedFirm, selectedProject } = useFirm();
   const [deliveryNotes, setDeliveryNotes] = useState<Transaction[]>([]);
   const [invoices, setInvoices] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +46,7 @@ export default function DeliveryNoteLink() {
       .order('transaction_date', { ascending: false });
     
     if (selectedFirm) dnQuery = dnQuery.eq('firm_id', selectedFirm.id);
+    if (selectedProject) dnQuery = dnQuery.eq('project_id', selectedProject.id);
     const { data: dnData } = await dnQuery;
 
     if (dnData && dnData.length > 0) {
@@ -71,7 +72,7 @@ export default function DeliveryNoteLink() {
       setDeliveryNotes([]);
     }
 
-    // Faturaları çek
+    // Fatura sorgusu
     let invQuery = supabase
       .from('transactions')
       .select('id, transaction_date, transaction_type, amount, description, invoice_number, cari_id, project_id, firm_id')
@@ -79,6 +80,7 @@ export default function DeliveryNoteLink() {
       .order('transaction_date', { ascending: false });
     
     if (selectedFirm) invQuery = invQuery.eq('firm_id', selectedFirm.id);
+    if (selectedProject) invQuery = invQuery.eq('project_id', selectedProject.id);
     const { data: invData } = await invQuery;
 
     // Cari ve proje bilgilerini ayrı çek
@@ -255,7 +257,8 @@ export default function DeliveryNoteLink() {
                   <span className="text-xs text-slate-500">{formatDateTR(dn.transaction_date)}</span>
                 </div>
                 <p className="text-sm font-medium text-slate-800">{dn.cari?.name || '-'}</p>
-                <p className="text-xs text-slate-500 truncate">{dn.description || '-'}</p>
+                {!selectedFirm && <p className="text-xs text-slate-500">Firma: {dn.firm?.name || '-'}</p>}
+                {!selectedProject && <p className="text-xs text-slate-500">Proje: {dn.project?.name || '-'}</p>}
                 <p className="text-sm font-bold text-slate-700 mt-1">{formatCurrency(dn.amount)}</p>
               </div>
             ))}
@@ -301,9 +304,8 @@ export default function DeliveryNoteLink() {
                   <span className="text-xs text-slate-500">{formatDateTR(inv.transaction_date)}</span>
                 </div>
                 <p className="text-sm font-medium text-slate-800">{inv.cari?.name || '-'}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-slate-500">Proje: {inv.project?.name || '-'}</span>
-                </div>
+                {!selectedFirm && <p className="text-xs text-slate-500">Firma: {inv.firm?.name || '-'}</p>}
+                {!selectedProject && <p className="text-xs text-slate-500">Proje: {inv.project?.name || '-'}</p>}
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-xs text-slate-500">No: {inv.invoice_number || '-'}</span>
                   <span className="text-sm font-bold text-slate-700">{formatCurrency(inv.amount)}</span>
