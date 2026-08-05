@@ -1644,8 +1644,8 @@ export default function TransactionEntry() {
                                       setOpenProductDropdown(null);
                                     }
                                   }}
-                                  placeholder="Ürün ara veya yaz..."
-                                  className="w-full pl-7 pr-2 py-1 border border-slate-300 rounded text-sm"
+                                placeholder="Ürün ara veya yaz..."
+                                className="w-full pl-7 pr-14 py-1 border border-slate-300 rounded text-sm"
                                 />
                                 {openProductDropdown === index && (
                                   (() => {
@@ -1684,25 +1684,25 @@ export default function TransactionEntry() {
                                   })()
                                 )}
                               </div>
-                              {index === 0 && hasPendingOrders && (
-                                <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                                  Tamamlanmamış sipariş var, F1 ile görüntüle
-                                </span>
-                              )}
-                              {!item.product_id && item.description && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleAddProduct(index)}
-                                  className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200"
-                                  title="Stoğa ekle"
-                                >
-                                  <Package size={14} />
-                                </button>
-                              )}
+                              <span className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                {item.product_id && (
+                                  <span className="text-green-600" title="Stokta"><Package size={12} /></span>
+                                )}
+                                {!item.product_id && item.description && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddProduct(index)}
+                                    className="px-1 py-0.5 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200"
+                                    title="Stoğa ekle"
+                                  >
+                                    <Package size={12} />
+                                  </button>
+                                )}
+                              </span>
                             </div>
-                            {item.product_id && (
-                              <span className="text-xs text-green-600 flex items-center gap-1">
-                                <Package size={10} /> Stokta
+                            {index === 0 && hasPendingOrders && (
+                              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                                Tamamlanmamış sipariş var, F1 ile görüntüle
                               </span>
                             )}
                           </div>
