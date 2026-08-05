@@ -149,7 +149,7 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   doc.setDrawColor(0, 0, 0);
   doc.line(15, y, 65, y);
 
-  drawGibEmblem(doc, pageWidth / 2, y + 7, 10);
+  drawGibEmblem(doc, pageWidth / 2, y + 7, 18);
 
   y += 16;
 
@@ -181,15 +181,13 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   doc.setLineWidth(0.3);
 
   // Başlık satırı
-  doc.setFillColor(241, 245, 249);
-  doc.rect(faturaBoxX, faturaBoxStartY, faturaBoxW, 7, 'FD');
-  doc.setTextColor(100, 116, 139);
+  doc.rect(faturaBoxX, faturaBoxStartY, faturaBoxW, 7, 'S');
+  doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 7);
   doc.text('FATURA BİLGİLERİ', faturaBoxX + 2, y);
 
   // Tarih satırı
-  doc.setFillColor(255, 255, 255);
-  doc.rect(faturaBoxX, faturaBoxStartY + 7, faturaBoxW, 8, 'FD');
+  doc.rect(faturaBoxX, faturaBoxStartY + 7, faturaBoxW, 8, 'S');
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 7);
   doc.text('Tarih:', faturaBoxX + 2, y + 7);
@@ -197,7 +195,7 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   doc.text(transaction.transaction_date, faturaBoxX + 18, y + 7);
 
   // No satırı
-  doc.rect(faturaBoxX, faturaBoxStartY + 15, faturaBoxW, 8, 'FD');
+  doc.rect(faturaBoxX, faturaBoxStartY + 15, faturaBoxW, 8, 'S');
   setFont(doc, 'bold', 7);
   doc.text('No:', faturaBoxX + 2, y + 15);
   setFont(doc, 'normal', 7);
@@ -206,7 +204,7 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   // İrsaliye satırı (varsa)
   let irsaliyeRowH = 0;
   if (!isInvoice && transaction.delivery_note_number) {
-    doc.rect(faturaBoxX, faturaBoxStartY + 23, faturaBoxW, 8, 'FD');
+    doc.rect(faturaBoxX, faturaBoxStartY + 23, faturaBoxW, 8, 'S');
     doc.setTextColor(59, 130, 246);
     setFont(doc, 'bold', 6);
     doc.text('İrsaliye:', faturaBoxX + 2, y + 23);
@@ -348,8 +346,7 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   doc.setLineWidth(0.3);
 
   // Ara toplam satırı
-  doc.setFillColor(241, 245, 249);
-  doc.rect(boxX, boxY - 4, boxW, 8, 'FD');
+  doc.rect(boxX, boxY - 4, boxW, 8, 'S');
   setFont(doc, 'normal', 8);
   doc.text('Ara Toplam:', boxX + 2, boxY);
   doc.text(pdfCurrency(totals.subtotal + totals.discountTotal), boxX + boxW - 2, boxY, { align: 'right' });
@@ -357,7 +354,7 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   // KDV satırı
   if (totals.vatTotal > 0) {
     boxY += 8;
-    doc.rect(boxX, boxY - 4, boxW, 8, 'FD');
+    doc.rect(boxX, boxY - 4, boxW, 8, 'S');
     doc.text('KDV Toplamı:', boxX + 2, boxY);
     doc.text(pdfCurrency(totals.vatTotal), boxX + boxW - 2, boxY, { align: 'right' });
   }
@@ -365,7 +362,7 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   // İskonto satırı
   if (totals.discountTotal > 0) {
     boxY += 8;
-    doc.rect(boxX, boxY - 4, boxW, 8, 'FD');
+    doc.rect(boxX, boxY - 4, boxW, 8, 'S');
     doc.text('İskonto:', boxX + 2, boxY);
     doc.text(`-${pdfCurrency(totals.discountTotal)}`, boxX + boxW - 2, boxY, { align: 'right' });
   }
@@ -373,7 +370,7 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   // Stopaj satırı
   if (totals.stoppageTotal > 0) {
     boxY += 8;
-    doc.rect(boxX, boxY - 4, boxW, 8, 'FD');
+    doc.rect(boxX, boxY - 4, boxW, 8, 'S');
     doc.text('Stopaj:', boxX + 2, boxY);
     doc.text(`-${pdfCurrency(totals.stoppageTotal)}`, boxX + boxW - 2, boxY, { align: 'right' });
   }
@@ -381,7 +378,7 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   // Tevkifat satırı
   if (totals.withholdingTaxTotal > 0) {
     boxY += 8;
-    doc.rect(boxX, boxY - 4, boxW, 8, 'FD');
+    doc.rect(boxX, boxY - 4, boxW, 8, 'S');
     doc.text('Tevkifat:', boxX + 2, boxY);
     doc.text(`-${pdfCurrency(totals.withholdingTaxTotal)}`, boxX + boxW - 2, boxY, { align: 'right' });
   }
@@ -393,9 +390,8 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
 
   // Genel toplam satırı
   boxY += 6;
-  doc.setFillColor(30, 41, 59);
-  doc.rect(boxX, boxY - 4, boxW, 9, 'F');
-  doc.setTextColor(255, 255, 255);
+  doc.rect(boxX, boxY - 4, boxW, 9, 'S');
+  doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 10);
   doc.text('GENEL TOPLAM:', boxX + 2, boxY);
   doc.text(pdfCurrency(grandTotal, transaction.currency), boxX + boxW - 2, boxY, { align: 'right' });
@@ -591,15 +587,13 @@ export function generateDeliveryNotePDF(transaction: Transaction, companyName = 
   // Başlık satırı
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.3);
-  doc.setFillColor(241, 245, 249);
-  doc.rect(irsBoxX, irsBoxStartY, irsBoxW, 7, 'FD');
-  doc.setTextColor(100, 116, 139);
+  doc.rect(irsBoxX, irsBoxStartY, irsBoxW, 7, 'S');
+  doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 7);
   doc.text('İRSALİYE BİLGİLERİ', irsBoxX + 2, y);
 
   // Tarih satırı
-  doc.setFillColor(255, 255, 255);
-  doc.rect(irsBoxX, irsBoxStartY + 7, irsBoxW, 8, 'FD');
+  doc.rect(irsBoxX, irsBoxStartY + 7, irsBoxW, 8, 'S');
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 7);
   doc.text('Tarih:', irsBoxX + 2, y + 7);
@@ -607,7 +601,7 @@ export function generateDeliveryNotePDF(transaction: Transaction, companyName = 
   doc.text(transaction.transaction_date, irsBoxX + 18, y + 7);
 
   // No satırı
-  doc.rect(irsBoxX, irsBoxStartY + 15, irsBoxW, 8, 'FD');
+  doc.rect(irsBoxX, irsBoxStartY + 15, irsBoxW, 8, 'S');
   setFont(doc, 'bold', 7);
   doc.text('No:', irsBoxX + 2, y + 15);
   setFont(doc, 'normal', 7);
@@ -616,7 +610,7 @@ export function generateDeliveryNotePDF(transaction: Transaction, companyName = 
   // Sipariş satırı (varsa)
   let siparisRowH = 0;
   if (transaction.linked_order) {
-    doc.rect(irsBoxX, irsBoxStartY + 23, irsBoxW, 8, 'FD');
+    doc.rect(irsBoxX, irsBoxStartY + 23, irsBoxW, 8, 'S');
     doc.setTextColor(124, 58, 237);
     setFont(doc, 'bold', 6);
     doc.text('Sipariş:', irsBoxX + 2, y + 23);
