@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { formatDateTR, formatCurrency } from '../lib/utils';
 import { exportAccountStatementToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
+import SearchableSelect from '../components/SearchableSelect';
 import type { Cari } from '../types';
 import { Search, Download, FileText } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
@@ -148,17 +149,13 @@ export default function AccountStatement() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Cari</label>
-            <select
+            <SearchableSelect
+              options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
               value={selectedCariId}
-              onChange={(e) => setSelectedCariId(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              required
-            >
-              <option value="">Cari Seçin...</option>
-              {cariler.map(c => (
-                <option key={c.id} value={c.id}>{c.code ? `${c.code} - ` : ''}{c.name}</option>
-              ))}
-            </select>
+              onChange={(id) => setSelectedCariId(id)}
+              placeholder="Cari seçin..."
+              showCode={true}
+            />
           </div>
           <div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç</label><input type="text" value={startDate} onChange={(e) => setStartDate(e.target.value)} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" /></div>
           <div><label className="block text-sm font-medium text-slate-700 mb-1">Bitiş</label><input type="text" value={endDate} onChange={(e) => setEndDate(e.target.value)} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" /></div>
