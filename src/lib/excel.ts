@@ -118,7 +118,6 @@ export function exportAccountStatementToExcel(transactions: any[], cariName: str
       'Borç (TL)': !isIncome ? amount : '',
       'Alacak (TL)': isIncome ? amount : '',
       'Bakiye (TL)': running,
-      'İstisna': t.is_exception ? 'Evet' : '',
     };
   });
 
