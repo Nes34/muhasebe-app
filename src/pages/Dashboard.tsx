@@ -585,53 +585,53 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Vadesi Geçen Çekler */}
           <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-4 border border-red-200 dark:border-red-800">
-            <h4 className="font-medium text-red-800 dark:text-red-300 mb-2">Vadesi Geçen Çekler</h4>
+            <h4 className="font-bold text-red-900 dark:text-red-300 mb-2">Vadesi Geçen Çekler</h4>
             {stats.urgentGiven > 0 || stats.urgentReceived > 0 ? (
               <div className="space-y-1">
                 {stats.urgentGiven > 0 && (
-                  <p className="text-sm text-red-600 dark:text-red-400">• {stats.urgentGiven} adet verilen çek vadesi geçmiş</p>
+                  <p className="text-sm font-medium text-red-800 dark:text-red-400">• {stats.urgentGiven} adet verilen çek vadesi geçmiş</p>
                 )}
                 {stats.urgentReceived > 0 && (
-                  <p className="text-sm text-red-600 dark:text-red-400">• {stats.urgentReceived} adet alınan çek vadesi geçmiş</p>
+                  <p className="text-sm font-medium text-red-800 dark:text-red-400">• {stats.urgentReceived} adet alınan çek vadesi geçmiş</p>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-green-600 dark:text-green-400">Vadesi geçmiş çek yok</p>
+              <p className="text-sm font-medium text-green-800 dark:text-green-400">Vadesi geçmiş çek yok</p>
             )}
           </div>
 
           {/* Yaklaşan Vadeler */}
           <div className="bg-orange-50 dark:bg-orange-950/30 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
-            <h4 className="font-medium text-orange-800 dark:text-orange-300 mb-2">Yaklaşan Vadeler (7 gün)</h4>
+            <h4 className="font-bold text-orange-900 dark:text-orange-300 mb-2">Yaklaşan Vadeler (7 gün)</h4>
             {stats.urgentGiven > 0 || stats.urgentReceived > 0 ? (
               <div className="space-y-1">
-                <p className="text-sm text-orange-600 dark:text-orange-400">• {stats.pendingGiven} adet verilen çek bekliyor</p>
-                <p className="text-sm text-orange-600 dark:text-orange-400">• {stats.pendingReceived} adet alınan çek bekliyor</p>
+                <p className="text-sm font-medium text-orange-800 dark:text-orange-400">• {stats.pendingGiven} adet verilen çek bekliyor</p>
+                <p className="text-sm font-medium text-orange-800 dark:text-orange-400">• {stats.pendingReceived} adet alınan çek bekliyor</p>
               </div>
             ) : (
-              <p className="text-sm text-green-600 dark:text-green-400">Yaklaşan vade yok</p>
+              <p className="text-sm font-medium text-green-800 dark:text-green-400">Yaklaşan vade yok</p>
             )}
           </div>
 
           {/* Kasa/Banka Durumu */}
           <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-            <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">Kasa/Banka Durumu</h4>
-            <p className="text-sm text-blue-600 dark:text-blue-400">• Kasa: {formatCurrency(stats.totalCash)}</p>
-            <p className="text-sm text-blue-600 dark:text-blue-400">• Banka: {formatCurrency(stats.totalBank)}</p>
+            <h4 className="font-bold text-blue-900 dark:text-blue-300 mb-2">Kasa/Banka Durumu</h4>
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-400">• Kasa: {formatCurrency(stats.totalCash)}</p>
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-400">• Banka: {formatCurrency(stats.totalBank)}</p>
           </div>
 
           {/* Ödenen/Tahsil Edilen Çekler */}
           <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 border border-green-200 dark:border-green-800">
-            <h4 className="font-medium text-green-800 dark:text-green-300 mb-2">Çek Hareketleri</h4>
-            <p className="text-sm text-green-600 dark:text-green-400">• {stats.paidChecks} adet çek ödendi ({formatCurrency(stats.paidChecksAmount)})</p>
-            <p className="text-sm text-green-600 dark:text-green-400">• {stats.collectedChecks} adet çek tahsil edildi ({formatCurrency(stats.collectedChecksAmount)})</p>
+            <h4 className="font-bold text-green-900 dark:text-green-300 mb-2">Çek Hareketleri</h4>
+            <p className="text-sm font-medium text-green-800 dark:text-green-400">• {stats.paidChecks} adet çek ödendi ({formatCurrency(stats.paidChecksAmount)})</p>
+            <p className="text-sm font-medium text-green-800 dark:text-green-400">• {stats.collectedChecks} adet çek tahsil edildi ({formatCurrency(stats.collectedChecksAmount)})</p>
           </div>
 
           {/* Araç Hatırlatmaları */}
-          <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-            <h4 className="font-medium text-purple-800 mb-2">Araç Hatırlatmaları</h4>
-            <p className="text-sm text-purple-600">• Sigorta, muayene ve bakım hatırlatmaları için</p>
-            <a href="/demirbaslar" className="text-sm text-purple-600 underline mt-1 inline-block">Demirbaş Yönetimi'ne git →</a>
+          <div className="bg-purple-50 dark:bg-purple-950/30 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+            <h4 className="font-bold text-purple-900 dark:text-purple-300 mb-2">Araç Hatırlatmaları</h4>
+            <p className="text-sm font-medium text-purple-800 dark:text-purple-400">• Sigorta, muayene ve bakım hatırlatmaları için</p>
+            <a href="/demirbaslar" className="text-sm font-medium text-purple-800 dark:text-purple-400 underline mt-1 inline-block">Demirbaş Yönetimi'ne git →</a>
           </div>
         </div>
         </div>

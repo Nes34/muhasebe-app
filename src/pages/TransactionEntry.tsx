@@ -939,6 +939,7 @@ export default function TransactionEntry() {
   const showInvoiceNumber = isAnyInvoice || isIncomeType || isExpenseType;
   const showDeliveryNoteNumber = isDeliveryNoteType;
   const showItems = isAnyInvoice || isDeliveryNoteType;
+  const hidePriceColumns = isDeliveryNoteType;
 
   // İşlem tipi değiştiğinde kalemler görünüyorsa ve boşsa ilk kalemi ekle
   useEffect(() => {
@@ -1011,9 +1012,11 @@ export default function TransactionEntry() {
             <label className="text-sm font-medium text-slate-700">İşlem Tipi</label>
           </div>
           <div className="flex flex-wrap gap-3">
-            {transactionTypes.map((type) => {
+            {transactionTypes.filter(type => !['sale_invoice', 'purchase_invoice', 'sale_delivery_note', 'purchase_delivery_note'].includes(type.value)).map((type) => {
               const colors = getTypeColor(type.value);
-              const isSelected = transactionType === type.value;
+              const isSelected = transactionType === type.value || 
+                (type.value === 'invoice' && ['sale_invoice', 'purchase_invoice'].includes(transactionType)) ||
+                (type.value === 'delivery_note' && ['sale_delivery_note', 'purchase_delivery_note'].includes(transactionType));
               return (
                 <label
                   key={type.value}
@@ -1342,13 +1345,13 @@ export default function TransactionEntry() {
                       <ResizableTh columnId="islem-kalem-urun" className="text-left py-3 px-2">Ürün / Açıklama</ResizableTh>
                       <ResizableTh columnId="islem-kalem-miktar" className="text-right py-3 px-2">Miktar</ResizableTh>
                       <ResizableTh columnId="islem-kalem-birim" className="text-left py-3 px-2">Birim</ResizableTh>
-                      <ResizableTh columnId="islem-kalem-fiyat" className="text-right py-3 px-2">Birim Fiyat</ResizableTh>
-                      <ResizableTh columnId="islem-kalem-tutar" className="text-right py-3 px-2">Tutar</ResizableTh>
-                      <ResizableTh columnId="islem-kalem-kdv-oran" className="text-right py-3 px-2">KDV %</ResizableTh>
-                      <ResizableTh columnId="islem-kalem-kdv" className="text-right py-3 px-2">KDV</ResizableTh>
-                      <ResizableTh columnId="islem-kalem-tevkifat" className="text-right py-3 px-2">Tevkifat %</ResizableTh>
-                      <ResizableTh columnId="islem-kalem-stopaj" className="text-right py-3 px-2">Stopaj %</ResizableTh>
-                      <ResizableTh columnId="islem-kalem-iskonto" className="text-right py-3 px-2">
+                      {!hidePriceColumns && <ResizableTh columnId="islem-kalem-fiyat" className="text-right py-3 px-2">Birim Fiyat</ResizableTh>}
+                      {!hidePriceColumns && <ResizableTh columnId="islem-kalem-tutar" className="text-right py-3 px-2">Tutar</ResizableTh>}
+                      {!hidePriceColumns && <ResizableTh columnId="islem-kalem-kdv-oran" className="text-right py-3 px-2">KDV %</ResizableTh>}
+                      {!hidePriceColumns && <ResizableTh columnId="islem-kalem-kdv" className="text-right py-3 px-2">KDV</ResizableTh>}
+                      {!hidePriceColumns && <ResizableTh columnId="islem-kalem-tevkifat" className="text-right py-3 px-2">Tevkifat %</ResizableTh>}
+                      {!hidePriceColumns && <ResizableTh columnId="islem-kalem-stopaj" className="text-right py-3 px-2">Stopaj %</ResizableTh>}
+                      {!hidePriceColumns && <ResizableTh columnId="islem-kalem-iskonto" className="text-right py-3 px-2">
                         <div className="flex items-center justify-end gap-1">
                           <span>İskonto %</span>
                           {discountCount < 3 && (
@@ -1359,8 +1362,8 @@ export default function TransactionEntry() {
                             >+</button>
                           )}
                         </div>
-                      </ResizableTh>
-                      {discountCount >= 2 && (
+                      </ResizableTh>}
+                      {!hidePriceColumns && discountCount >= 2 && (
                         <ResizableTh columnId="islem-kalem-iskonto2" className="text-right py-3 px-2">
                           <div className="flex items-center justify-end gap-1">
                             <span>İsk.2 %</span>
@@ -1381,7 +1384,7 @@ export default function TransactionEntry() {
                           </div>
                         </ResizableTh>
                       )}
-                      {discountCount >= 3 && (
+                      {!hidePriceColumns && discountCount >= 3 && (
                         <ResizableTh columnId="islem-kalem-iskonto3" className="text-right py-3 px-2">
                           <div className="flex items-center justify-end gap-1">
                             <span>İsk.3 %</span>
@@ -1498,7 +1501,7 @@ export default function TransactionEntry() {
                             ))}
                           </select>
                         </td>
-                        <td className="py-2 px-2">
+                        {!hidePriceColumns && <td className="py-2 px-2">
                           <input
                             type="number"
                             value={item.unit_price}
@@ -1514,22 +1517,22 @@ export default function TransactionEntry() {
                               {item.unit_price > (item as any).order_unit_price ? '↑ Yüksek' : '↓ Düşük'} ({formatCurrency((item as any).order_unit_price)})
                             </p>
                           )}
-                        </td>
-                        <td className="py-2 px-2 text-right font-medium">
+                        </td>}
+                        {!hidePriceColumns && <td className="py-2 px-2 text-right font-medium">
                           {(item.amount || 0).toLocaleString('tr-TR')} ₺
-                        </td>
-                        <td className="py-2 px-2">
+                        </td>}
+                        {!hidePriceColumns && <td className="py-2 px-2">
                           <input
                             type="number"
                             value={item.vat_rate || 20}
                             onChange={(e) => updateItem(index, 'vat_rate', parseFloat(e.target.value) || 0)}
                             className="w-16 px-2 py-1 border border-slate-300 rounded text-sm text-right"
                           />
-                        </td>
-                        <td className="py-2 px-2 text-right">
+                        </td>}
+                        {!hidePriceColumns && <td className="py-2 px-2 text-right">
                           {(item.vat_amount || 0).toLocaleString('tr-TR')} ₺
-                        </td>
-                        <td className="py-2 px-2">
+                        </td>}
+                        {!hidePriceColumns && <td className="py-2 px-2">
                           <input
                             type="number"
                             value={item.withholding_rate || 0}
@@ -1537,8 +1540,8 @@ export default function TransactionEntry() {
                             className="w-16 px-2 py-1 border border-slate-300 rounded text-sm text-right"
                             placeholder="0"
                           />
-                        </td>
-                        <td className="py-2 px-2">
+                        </td>}
+                        {!hidePriceColumns && <td className="py-2 px-2">
                           <input
                             type="number"
                             value={item.stopaj_rate || 0}
@@ -1546,8 +1549,8 @@ export default function TransactionEntry() {
                             className="w-16 px-2 py-1 border border-slate-300 rounded text-sm text-right"
                             placeholder="0"
                           />
-                        </td>
-                        <td className="py-2 px-2">
+                        </td>}
+                        {!hidePriceColumns && <td className="py-2 px-2">
                           <input
                             type="number"
                             value={item.discount_rate || 0}
@@ -1555,8 +1558,8 @@ export default function TransactionEntry() {
                             className="w-16 px-2 py-1 border border-slate-300 rounded text-sm text-right"
                             placeholder="0"
                           />
-                        </td>
-                        {discountCount >= 2 && (
+                        </td>}
+                        {!hidePriceColumns && discountCount >= 2 && (
                           <td className="py-2 px-2">
                             <input
                               type="number"
@@ -1567,7 +1570,7 @@ export default function TransactionEntry() {
                             />
                           </td>
                         )}
-                        {discountCount >= 3 && (
+                        {!hidePriceColumns && discountCount >= 3 && (
                           <td className="py-2 px-2">
                             <input
                               type="number"
