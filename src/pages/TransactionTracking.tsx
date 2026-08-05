@@ -18,6 +18,7 @@ export default function TransactionTracking() {
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
   const [firms, setFirms] = useState<Firm[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [carilerMap, setCarilerMap] = useState<Map<string, any>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -41,7 +42,7 @@ export default function TransactionTracking() {
   const fetchData = async () => {
     setLoading(true);
     // Transaction'ları çek (join olmadan)
-    let txQuery = supabase.from('transactions').select('id, transaction_date, transaction_type, amount, description, invoice_number, cari_id, project_id, firm_id, created_at').order('transaction_date', { ascending: false });
+    let txQuery = supabase.from('transactions').select('id, transaction_date, transaction_type, amount, description, invoice_number, delivery_note_number, cari_id, project_id, firm_id, created_at').order('transaction_date', { ascending: false });
     
     if (selectedFirm) txQuery = txQuery.eq('firm_id', selectedFirm.id);
     if (selectedProject) txQuery = txQuery.eq('project_id', selectedProject.id);
@@ -74,13 +75,33 @@ export default function TransactionTracking() {
       checkQuery,
     ]);
 
-    if (transactionsRes.data) setTransactions(transactionsRes.data as Transaction[]);
+    const txData = (transactionsRes.data || []) as Transaction[];
+    if (transactionsRes.data) setTransactions(txData);
     if (typesRes.data) setTransactionTypes(typesRes.data);
     if (firmsRes.data) setFirms(firmsRes.data);
     if (projectsRes.data) setProjects(projectsRes.data);
     if (cashRes.data) setCashTransactions(cashRes.data);
     if (bankRes.data) setBankTransactions(bankRes.data);
     if (checkRes.data) setChecks(checkRes.data);
+
+    // Cari bilgilerini tek seferde çek (ayrı await ile)
+    const allCariIds = [
+      ...new Set([
+        ...txData.map((t: any) => t.cari_id),
+        ...(cashRes.data || []).map((t: any) => t.cari_id),
+        ...(bankRes.data || []).map((t: any) => t.cari_id),
+      ].filter(Boolean))
+    ];
+    const { data: cariData } = allCariIds.length > 0
+      ? await supabase.from('cariler').select('id, name, tax_number, tax_office, address').in('id', allCariIds)
+      : { data: [] };
+
+    if (cariData) {
+      const newMap = new Map<string, any>();
+      cariData.forEach((c: any) => newMap.set(c.id, c));
+      setCarilerMap(newMap);
+    }
+
     setLoading(false);
   };
 
@@ -145,7 +166,7 @@ export default function TransactionTracking() {
       id: t.id,
       type: t.transaction_type,
       date: t.transaction_date,
-      cari: '-',
+      cari: carilerMap.get(t.cari_id)?.name || '-',
       firm: firmMap.get(t.firm_id) || '-',
       project: projMap.get(t.project_id) || '-',
       description: t.description || '-',
@@ -412,8 +433,9 @@ export default function TransactionTracking() {
                       {items.map(t => (
                         <tr key={t.id} className="border-t border-slate-100 hover:bg-slate-50">
                           <td className="py-3 px-4">{formatDateTR(t.date)}</td>
-                          <td className="py-3 px-4">{(t.firm as string) || '-'}</td>
-                          <td className="py-3 px-4">{(t.project as string) || '-'}</td>
+                          <td className="py-3 px-4">{t.cari || '-'}</td>
+                          <td className="py-3 px-4">{t.firm || '-'}</td>
+                          <td className="py-3 px-4">{t.project || '-'}</td>
                           <td className="py-3 px-4 text-slate-600 max-w-[200px] truncate">{t.description || '-'}</td>
                           <td className="py-3 px-4 text-right font-medium">{formatCurrency(t.amount)}</td>
                           <td className="py-3 px-4 text-center">
@@ -422,9 +444,9 @@ export default function TransactionTracking() {
                                 <button onClick={() => {
                                   const isDeliveryNote = ['delivery_note', 'sale_delivery_note', 'purchase_delivery_note'].includes(t.type);
                                   if (isDeliveryNote) {
-                                    generateDeliveryNotePDF(t._raw);
+                                    generateDeliveryNotePDF(t._raw, t.firm || '', carilerMap.get(t._raw.cari_id) || null);
                                   } else {
-                                    generateInvoicePDF(t._raw);
+                                    generateInvoicePDF(t._raw, t.firm || '', carilerMap.get(t._raw.cari_id) || null);
                                   }
                                 }} className="p-1 text-green-600 hover:bg-green-50 rounded" title="PDF İndir">
                                   <FileText size={14} />

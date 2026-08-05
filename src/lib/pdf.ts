@@ -78,7 +78,7 @@ function drawGibEmblem(doc: jsPDF, x: number, y: number, size = 16) {
   }
 }
 
-export function generateInvoicePDF(transaction: Transaction, companyName = 'Muhasebe') {
+export function generateInvoicePDF(transaction: Transaction, companyName = 'Muhasebe', cariData?: { name?: string; tax_number?: string; tax_office?: string; address?: string } | null) {
   const doc = new jsPDF();
   initFont(doc);
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -90,10 +90,10 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   const invoiceType = isInvoice ? 'FATURA' : 'İRSALİYE';
   
   // Satıcı ve alıcı bilgileri
-  const seller = isSale ? transaction.firm : transaction.cari;
-  const buyer = isSale ? transaction.cari : transaction.firm;
+  const seller = isSale ? transaction.firm : (cariData || transaction.cari);
+  const buyer = isSale ? (cariData || transaction.cari) : transaction.firm;
 
-  let y = 48;
+  let y = 46;
 
   // ══════════════════════════════════════════════════════════════
   // 3 SÜTUNLU ÜST KISIM: SOL | ORTA | SAĞ (ayırıcı çizgi yok)
@@ -103,35 +103,34 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   const colRight = 140;
   const colEnd = pageWidth - 15;
 
-  // ── SOL: SATICI + ALICI (çerçeve yok) ──────────────────────
-  // SATICI
+  // ── SOL: SATICI + ALICI (yukarıda, solY=25) ──────────────────
+  const solY = 25;
+
   doc.setTextColor(100, 116, 139);
   setFont(doc, 'bold', 7);
-  doc.text('SATICI', colLeft, y);
+  doc.text('SATICI', colLeft, solY);
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 8);
-  doc.text(seller?.name || companyName, colLeft, y + 5);
+  doc.text(seller?.name || companyName || '-', colLeft, solY + 5);
   setFont(doc, 'normal', 7);
-  doc.text(`Vergi No: ${seller?.tax_number || '-'}`, colLeft, y + 10);
-  doc.text(`Vergi Dairesi: ${seller?.tax_office || '-'}`, colLeft, y + 15);
+  doc.text(`Vergi No: ${seller?.tax_number || '-'}`, colLeft, solY + 10);
+  doc.text(`Vergi Dairesi: ${seller?.tax_office || '-'}`, colLeft, solY + 15);
 
-  // SATICI | ALICI ayırıcı çizgi
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.15);
-  doc.line(colLeft, y + 18, colCenter - 4, y + 18);
+  doc.line(colLeft, solY + 18, colCenter - 4, solY + 18);
 
-  // ALICI
   doc.setTextColor(100, 116, 139);
   setFont(doc, 'bold', 7);
-  doc.text('ALICI', colLeft, y + 22);
+  doc.text('ALICI', colLeft, solY + 22);
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 8);
-  doc.text(buyer?.name || '-', colLeft, y + 27);
+  doc.text(buyer?.name || '-', colLeft, solY + 27);
   setFont(doc, 'normal', 7);
-  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, colLeft, y + 32);
-  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, colLeft, y + 37);
+  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, colLeft, solY + 32);
+  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, colLeft, solY + 37);
 
-  // ── ORTA: FATURA + GİB AMBLEMİ ─────────────────────────────
+  // ── ORTA: FATURA + GİB AMBLEMİ (y=46'da) ───────────────────
   const ortaX = (colCenter + colRight - 4) / 2;
 
   doc.setTextColor(30, 41, 59);
@@ -140,47 +139,63 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
 
   drawGibEmblem(doc, ortaX, y + 22, 28);
 
-  // ── SAĞ: FATURA BİLGİLERİ ──────────────────────────────────
+  // ── SAĞ: FATURA BİLGİLERİ (yumuşak kenarlık, dinamik) ────────
   const sagW = colEnd - colRight;
   const diagX = colRight;
+  const hasIrsaliye = !isInvoice && transaction.delivery_note_number;
+  const faturaSatirH = 7;
+  const faturaBaslikH = 7;
+  const faturaBoxH = faturaBaslikH + (hasIrsaliye ? 3 : 2) * faturaSatirH + 2;
 
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.2);
+  // Dış çerçeve (yumuşak gri, yuvarlak)
+  doc.setDrawColor(200, 210, 220);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(diagX - 1, y - 4, sagW + 2, faturaBoxH, 2, 2, 'S');
 
-  // Başlık satırı (çerçeve yok, sadece yaz)
-  doc.setTextColor(30, 41, 59);
+  // Başlık satırı (açık gri arka plan)
+  doc.setFillColor(241, 245, 249);
+  doc.roundedRect(diagX, y - 3, sagW, faturaBaslikH, 1, 1, 'F');
+  doc.setTextColor(80, 90, 100);
   setFont(doc, 'bold', 7);
-  doc.text('FATURA BİLGİLERİ', diagX, y);
+  doc.text('FATURA BİLGİLERİ', diagX + 2, y + 2);
 
   // Tarih satırı
-  doc.rect(diagX, y + 4, sagW, 7, 'S');
+  doc.setDrawColor(220, 225, 235);
+  doc.setLineWidth(0.15);
+  doc.line(diagX + 1, y + 4, diagX + sagW - 1, y + 4);
   setFont(doc, 'bold', 7);
-  doc.text('Tarih:', diagX + 2, y + 9);
+  doc.setTextColor(80, 90, 100);
+  doc.text('Tarih:', diagX + 3, y + 9);
   setFont(doc, 'normal', 7);
+  doc.setTextColor(30, 41, 59);
   doc.text(transaction.transaction_date, diagX + 18, y + 9);
 
   // No satırı
-  doc.rect(diagX, y + 11, sagW, 7, 'S');
+  doc.line(diagX + 1, y + 11, diagX + sagW - 1, y + 11);
   setFont(doc, 'bold', 7);
-  doc.text('No:', diagX + 2, y + 16);
+  doc.setTextColor(80, 90, 100);
+  doc.text('No:', diagX + 3, y + 16);
   setFont(doc, 'normal', 7);
+  doc.setTextColor(30, 41, 59);
   doc.text(transaction.invoice_number || transaction.delivery_note_number || '-', diagX + 18, y + 16);
 
   // İrsaliye satırı (varsa)
-  if (!isInvoice && transaction.delivery_note_number) {
-    doc.rect(diagX, y + 18, sagW, 7, 'S');
+  if (hasIrsaliye) {
+    doc.line(diagX + 1, y + 18, diagX + sagW - 1, y + 18);
     doc.setTextColor(59, 130, 246);
     setFont(doc, 'bold', 6);
-    doc.text('İrsaliye:', diagX + 2, y + 23);
+    doc.text('İrsaliye:', diagX + 3, y + 23);
     setFont(doc, 'normal', 6);
     doc.text(formatDeliveryNoteNumber(transaction.delivery_note_number), diagX + 18, y + 23);
   }
 
-  // Dikey çizgi (Tarih üstünden No altına kadar)
+  // Dikey çizgi (Tarih üstünden No/İrsaliye altına kadar)
+  const dikeyCizgiBitis = hasIrsaliye ? y + 25 : y + 18;
+  doc.setDrawColor(200, 210, 220);
   doc.setLineWidth(0.15);
-  doc.line(diagX + 16, y + 4, diagX + 16, y + 18);
+  doc.line(diagX + 16, y + 4, diagX + 16, dikeyCizgiBitis);
 
-  y += 48;
+  y += faturaBoxH + 16;
 
   // ══════════════════════════════════════════════════════════════
   // KALEMLER TABLOSU
@@ -204,21 +219,24 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
       startY: y,
       head: [['Sıra', 'Ürün/Açıklama', 'Miktar', 'Birim', 'Birim Fiyat', 'Tutar', 'KDV %', 'KDV', 'Tevkifat %', 'Stopaj %', 'İskonto %']],
       body: tableData,
-      theme: 'grid',
+      theme: 'striped',
       styles: {
         font: FONT_NAME,
         fontSize: 7,
         cellPadding: 2,
-        textColor: [30, 41, 59],
-        lineColor: [0, 0, 0],
-        lineWidth: 0.3,
+        textColor: [50, 60, 75],
+        lineColor: [210, 215, 225],
+        lineWidth: 0.2,
       },
       headStyles: {
-        fillColor: [240, 240, 240],
-        textColor: [0, 0, 0],
+        fillColor: [60, 75, 100],
+        textColor: [255, 255, 255],
         fontStyle: 'bold',
         fontSize: 7,
         cellPadding: 3,
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
       },
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
@@ -243,18 +261,18 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
       startY: y,
       head: [['Sıra', 'Ürün/Açıklama', 'Miktar', 'Birim', 'Birim Fiyat', 'Tutar', 'KDV %', 'KDV', 'Tevkifat %', 'Stopaj %', 'İskonto %']],
       body: [['1', transaction.description || '-', '-', 'Adet', pdfCurrency(transaction.amount), pdfCurrency(transaction.amount), '%0', '0,00 ₺', '%0', '%0', '%0']],
-      theme: 'grid',
+      theme: 'striped',
       styles: {
         font: FONT_NAME,
         fontSize: 7,
         cellPadding: 2,
-        textColor: [30, 41, 59],
-        lineColor: [0, 0, 0],
-        lineWidth: 0.3,
+        textColor: [50, 60, 75],
+        lineColor: [210, 215, 225],
+        lineWidth: 0.2,
       },
       headStyles: {
-        fillColor: [240, 240, 240],
-        textColor: [0, 0, 0],
+        fillColor: [60, 75, 100],
+        textColor: [255, 255, 255],
         fontStyle: 'bold',
         fontSize: 7,
         cellPadding: 3,
@@ -286,72 +304,92 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
 
   const grandTotal = transaction.amount;
 
-  // Toplamlar (Excel tarzı kenarlık)
-  const boxX = pageWidth - 75;
-  const boxW = 60;
+  // Toplamlar (yumuşak kenarlıklı tablo)
+  const boxX = pageWidth - 85;
+  const boxW = 70;
   let boxY = y;
   const boxStartY = y - 4;
 
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.2);
+  // Kutu yüksekliğini hesapla
+  let rowCount = 1; // Ara toplam
+  if (totals.vatTotal > 0) rowCount++;
+  if (totals.discountTotal > 0) rowCount++;
+  if (totals.stoppageTotal > 0) rowCount++;
+  if (totals.withholdingTaxTotal > 0) rowCount++;
+  const boxH = rowCount * 7 + 18; // satırlar + boşluk + genel toplam
+
+  // Dış çerçeve (yumuşak gri, yuvarlak)
+  doc.setDrawColor(200, 210, 220);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(boxX - 1, boxStartY - 1, boxW + 2, boxH, 2, 2, 'S');
+
+  doc.setDrawColor(220, 225, 235);
+  doc.setLineWidth(0.15);
 
   // Ara toplam satırı
-  doc.rect(boxX, boxY - 4, boxW, 7, 'S');
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(boxX, boxY - 4, boxW, 7, 1, 1, 'F');
   setFont(doc, 'normal', 8);
+  doc.setTextColor(80, 90, 100);
   doc.text('Ara Toplam:', boxX + 2, boxY);
+  doc.setTextColor(30, 41, 59);
   doc.text(pdfCurrency(totals.subtotal + totals.discountTotal), boxX + boxW - 2, boxY, { align: 'right' });
 
   // KDV satırı
   if (totals.vatTotal > 0) {
     boxY += 7;
-    doc.rect(boxX, boxY - 4, boxW, 7, 'S');
+    doc.line(boxX + 1, boxY - 3, boxX + boxW - 1, boxY - 3);
+    doc.setTextColor(80, 90, 100);
     doc.text('KDV Toplamı:', boxX + 2, boxY);
+    doc.setTextColor(30, 41, 59);
     doc.text(pdfCurrency(totals.vatTotal), boxX + boxW - 2, boxY, { align: 'right' });
   }
 
   // İskonto satırı
   if (totals.discountTotal > 0) {
     boxY += 7;
-    doc.rect(boxX, boxY - 4, boxW, 7, 'S');
+    doc.line(boxX + 1, boxY - 3, boxX + boxW - 1, boxY - 3);
+    doc.setTextColor(80, 90, 100);
     doc.text('İskonto:', boxX + 2, boxY);
+    doc.setTextColor(30, 41, 59);
     doc.text(`-${pdfCurrency(totals.discountTotal)}`, boxX + boxW - 2, boxY, { align: 'right' });
   }
 
   // Stopaj satırı
   if (totals.stoppageTotal > 0) {
     boxY += 7;
-    doc.rect(boxX, boxY - 4, boxW, 7, 'S');
+    doc.line(boxX + 1, boxY - 3, boxX + boxW - 1, boxY - 3);
+    doc.setTextColor(80, 90, 100);
     doc.text('Stopaj:', boxX + 2, boxY);
+    doc.setTextColor(30, 41, 59);
     doc.text(`-${pdfCurrency(totals.stoppageTotal)}`, boxX + boxW - 2, boxY, { align: 'right' });
   }
 
   // Tevkifat satırı
   if (totals.withholdingTaxTotal > 0) {
     boxY += 7;
-    doc.rect(boxX, boxY - 4, boxW, 7, 'S');
+    doc.line(boxX + 1, boxY - 3, boxX + boxW - 1, boxY - 3);
+    doc.setTextColor(80, 90, 100);
     doc.text('Tevkifat:', boxX + 2, boxY);
+    doc.setTextColor(30, 41, 59);
     doc.text(`-${pdfCurrency(totals.withholdingTaxTotal)}`, boxX + boxW - 2, boxY, { align: 'right' });
   }
 
-  // Dikey çizgi (Ara toplam üstünden Tevkifat altına kadar)
-  doc.setLineWidth(0.15);
-  doc.line(boxX + 35, boxStartY, boxX + 35, boxY + 4);
+  // Boşluk
 
-  // Boşluk (çizgi yok)
-
-  // Genel toplam satırı
+  // Genel toplam satırı (koyu arka plan)
   boxY += 10;
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.2);
-  doc.rect(boxX, boxY - 4, boxW, 8, 'S');
-  doc.setTextColor(30, 41, 59);
+  doc.setFillColor(45, 55, 72);
+  doc.roundedRect(boxX, boxY - 4, boxW, 8, 1, 1, 'F');
+  doc.setTextColor(255, 255, 255);
   setFont(doc, 'bold', 10);
   doc.text('GENEL TOPLAM:', boxX + 2, boxY);
   doc.text(pdfCurrency(grandTotal, transaction.currency), boxX + boxW - 2, boxY, { align: 'right' });
 
-  // Genel toplam dikey çizgi
+  // Dikey çizgi (sadece üst kısım için)
+  doc.setDrawColor(200, 210, 220);
   doc.setLineWidth(0.15);
-  doc.line(boxX + 35, boxY - 4, boxX + 35, boxY + 4);
+  doc.line(boxX + 35, boxStartY + 4, boxX + 35, boxY - 6);
 
   const boxEndY = boxY + 5;
   doc.setTextColor(30, 41, 59);
@@ -423,7 +461,7 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   doc.save(fileName);
 }
 
-export function generateDeliveryNotePDF(transaction: Transaction, companyName = 'Muhasebe') {
+export function generateDeliveryNotePDF(transaction: Transaction, companyName = 'Muhasebe', cariData?: { name?: string; tax_number?: string; tax_office?: string; address?: string } | null) {
   const doc = new jsPDF();
   initFont(doc);
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -431,8 +469,8 @@ export function generateDeliveryNotePDF(transaction: Transaction, companyName = 
 
   // İrsaliye türü
   const isSale = ['sale_delivery_note', 'delivery_note'].includes(transaction.transaction_type);
-  const seller = isSale ? transaction.firm : transaction.cari;
-  const buyer = isSale ? transaction.cari : transaction.firm;
+  const seller = isSale ? transaction.firm : (cariData || transaction.cari);
+  const buyer = isSale ? (cariData || transaction.cari) : transaction.firm;
 
   let y = 15;
 
