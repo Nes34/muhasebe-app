@@ -149,7 +149,7 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   doc.setDrawColor(0, 0, 0);
   doc.line(15, y, 65, y);
 
-  drawGibEmblem(doc, pageWidth / 2, y + 7, 18);
+  drawGibEmblem(doc, pageWidth / 2, y + 7, 24);
 
   y += 16;
 
@@ -171,16 +171,15 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
     doc.text(buyer.address, 15, y + 24);
   }
 
-  // Sağ: Fatura tarihi ve no (tablo şeklinde çerçeve)
+  // Sağ: Fatura tarihi ve no (Excel tarzı kenarlık)
   const faturaBoxX = rightX - 55;
   const faturaBoxW = 55;
   const faturaBoxStartY = y - 4;
 
-  // Satır satır çerçeve
   doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.3);
+  doc.setLineWidth(0.2);
 
-  // Başlık satırı
+  // Başlık satırı (dikey çizgi yok, tam genişlik)
   doc.rect(faturaBoxX, faturaBoxStartY, faturaBoxW, 7, 'S');
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 7);
@@ -213,22 +212,10 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
     irsaliyeRowH = 8;
   }
 
-  // Dış çerçeve
-  const faturaBoxH = 23 + irsaliyeRowH + 7;
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.4);
-  doc.rect(faturaBoxX, faturaBoxStartY, faturaBoxW, faturaBoxH, 'S');
-
   // Dikey çizgi (başlık | değer)
-  doc.setLineWidth(0.2);
-  doc.line(faturaBoxX + 16, faturaBoxStartY + 7, faturaBoxX + 16, faturaBoxStartY + faturaBoxH);
-
-  // Yatay çizgiler
-  doc.line(faturaBoxX, faturaBoxStartY + 7, faturaBoxX + faturaBoxW, faturaBoxStartY + 7);
-  doc.line(faturaBoxX, faturaBoxStartY + 15, faturaBoxX + faturaBoxW, faturaBoxStartY + 15);
-  if (!isInvoice && transaction.delivery_note_number) {
-    doc.line(faturaBoxX, faturaBoxStartY + 23, faturaBoxX + faturaBoxW, faturaBoxStartY + 23);
-  }
+  const faturaBoxH = 23 + irsaliyeRowH + 7;
+  doc.setLineWidth(0.15);
+  doc.line(faturaBoxX + 16, faturaBoxStartY, faturaBoxX + 16, faturaBoxStartY + faturaBoxH);
 
   y += 36;
 
@@ -336,14 +323,17 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
 
   const grandTotal = transaction.amount;
 
-  // Toplamlar kutusu (tablo şeklinde)
+  // Toplamlar (Excel tarzı kenarlık)
   const boxX = pageWidth - 75;
   const boxW = 60;
   let boxY = y;
   const boxStartY = y - 2;
 
   doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.3);
+  doc.setLineWidth(0.2);
+
+  // Dikey çizgi (başlık | tutar) - en üstten en alta
+  doc.line(boxX + 35, boxStartY, boxX + 35, boxStartY + 50);
 
   // Ara toplam satırı
   doc.rect(boxX, boxY - 4, boxW, 8, 'S');
@@ -383,38 +373,21 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
     doc.text(`-${pdfCurrency(totals.withholdingTaxTotal)}`, boxX + boxW - 2, boxY, { align: 'right' });
   }
 
-  // Çizgi (kalın)
+  // Kalın çizgi (genel toplam öncesi)
   boxY += 6;
   doc.setLineWidth(0.6);
   doc.line(boxX, boxY, boxX + boxW, boxY);
 
   // Genel toplam satırı
   boxY += 6;
+  doc.setLineWidth(0.2);
   doc.rect(boxX, boxY - 4, boxW, 9, 'S');
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 10);
   doc.text('GENEL TOPLAM:', boxX + 2, boxY);
   doc.text(pdfCurrency(grandTotal, transaction.currency), boxX + boxW - 2, boxY, { align: 'right' });
 
-  // Dış çerçeve
   const boxEndY = boxY + 5;
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.4);
-  doc.rect(boxX, boxStartY, boxW, boxEndY - boxStartY, 'S');
-
-  // Yatay çizgiler
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineWidth(0.2);
-  let lineY = boxStartY + 8;
-  while (lineY < boxY - 2) {
-    doc.line(boxX, lineY, boxX + boxW, lineY);
-    lineY += 8;
-  }
-
-  // Dikey çizgi (başlık | tutar)
-  doc.setLineWidth(0.2);
-  doc.line(boxX + 35, boxStartY, boxX + 35, boxStartY + (boxEndY - boxStartY) - 9);
-
   doc.setTextColor(30, 41, 59);
 
   y = boxEndY + 12;
@@ -521,7 +494,7 @@ export function generateDeliveryNotePDF(transaction: Transaction, companyName = 
   doc.text('İRSALİYE', pageWidth - 35, 18, { align: 'center' });
 
   // GİB amblemi
-  drawGibEmblem(doc, pageWidth / 2, 22, 14);
+  drawGibEmblem(doc, pageWidth / 2, 22, 20);
 
   // GİB amblemi (header ortası)
   doc.setTextColor(200, 200, 200);
@@ -619,22 +592,11 @@ export function generateDeliveryNotePDF(transaction: Transaction, companyName = 
     siparisRowH = 8;
   }
 
-  // Dış çerçeve
+  // Dikey çizgi (başlık | değer)
   const irsBoxH = 23 + siparisRowH + 7;
   doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.4);
-  doc.rect(irsBoxX, irsBoxStartY, irsBoxW, irsBoxH, 'S');
-
-  // Dikey çizgi
-  doc.setLineWidth(0.2);
-  doc.line(irsBoxX + 16, irsBoxStartY + 7, irsBoxX + 16, irsBoxStartY + irsBoxH);
-
-  // Yatay çizgiler
-  doc.line(irsBoxX, irsBoxStartY + 7, irsBoxX + irsBoxW, irsBoxStartY + 7);
-  doc.line(irsBoxX, irsBoxStartY + 15, irsBoxX + irsBoxW, irsBoxStartY + 15);
-  if (transaction.linked_order) {
-    doc.line(irsBoxX, irsBoxStartY + 23, irsBoxX + irsBoxW, irsBoxStartY + 23);
-  }
+  doc.setLineWidth(0.15);
+  doc.line(irsBoxX + 16, irsBoxStartY, irsBoxX + 16, irsBoxStartY + irsBoxH);
 
   y += 27;
 
