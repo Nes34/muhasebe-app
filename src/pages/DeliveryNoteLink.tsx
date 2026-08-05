@@ -40,7 +40,7 @@ export default function DeliveryNoteLink() {
     // Bağlı olmayan irsaliyeleri çek
     let dnQuery = supabase
       .from('transactions')
-      .select('id, transaction_date, transaction_type, amount, description, delivery_note_number, linked_invoice_id, cari_id, project_id')
+      .select('id, transaction_date, transaction_type, amount, description, delivery_note_number, linked_invoice_id, cari_id, project_id, firm_id')
       .in('transaction_type', ['delivery_note', 'sale_delivery_note', 'purchase_delivery_note'])
       .is('linked_invoice_id', null)
       .order('transaction_date', { ascending: false });
