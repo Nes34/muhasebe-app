@@ -1477,6 +1477,47 @@ export default function TransactionEntry() {
               />
             </ResizableCell>
 
+            {showDeliveryNoteNumber && (
+              <ResizableCell cellId="giris-irsaliye-no">
+                <label className="block text-sm font-medium text-slate-700 mb-1">İrsaliye No</label>
+                {(transactionType === 'sale_invoice' || transactionType === 'purchase_invoice') ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={deliveryNoteNumber}
+                      readOnly
+                      placeholder={selectedDNIds.length > 0 ? `${selectedDNIds.length} irsaliye seçildi` : "İrsaliye seçin..."}
+                      className="flex-1 px-4 py-2 text-sm border border-slate-300 rounded bg-slate-50 cursor-default"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDNModal(true)}
+                      className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors whitespace-nowrap"
+                    >
+                      {selectedDNIds.length > 0 ? `${selectedDNIds.length} Seçili` : 'İrsaliye Seç'}
+                    </button>
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={deliveryNoteNumber}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/[^a-zA-Z0-9/]/g, '').toUpperCase();
+                      setDeliveryNoteNumber(clean);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        setDeliveryNoteNumber(formatInvoiceNumberOnSave(deliveryNoteNumber));
+                      }
+                    }}
+                    placeholder="İrsaliye numarası"
+                    className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                )}
+              </ResizableCell>
+            )}
+
             {showInvoiceNumber && (
               <ResizableCell cellId="giris-fatura-no">
                 <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -1512,46 +1553,6 @@ export default function TransactionEntry() {
                   onChange={(id) => setExpenseCategoryId(id)}
                   placeholder="Gider türü ara..."
                 />
-              </ResizableCell>
-            )}
-
-            {showDeliveryNoteNumber && (
-              <ResizableCell cellId="giris-irsaliye-no">
-                <label className="block text-sm font-medium text-slate-700 mb-1">İrsaliye No</label>
-                {(transactionType === 'sale_invoice' || transactionType === 'purchase_invoice') ? (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={deliveryNoteNumber}
-                      readOnly
-                      placeholder={selectedDNIds.length > 0 ? `${selectedDNIds.length} irsaliye seçildi` : "İrsaliye seçin..."}
-                      className="flex-1 px-4 py-2 text-sm border border-slate-300 rounded bg-slate-50 cursor-default"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowDNModal(true)}
-                      className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors whitespace-nowrap"
-                    >
-                      {selectedDNIds.length > 0 ? `${selectedDNIds.length} Seçili` : 'İrsaliye Seç'}
-                    </button>
-                  </div>
-                ) : (
-                  <input
-                    type="text"
-                    value={deliveryNoteNumber}
-                    onChange={(e) => {
-                      const clean = e.target.value.replace(/[^a-zA-Z0-9/]/g, '').toUpperCase();
-                      setDeliveryNoteNumber(clean);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        setDeliveryNoteNumber(formatInvoiceNumberOnSave(deliveryNoteNumber));
-                      }
-                    }}
-                    className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                )}
               </ResizableCell>
             )}
 
