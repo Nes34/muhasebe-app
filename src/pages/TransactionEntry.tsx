@@ -764,6 +764,13 @@ export default function TransactionEntry() {
         return;
       }
 
+      // Validasyon: Cari zorunlu
+      if (!cariId) {
+        setMessage({ type: 'error', text: 'Cari seçimi zorunludur!' });
+        setLoading(false);
+        return;
+      }
+
       // Fatura türünde stok seçilmediyse açıklama zorunlu
       if (isAnyInvoice && items.length === 0 && !description.trim()) {
         setMessage({ type: 'error', text: 'Stok kalemi eklenmediyse açıklama girmek zorunludur!' });
@@ -1194,7 +1201,7 @@ export default function TransactionEntry() {
             {showFirm && (
               <ResizableCell cellId="giris-firma" className="bg-slate-100">
                 <div className="flex items-center justify-between mb-0.5">
-                  <label className="block text-sm font-medium text-slate-700">Firma</label>
+                  <label className="block text-sm font-medium text-slate-700">Firma <span className="text-red-500">*</span></label>
                   <button
                     type="button"
                     onClick={() => setShowAddFirmModal(true)}
@@ -1262,7 +1269,7 @@ export default function TransactionEntry() {
             )}
 
             <ResizableCell cellId="giris-cari">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Cari</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Cari <span className="text-red-500">*</span></label>
               <SearchableSelect
                 options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
                 value={cariId}
