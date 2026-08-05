@@ -66,11 +66,12 @@ export default function DeliveryNoteLink() {
       
       const enrichedDN = dnData.map(dn => ({
         ...dn,
+        invoice_number: '',
         cari: { name: dnCariMap.get(dn.cari_id) || '-' },
         project: { name: dnProjMap.get(dn.project_id) || '-' },
         firm: { name: dnFirmMap.get(dn.firm_id) || '-' },
       }));
-      setDeliveryNotes(enrichedDN);
+      setDeliveryNotes(enrichedDN as Transaction[]);
     } else {
       setDeliveryNotes([]);
     }
