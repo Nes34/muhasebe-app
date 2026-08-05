@@ -105,7 +105,7 @@ export default forwardRef<HTMLInputElement, SearchableSelectProps>(function Sear
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setHighlightedIndex(prev => Math.min(prev + 1, Math.min(filtered.length, 20) - 1));
+        setHighlightedIndex(prev => Math.min(prev + 1, filtered.length - 1));
         break;
       case 'ArrowUp':
         e.preventDefault();
@@ -142,7 +142,7 @@ export default forwardRef<HTMLInputElement, SearchableSelectProps>(function Sear
           style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 2147483647 }}
           className="bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-auto"
         >
-          {filtered.slice(0, 20).map((option, index) => (
+          {filtered.map((option, index) => (
             <div
               key={option.id}
               data-highlight={index}
