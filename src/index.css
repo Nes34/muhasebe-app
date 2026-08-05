@@ -63,6 +63,7 @@ table {
   border-radius: 0.75rem;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background-color: #ffffff;
 }
 
 thead th {
@@ -78,6 +79,11 @@ thead th {
 
 tbody tr {
   border-bottom: 1px solid #e2e8f0;
+  background-color: #ffffff;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #f8fafc;
 }
 
 tbody tr:hover {
