@@ -104,3 +104,57 @@ AI asistanı aşağıdaki bilgileri bilmeli:
 - İstisna (mükerrer) kayıtlar
 - Raporlar ve dashboard
 - Kullanıcı yönetimi (admin, muhasebeci, izleyici)
+
+## 🔽 Dropdown Kuralları (ÇOK ÖNEMLİ)
+Yeni dropdown eklerken MUTLAKA şu özellikler olmalı:
+
+### Zorunlu Özellikler:
+1. **Klavye Navigasyonu:**
+   - `↓` tuşu: Sonraki öğeye git
+   - `↑` tuşu: Önceki öğeye git
+   - `Enter` veya `Tab`: Seçili öğeyi seç
+   - `Escape`: Dropdown'ı kapat
+
+2. **Vurgulama (Highlight):**
+   - Seçili öğe mavi arka plan ile vurgulanmalı (`bg-blue-100 text-blue-700`)
+   - Mouse ile üzerine gelince de vurgulanmalı (`onMouseEnter`)
+
+3. **Pozisyon:**
+   - Dropdown, input'un hemen altında açılmalı
+   - Tablo arkasında kalmamalı (`position: fixed` + `z-index: 999999`)
+   - `getBoundingClientRect()` ile input pozisyonu alınmalı
+
+4. **Kapanma:**
+   - Dışarıya tıklayınca kapanmalı
+   - Escape tuşu ile kapanmalı
+   - Seçim yapıldıktan sonra kapanmalı
+
+### Örnek Kod Yapısı:
+```tsx
+const [highlightIndex, setHighlightIndex] = useState(0);
+
+// Input'ta:
+onKeyDown={(e) => {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    setHighlightIndex(prev => Math.min(prev + 1, filtered.length - 1));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    setHighlightIndex(prev => Math.max(prev - 1, 0));
+  } else if (e.key === 'Tab' || e.key === 'Enter') {
+    e.preventDefault();
+    // Seçimi uygula
+  } else if (e.key === 'Escape') {
+    // Dropdown'ı kapat
+  }
+}}
+
+// Dropdown öğesinde:
+className={index === highlightIndex ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-50'}
+onMouseEnter={() => setHighlightIndex(index)}
+```
+
+### Mevcut Dropdown Bileşenleri:
+- `SearchableSelect` → Zaten klavye navigasyonu var
+- `DescriptionAutocomplete` → Zaten klavye navigasyonu var
+- Ürün dropdown'ı → Klavye navigasyonu eklendi
