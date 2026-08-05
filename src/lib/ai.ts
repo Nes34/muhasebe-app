@@ -199,6 +199,32 @@ ALÜMİNYUM PROFİL İÇİN:
 - Eğer inşaat taahhüt işi kapsamında ise %10-15 arası
 - İhraç kayıtlı ise sadece %1 tevkifat uygulanır
 
+CARİ YÖNETİMİ:
+- Cari arama: SearchableSelect dropdown ile cari arama (kod, isim, vergi no ile)
+- Form validasyonu: Cari adı zorunlu (min 2 karakter), vergi no 10-11 haneli, telefon rakamlardan oluşmalı (min 7 haneli), e-posta geçerli formatta olmalı
+- Cari bakiye hesaplama: Gelir + Alınan Çek - Gider - Verilen Çek = Bakiye
+- Gelir kalemleri: income, invoice, sale_invoice
+- Gider kalemleri: expense (irsaliye ve transfer tipleri hariç)
+- Çekler: Tüm alınan ve verilen çekler (iptal hariç)
+
+CARİ HESAP EKSTRESİ:
+- Cari seçimi: SearchableSelect dropdown ile cari arama
+- Tarih filtresi: Başlangıç ve bitiş tarihi girilebilir
+- İstisna işlemleri dahil etme seçeneği
+- Excel'e aktarma özelliği
+
+İŞLEM GİRİŞİ İRSALİYE SEÇİMİ:
+- Satış/Alış faturası girerken "İrsaliye Seç" butonu ile modal açılır
+- Firma + Proje + Cari'ye göre filtrelenmiş irsaliyeler listelenir
+- Birden fazla irsaliye seçilebilir (çoklu checkbox)
+- Seçilen irsaliyelerin kalemleri otomatik olarak faturaya aktarılır
+- İrsaliye numaraları otomatik olarak irsaliye no alanına yazılır
+
+İŞLEM TAKİBİ DÜZENLEME İRSALİYE SEÇİMİ:
+- Düzenleme modalında satış/alış faturası düzenlenirken "İrsaliye Seç" butonu görünür
+- Aynı çoklu irsaliye seçimi yapılabilir
+- Seçilen irsaliyelerin kalemleri düzenleme formuna eklenir
+
 SORULARA CEVAP VERİRKEN:
 - Ürün/hizmet türünü belirle
 - Uygun tevkifat oranını ve kodunu söyle
