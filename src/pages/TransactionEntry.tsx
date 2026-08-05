@@ -92,11 +92,54 @@ export default function TransactionEntry() {
   const [templates, setTemplates] = useState<any[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
   
+  // İrsaliyeden fatura oluşturma
+  const [lastDeliveryNote, setLastDeliveryNote] = useState<any>(null);
+  
   // Yeni işlem tipi ekleme modal
   const [showAddTypeModal, setShowAddTypeModal] = useState(false);
   const [newTypeName, setNewTypeName] = useState('');
   const [newTypeValue, setNewTypeValue] = useState('');
   const [addingType, setAddingType] = useState(false);
+
+  // İrsaliyeden fatura oluşturma fonksiyonu
+  const convertDeliveryNoteToInvoice = async () => {
+    if (!lastDeliveryNote) return;
+    
+    // İrsaliye türüne göre fatura türünü belirle
+    const invoiceType = lastDeliveryNote.transaction_type === 'sale_delivery_note' ? 'sale_invoice' : 'purchase_invoice';
+    
+    // Yeni fatura numarası oluştur
+    const prefix = invoiceType === 'sale_invoice' ? 'SF' : 'AF';
+    const nextNum = await fetchNextNumber(prefix);
+    
+    // Fatura bilgilerini ayarla
+    setTransactionType(invoiceType);
+    setFirmId(lastDeliveryNote.firm_id || '');
+    setCariId(lastDeliveryNote.cari_id || '');
+    setProjectId(lastDeliveryNote.project_id || '');
+    setDescription(lastDeliveryNote.description || '');
+    setInvoiceNumber(nextNum);
+    
+    // Kalemleri kopyala
+    if (lastDeliveryNote.items && lastDeliveryNote.items.length > 0) {
+      setItems(lastDeliveryNote.items.map((item: any, idx: number) => ({
+        _key: Date.now() + idx,
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        unit_price: item.unit_price,
+        amount: item.amount,
+        vat_rate: item.vat_rate || 20,
+        vat_amount: item.vat_amount || 0,
+        discount_rate: item.discount_rate || 0,
+        discount_amount: item.discount_amount || 0,
+      })));
+    }
+    
+    setShowConvertModal(false);
+    setMessage({ type: 'success', text: 'İrsaliye faturaya dönüştürüldü! Bilgileri kontrol edip kaydedin.' });
+    setTimeout(() => setMessage(null), 5000);
+  };
   
   // Yeni firma ekleme modal
   const [showAddFirmModal, setShowAddFirmModal] = useState(false);
@@ -893,6 +936,18 @@ export default function TransactionEntry() {
 
       setMessage({ type: 'success', text: 'İşlem başarıyla kaydedildi!' });
       
+      // İrsaliye kaydedildiyse "Faturaya Dönüştür" butonu için bilgileri sakla
+      if (isDeliveryNoteType) {
+        setLastDeliveryNote({
+          transaction_type: getDbTransactionType(),
+          firm_id: firmId,
+          cari_id: cariId,
+          project_id: projectId,
+          description: description,
+          items: items.map(item => ({ ...item })),
+        });
+      }
+      
       setFirmId('');
       setCariId('');
       setProjectId('');
@@ -1662,6 +1717,15 @@ export default function TransactionEntry() {
           >
             {message.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
             {message.text}
+            {lastDeliveryNote && (
+              <button
+                type="button"
+                onClick={convertDeliveryNoteToInvoice}
+                className="ml-4 px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+              >
+                Faturaya Dönüştür
+              </button>
+            )}
           </div>
         )}
 
