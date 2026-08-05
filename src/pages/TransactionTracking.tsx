@@ -52,7 +52,7 @@ export default function TransactionTracking() {
 
     let cashQuery = supabase.from('cash_transactions').select('id, amount, transaction_type, created_at, cash_register_id, cari_id, project_id').order('created_at', { ascending: false });
     let bankQuery = supabase.from('bank_transactions').select('id, amount, transaction_type, created_at, bank_account_id, cari_id, project_id').order('created_at', { ascending: false });
-    let checkQuery = supabase.from('checks').select('id, amount, check_type, status, check_number, due_date, created_at, firm_id, project_id').order('created_at', { ascending: false });
+    let checkQuery = supabase.from('checks').select('id, amount, check_type, status, check_number, due_date, created_at, firm_id, project_id, cari_id').order('created_at', { ascending: false });
 
     if (selectedFirm) {
       cashQuery = cashQuery.eq('firm_id', selectedFirm.id);
@@ -84,17 +84,13 @@ export default function TransactionTracking() {
     if (bankRes.data) setBankTransactions(bankRes.data);
     if (checkRes.data) setChecks(checkRes.data);
 
-    // Cari bilgilerini tek seferde çek (ayrı await ile)
-    const allCariIds = [
-      ...new Set([
-        ...txData.map((t: any) => t.cari_id),
-        ...(cashRes.data || []).map((t: any) => t.cari_id),
-        ...(bankRes.data || []).map((t: any) => t.cari_id),
-      ].filter(Boolean))
-    ];
-    const { data: cariData } = allCariIds.length > 0
-      ? await supabase.from('cariler').select('id, name, tax_number, tax_office, address').in('id', allCariIds)
-      : { data: [] };
+    // Tüm carileri çek (sadece ilgili olanları değil, hepsini - harita için)
+    const { data: cariData } = await supabase.from('cariler').select('id, name');
+    if (cariData) {
+      const newMap = new Map<string, any>();
+      cariData.forEach((c: any) => newMap.set(c.id, c));
+      setCarilerMap(newMap);
+    }
 
     if (cariData) {
       const newMap = new Map<string, any>();
@@ -179,7 +175,7 @@ export default function TransactionTracking() {
       id: t.id,
       type: t.transaction_type === 'in' ? 'cash_in' : 'cash_out',
       date: t.created_at?.split('T')[0] || '',
-      cari: '-',
+      cari: carilerMap.get(t.cari_id)?.name || '-',
       firm: '-',
       project: projMap.get(t.project_id) || '-',
       description: 'Kasa hareketi',
@@ -192,7 +188,7 @@ export default function TransactionTracking() {
       id: t.id,
       type: t.transaction_type === 'in' ? 'bank_in' : 'bank_out',
       date: t.created_at?.split('T')[0] || '',
-      cari: '-',
+      cari: carilerMap.get(t.cari_id)?.name || '-',
       firm: '-',
       project: projMap.get(t.project_id) || '-',
       description: 'Banka hareketi',
@@ -205,7 +201,7 @@ export default function TransactionTracking() {
       id: t.id,
       type: t.check_type === 'received' ? 'check_received' : 'check_given',
       date: t.due_date || t.created_at?.split('T')[0] || '',
-      cari: '-',
+      cari: carilerMap.get(t.cari_id)?.name || '-',
       firm: firmMap.get(t.firm_id) || '-',
       project: projMap.get(t.project_id) || '-',
       description: `Çek No: ${t.check_number || '-'} (${t.status === 'pending' ? 'Bekleyen' : t.status === 'collected' ? 'Tahsil' : t.status === 'paid' ? 'Ödenen' : t.status})`,
