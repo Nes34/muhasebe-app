@@ -40,22 +40,18 @@ export default function TransactionTracking() {
 
   const fetchData = async () => {
     setLoading(true);
-    let txQuery = supabase.from('transactions').select('*, firm:firms(*), project:projects(*), cari:cariler(*)').order('transaction_date', { ascending: false });
+    // Transaction'ları çek (join olmadan)
+    let txQuery = supabase.from('transactions').select('id, transaction_date, transaction_type, amount, description, invoice_number, cari_id, project_id, firm_id, created_at').order('transaction_date', { ascending: false });
     
-    // Header'da firma seçiliyse sadece o firmaya ait işlemleri göster
-    if (selectedFirm) {
-      txQuery = txQuery.eq('firm_id', selectedFirm.id);
-    }
-    if (selectedProject) {
-      txQuery = txQuery.eq('project_id', selectedProject.id);
-    }
+    if (selectedFirm) txQuery = txQuery.eq('firm_id', selectedFirm.id);
+    if (selectedProject) txQuery = txQuery.eq('project_id', selectedProject.id);
     
     let projectsQuery = supabase.from('projects').select('*');
     if (selectedFirm) projectsQuery = projectsQuery.eq('firm_id', selectedFirm.id);
 
-    let cashQuery = supabase.from('cash_transactions').select('*, cash_register:cash_registers(name), cari:cariler(name), project:projects(name)').order('created_at', { ascending: false });
-    let bankQuery = supabase.from('bank_transactions').select('*, bank_account:bank_accounts(bank_name), cari:cariler(name), project:projects(name)').order('created_at', { ascending: false });
-    let checkQuery = supabase.from('checks').select('*, firm:firms(name), project:projects(name)').order('created_at', { ascending: false });
+    let cashQuery = supabase.from('cash_transactions').select('id, amount, transaction_type, created_at, cash_register_id, cari_id, project_id').order('created_at', { ascending: false });
+    let bankQuery = supabase.from('bank_transactions').select('id, amount, transaction_type, created_at, bank_account_id, cari_id, project_id').order('created_at', { ascending: false });
+    let checkQuery = supabase.from('checks').select('id, amount, check_type, status, check_number, due_date, created_at, firm_id, project_id').order('created_at', { ascending: false });
 
     if (selectedFirm) {
       cashQuery = cashQuery.eq('firm_id', selectedFirm.id);
@@ -78,7 +74,7 @@ export default function TransactionTracking() {
       checkQuery,
     ]);
 
-    if (transactionsRes.data) setTransactions(transactionsRes.data);
+    if (transactionsRes.data) setTransactions(transactionsRes.data as Transaction[]);
     if (typesRes.data) setTransactionTypes(typesRes.data);
     if (firmsRes.data) setFirms(firmsRes.data);
     if (projectsRes.data) setProjects(projectsRes.data);
@@ -139,29 +135,33 @@ export default function TransactionTracking() {
     return typeColors[type] || 'bg-slate-100 text-slate-700 border-slate-200';
   };
 
+  // İsim haritaları oluştur (state değişkenlerinden)
+  const firmMap = new Map(firms.map((f: any) => [f.id, f.name]));
+  const projMap = new Map(projects.map((p: any) => [p.id, p.name]));
+
   // Tüm işlemleri birleştir (transactions + nakit + banka + çek)
   const allItems = [
     ...transactions.map(t => ({
       id: t.id,
       type: t.transaction_type,
       date: t.transaction_date,
-      cari: t.cari?.name || '-',
-      firm: t.firm?.name || '-',
-      project: t.project?.name || '-',
+      cari: '-',
+      firm: firmMap.get(t.firm_id) || '-',
+      project: projMap.get(t.project_id) || '-',
       description: t.description || '-',
       amount: t.amount,
       invoice_number: t.invoice_number || '',
       created_at: t.created_at,
       _raw: t,
     })),
-    ...cashTransactions.map(t => ({
+      ...cashTransactions.map(t => ({
       id: t.id,
       type: t.transaction_type === 'in' ? 'cash_in' : 'cash_out',
       date: t.created_at?.split('T')[0] || '',
-      cari: t.cari?.name || '-',
+      cari: '-',
       firm: '-',
-      project: t.project?.name || '-',
-      description: `Kasa - ${t.cash_register?.name || '-'}`,
+      project: projMap.get(t.project_id) || '-',
+      description: 'Kasa hareketi',
       amount: t.amount,
       invoice_number: '',
       created_at: t.created_at,
@@ -171,22 +171,22 @@ export default function TransactionTracking() {
       id: t.id,
       type: t.transaction_type === 'in' ? 'bank_in' : 'bank_out',
       date: t.created_at?.split('T')[0] || '',
-      cari: t.cari?.name || '-',
+      cari: '-',
       firm: '-',
-      project: t.project?.name || '-',
-      description: `Banka - ${t.bank_account?.bank_name || '-'}`,
+      project: projMap.get(t.project_id) || '-',
+      description: 'Banka hareketi',
       amount: t.amount,
       invoice_number: '',
       created_at: t.created_at,
       _raw: t,
     })),
-    ...checks.map(t => ({
+      ...checks.map(t => ({
       id: t.id,
       type: t.check_type === 'received' ? 'check_received' : 'check_given',
-      date: t.issue_date || t.created_at?.split('T')[0] || '',
+      date: t.due_date || t.created_at?.split('T')[0] || '',
       cari: '-',
-      firm: t.firm?.name || '-',
-      project: t.project?.name || '-',
+      firm: firmMap.get(t.firm_id) || '-',
+      project: projMap.get(t.project_id) || '-',
       description: `Çek No: ${t.check_number || '-'} (${t.status === 'pending' ? 'Bekleyen' : t.status === 'collected' ? 'Tahsil' : t.status === 'paid' ? 'Ödenen' : t.status})`,
       amount: t.amount,
       invoice_number: '',
@@ -209,7 +209,7 @@ export default function TransactionTracking() {
     
     const filtered = items.filter(t =>
       t.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.firm?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (t.firm as string)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
@@ -412,8 +412,8 @@ export default function TransactionTracking() {
                       {items.map(t => (
                         <tr key={t.id} className="border-t border-slate-100 hover:bg-slate-50">
                           <td className="py-3 px-4">{formatDateTR(t.date)}</td>
-                          <td className="py-3 px-4">{t.firm || '-'}</td>
-                          <td className="py-3 px-4">{t.project || '-'}</td>
+                          <td className="py-3 px-4">{(t.firm as string) || '-'}</td>
+                          <td className="py-3 px-4">{(t.project as string) || '-'}</td>
                           <td className="py-3 px-4 text-slate-600 max-w-[200px] truncate">{t.description || '-'}</td>
                           <td className="py-3 px-4 text-right font-medium">{formatCurrency(t.amount)}</td>
                           <td className="py-3 px-4 text-center">
