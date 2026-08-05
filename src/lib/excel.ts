@@ -86,42 +86,71 @@ export function exportTransactionsToExcel(transactions: Transaction[]) {
 }
 
 export function exportAccountStatementToExcel(transactions: any[], cariName: string) {
-  let running = 0;
-  const data = transactions.map((t, i) => {
-    const amount = Math.abs(t.amount);
-    const isIncome = t.isIncome;
-    running += isIncome ? amount : -amount;
+  const typeLabels: Record<string, string> = {
+    income: 'Gelir', expense: 'Gider', invoice: 'Fatura',
+    sale_invoice: 'Satış Faturası', purchase_invoice: 'Alış Faturası',
+    delivery_note: 'İrsaliye', sale_delivery_note: 'Satış İrsaliyesi',
+    purchase_delivery_note: 'Alış İrsaliyesi',
+    cash_in: 'Kasa Giriş', cash_out: 'Kasa Çıkış',
+    bank_in: 'Banka Giriş', bank_out: 'Banka Çıkış',
+    check_received: 'Alınan Çek', check_given: 'Verilen Çek',
+  };
+  const kaynakLabels: Record<string, string> = {
+    transaction: 'İşlem', check: 'Çek', cash: 'Kasa', bank: 'Banka',
+  };
 
-    const typeLabels: Record<string, string> = {
-      income: 'Gelir', expense: 'Gider', invoice: 'Fatura',
-      sale_invoice: 'Satış Faturası', purchase_invoice: 'Alış Faturası',
-      delivery_note: 'İrsaliye', sale_delivery_note: 'Satış İrsaliyesi',
-      purchase_delivery_note: 'Alış İrsaliyesi',
-      cash_in: 'Kasa Giriş', cash_out: 'Kasa Çıkış',
-      bank_in: 'Banka Giriş', bank_out: 'Banka Çıkış',
-      check_received: 'Alınan Çek', check_given: 'Verilen Çek',
-    };
-    const kaynakLabels: Record<string, string> = {
-      transaction: 'İşlem', check: 'Çek', cash: 'Kasa', bank: 'Banka',
-    };
-
-    return {
-      'Sıra': i + 1,
-      'Tarih': t.date || t.transaction_date || '',
-      'Kaynak': kaynakLabels[t.source] || t.source || '',
-      'İşlem Türü': typeLabels[t.transaction_type] || t.transaction_type || '',
-      'Firma': t.firm?.name || '',
-      'Proje': t.project?.name || '',
-      'Açıklama': t.description || '',
-      'Fatura No': t.invoice_number || '',
-      'İrsaliye No': t.delivery_note_number || '',
-      'Borç (TL)': !isIncome ? amount : '',
-      'Alacak (TL)': isIncome ? amount : '',
-      'Bakiye (TL)': running,
-    };
+  // Projelere göre grupla
+  const grouped: Record<string, any[]> = {};
+  transactions.forEach(t => {
+    const projName = t.project?.name || 'Projesiz';
+    if (!grouped[projName]) grouped[projName] = [];
+    grouped[projName].push(t);
   });
 
-  exportToExcel(data, `cari-hesap-${cariName}`, 'Cari Hesap Ekstresi');
+  const excelData: Record<string, unknown>[] = [];
+  let genelToplamBakiye = 0;
+
+  Object.entries(grouped).forEach(([projName, txs], projIdx) => {
+    // Proje başlığı
+    excelData.push({ 'Sıra': `📁 ${projName}`, 'Tarih': '', 'Kaynak': '', 'İşlem Türü': '', 'Firma': '', 'Açıklama': '', 'Fatura No': '', 'İrsaliye No': '', 'Borç (TL)': '', 'Alacak (TL)': '', 'Bakiye (TL)': '' });
+
+    let projeBakiye = 0;
+    txs.forEach((t, i) => {
+      const amount = Math.abs(t.amount);
+      const isIncome = t.isIncome;
+      projeBakiye += isIncome ? amount : -amount;
+
+      excelData.push({
+        'Sıra': i + 1,
+        'Tarih': t.date || t.transaction_date || '',
+        'Kaynak': kaynakLabels[t.source] || t.source || '',
+        'İşlem Türü': typeLabels[t.transaction_type] || t.transaction_type || '',
+        'Firma': t.firm?.name || '',
+        'Açıklama': t.description || '',
+        'Fatura No': t.invoice_number || '',
+        'İrsaliye No': t.delivery_note_number || '',
+        'Borç (TL)': !isIncome ? amount : '',
+        'Alacak (TL)': isIncome ? amount : '',
+        'Bakiye (TL)': projeBakiye,
+      });
+    });
+
+    // Proje toplam bakiyesi
+    excelData.push({ 'Sıra': '', 'Tarih': '', 'Kaynak': '', 'İşlem Türü': `📊 ${projName} BAKİYESİ`, 'Firma': '', 'Açıklama': '', 'Fatura No': '', 'İrsaliye No': '', 'Borç (TL)': '', 'Alacak (TL)': '', 'Bakiye (TL)': projeBakiye });
+
+    genelToplamBakiye += projeBakiye;
+
+    // 3 satır boşluk (son proje hariç)
+    if (projIdx < Object.keys(grouped).length - 1) {
+      excelData.push({}, {}, {});
+    }
+  });
+
+  // Genel toplam bakiye
+  excelData.push({});
+  excelData.push({ 'Sıra': '', 'Tarih': '', 'Kaynak': '', 'İşlem Türü': '💰 GENEL TOPLAM BAKİYE', 'Firma': '', 'Açıklama': '', 'Fatura No': '', 'İrsaliye No': '', 'Borç (TL)': '', 'Alacak (TL)': '', 'Bakiye (TL)': genelToplamBakiye });
+
+  exportToExcel(excelData, `cari-hesap-${cariName}`, 'Cari Hesap Ekstresi');
 }
 
 export function exportChecksToExcel(checks: any[]) {
