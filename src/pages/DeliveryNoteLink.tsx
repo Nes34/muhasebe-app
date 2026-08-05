@@ -36,25 +36,68 @@ export default function DeliveryNoteLink() {
     // Bağlı olmayan irsaliyeleri çek
     let dnQuery = supabase
       .from('transactions')
-      .select('*, cari:cariler(*), project:projects(*)')
+      .select('id, transaction_date, transaction_type, amount, description, delivery_note_number, linked_invoice_id, cari_id, project_id')
       .in('transaction_type', ['delivery_note', 'sale_delivery_note', 'purchase_delivery_note'])
       .is('linked_invoice_id', null)
       .order('transaction_date', { ascending: false });
     
     if (selectedFirm) dnQuery = dnQuery.eq('firm_id', selectedFirm.id);
     const { data: dnData } = await dnQuery;
-    if (dnData) setDeliveryNotes(dnData);
+
+    if (dnData && dnData.length > 0) {
+      const dnCariIds = [...new Set(dnData.map(d => d.cari_id).filter(Boolean))];
+      const dnProjIds = [...new Set(dnData.map(d => d.project_id).filter(Boolean))];
+      
+      const [dnCariRes, dnProjRes] = await Promise.all([
+        dnCariIds.length > 0 ? supabase.from('cariler').select('id, name').in('id', dnCariIds) : { data: [] },
+        dnProjIds.length > 0 ? supabase.from('projects').select('id, name').in('id', dnProjIds) : { data: [] },
+      ]);
+      
+      const dnCariMap = new Map((dnCariRes.data || []).map(c => [c.id, c.name]));
+      const dnProjMap = new Map((dnProjRes.data || []).map(p => [p.id, p.name]));
+      
+      const enrichedDN = dnData.map(dn => ({
+        ...dn,
+        cari: { name: dnCariMap.get(dn.cari_id) || '-' },
+        project: { name: dnProjMap.get(dn.project_id) || '-' },
+      }));
+      setDeliveryNotes(enrichedDN);
+    } else {
+      setDeliveryNotes([]);
+    }
 
     // Faturaları çek
     let invQuery = supabase
       .from('transactions')
-      .select('*, cari:cariler(*), project:projects(*)')
+      .select('id, transaction_date, transaction_type, amount, description, invoice_number, cari_id, project_id, firm_id')
       .in('transaction_type', ['invoice', 'sale_invoice', 'purchase_invoice'])
       .order('transaction_date', { ascending: false });
     
     if (selectedFirm) invQuery = invQuery.eq('firm_id', selectedFirm.id);
     const { data: invData } = await invQuery;
-    if (invData) setInvoices(invData);
+
+    // Cari ve proje bilgilerini ayrı çek
+    if (invData && invData.length > 0) {
+      const cariIds = [...new Set(invData.map(i => i.cari_id).filter(Boolean))];
+      const projectIds = [...new Set(invData.map(i => i.project_id).filter(Boolean))];
+      
+      const [cariRes, projRes] = await Promise.all([
+        cariIds.length > 0 ? supabase.from('cariler').select('id, name').in('id', cariIds) : { data: [] },
+        projectIds.length > 0 ? supabase.from('projects').select('id, name').in('id', projectIds) : { data: [] },
+      ]);
+      
+      const cariMap = new Map((cariRes.data || []).map(c => [c.id, c.name]));
+      const projMap = new Map((projRes.data || []).map(p => [p.id, p.name]));
+      
+      const enriched = invData.map(inv => ({
+        ...inv,
+        cari: { name: cariMap.get(inv.cari_id) || '-' },
+        project: { name: projMap.get(inv.project_id) || '-' },
+      }));
+      setInvoices(enriched);
+    } else {
+      setInvoices([]);
+    }
 
     setLoading(false);
   };
@@ -250,8 +293,14 @@ export default function DeliveryNoteLink() {
                   <span className="text-xs text-slate-500">{formatDateTR(inv.transaction_date)}</span>
                 </div>
                 <p className="text-sm font-medium text-slate-800">{inv.cari?.name || '-'}</p>
-                <p className="text-xs text-slate-500 truncate">{inv.description || '-'}</p>
-                <p className="text-sm font-bold text-slate-700 mt-1">{formatCurrency(inv.amount)}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-slate-500">Firma: {inv.firm?.name || '-'}</span>
+                  <span className="text-xs text-slate-500">Proje: {inv.project?.name || '-'}</span>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-xs text-slate-500">No: {inv.invoice_number || '-'}</span>
+                  <span className="text-sm font-bold text-slate-700">{formatCurrency(inv.amount)}</span>
+                </div>
               </div>
             ))}
             {filteredInvoices.length === 0 && <p className="text-center py-8 text-slate-500 text-sm">Fatura bulunamadı</p>}
