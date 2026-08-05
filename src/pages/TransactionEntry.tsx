@@ -1595,20 +1595,12 @@ export default function TransactionEntry() {
               </ResizableCell>
             )}
 
-            {(isCheckType || ((isIncomeType || isExpenseType) && paymentMethod === 'check')) && (
-              <ResizableCell cellId="giris-cek-ekle">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Çek</label>
-                <div className="flex gap-2">
-                  <button type="button" onClick={addCheckItem}
-                    className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-                    <Plus size={14} /> Kalem Ekle
-                  </button>
-                  {checkItems.length > 0 && (
-                    <span className="px-2 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
-                      {checkItems.length} çek
-                    </span>
-                  )}
-                </div>
+            {(isCheckType || ((isIncomeType || isExpenseType) && paymentMethod === 'check')) && checkItems.length > 0 && (
+              <ResizableCell cellId="giris-cek-sayi">
+                <label className="block text-sm font-medium text-slate-700 mb-1">&nbsp;</label>
+                <span className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium inline-block">
+                  {checkItems.length} çek
+                </span>
               </ResizableCell>
             )}
           </div>
