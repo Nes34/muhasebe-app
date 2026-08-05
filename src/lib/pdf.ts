@@ -93,131 +93,105 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   const seller = isSale ? transaction.firm : transaction.cari;
   const buyer = isSale ? transaction.cari : transaction.firm;
 
-  let y = 15;
+  let y = 52;
 
   // ══════════════════════════════════════════════════════════════
-  // HEADER: Koyu arka plan + mavi accent
+  // 3 SÜTUNLU ÜST KISIM: SOL | ORTA | SAĞ
   // ══════════════════════════════════════════════════════════════
-  doc.setFillColor(30, 41, 59);
-  doc.rect(0, 0, pageWidth, 40, 'F');
-  doc.setFillColor(59, 130, 246);
-  doc.rect(0, 40, pageWidth, 2, 'F');
+  const colLeft = 15;
+  const colCenter = 70;
+  const colRight = 140;
+  const colEnd = pageWidth - 15;
 
-  doc.setTextColor(255, 255, 255);
-  setFont(doc, 'bold', 18);
-  doc.text(seller?.name || companyName, 15, 18);
-  setFont(doc, 'normal', 9);
-  doc.setTextColor(148, 163, 184);
-  doc.text('Muhasebe Uygulaması', 15, 28);
-
-  setFont(doc, 'normal', 9);
-  doc.setTextColor(148, 163, 184);
-  doc.text(`No: ${transaction.invoice_number || transaction.delivery_note_number || '-'}`, pageWidth - 15, 28, { align: 'right' });
-
-  y = 52;
-
-  // ══════════════════════════════════════════════════════════════
-  // SATICI BİLGİLERİ
-  // ══════════════════════════════════════════════════════════════
-  doc.setTextColor(100, 116, 139);
-  setFont(doc, 'bold', 8);
-  doc.text('SATICI', 15, y);
-  doc.setTextColor(30, 41, 59);
-  setFont(doc, 'bold', 9);
-  doc.text(seller?.name || companyName, 15, y + 6);
-  setFont(doc, 'normal', 8);
-  doc.text(`Vergi No: ${seller?.tax_number || '-'}`, 15, y + 12);
-  doc.text(`Vergi Dairesi: ${seller?.tax_office || '-'}`, 15, y + 18);
-
-  y += 28;
-
-  // ══════════════════════════════════════════════════════════════
-  // İKİ AYRAÇ + FATURA YAZISI + GİB AMBLEMİ
-  // ══════════════════════════════════════════════════════════════
+  // Dikey ayırıcı çizgiler
   doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.3);
-  doc.line(15, y, 65, y);
+  doc.setLineWidth(0.2);
+  doc.line(colCenter - 2, y - 2, colCenter - 2, y + 42);
+  doc.line(colRight - 2, y - 2, colRight - 2, y + 42);
 
-  y += 1;
+  // ── SOL: SATICI + ALICI ──────────────────────────────────────
+  // SATICI
+  doc.setTextColor(100, 116, 139);
+  setFont(doc, 'bold', 7);
+  doc.text('SATICI', colLeft, y);
+  doc.setTextColor(30, 41, 59);
+  setFont(doc, 'bold', 8);
+  doc.text(seller?.name || companyName, colLeft, y + 5);
+  setFont(doc, 'normal', 7);
+  doc.text(`Vergi No: ${seller?.tax_number || '-'}`, colLeft, y + 10);
+  doc.text(`Vergi Dairesi: ${seller?.tax_office || '-'}`, colLeft, y + 15);
+
+  // SATICI | ALICI ayırıcı çizgi
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.15);
+  doc.line(colLeft, y + 20, colCenter - 4, y + 20);
+
+  // ALICI
+  doc.setTextColor(100, 116, 139);
+  setFont(doc, 'bold', 7);
+  doc.text('ALICI', colLeft, y + 24);
+  doc.setTextColor(30, 41, 59);
+  setFont(doc, 'bold', 8);
+  doc.text(buyer?.name || '-', colLeft, y + 29);
+  setFont(doc, 'normal', 7);
+  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, colLeft, y + 34);
+  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, colLeft, y + 39);
+  if (buyer?.address) {
+    doc.text(buyer.address, colLeft, y + 44);
+  }
+
+  // ── ORTA: FATURA + GİB AMBLEMİ ─────────────────────────────
+  const ortaX = (colCenter + colRight - 4) / 2;
+  const ortaAlanH = 44;
 
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 14);
-  doc.text('FATURA', pageWidth / 2, y, { align: 'center' });
+  doc.text('FATURA', ortaX, y + ortaAlanH / 2 - 8, { align: 'center' });
 
-  drawGibEmblem(doc, pageWidth / 2, y + 12, 30);
+  drawGibEmblem(doc, ortaX, y + ortaAlanH / 2 + 6, 30);
 
-  y += 24;
-
-  doc.setDrawColor(0, 0, 0);
-  doc.line(15, y, 65, y);
-
-  y += 1;
-
-  // ══════════════════════════════════════════════════════════════
-  // ALICI BİLGİLERİ + FATURA TARİHİ/NO (Sağ)
-  // ══════════════════════════════════════════════════════════════
-  const rightX = pageWidth - 15;
-
-  doc.setTextColor(100, 116, 139);
-  setFont(doc, 'bold', 8);
-  doc.text('ALICI', 15, y);
-  doc.setTextColor(30, 41, 59);
-  setFont(doc, 'bold', 9);
-  doc.text(buyer?.name || '-', 15, y + 6);
-  setFont(doc, 'normal', 8);
-  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, 15, y + 12);
-  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, 15, y + 18);
-  if (buyer?.address) {
-    doc.text(buyer.address, 15, y + 24);
-  }
-
-  // Sağ: Fatura tarihi ve no (Excel tarzı kenarlık)
-  const faturaBoxX = rightX - 55;
-  const faturaBoxW = 55;
-  const faturaBoxStartY = y - 4;
+  // ── SAĞ: FATURA BİLGİLERİ ──────────────────────────────────
+  const sagW = colEnd - colRight;
+  const diagX = colRight;
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.2);
 
-  // Başlık satırı (dikey çizgi yok, tam genişlik)
-  doc.rect(faturaBoxX, faturaBoxStartY, faturaBoxW, 7, 'S');
+  // Başlık satırı
+  doc.rect(diagX, y - 2, sagW, 7, 'S');
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 7);
-  doc.text('FATURA BİLGİLERİ', faturaBoxX + 2, y);
+  doc.text('FATURA BİLGİLERİ', diagX + 2, y + 3);
 
   // Tarih satırı
-  doc.rect(faturaBoxX, faturaBoxStartY + 7, faturaBoxW, 7, 'S');
-  doc.setTextColor(30, 41, 59);
+  doc.rect(diagX, y + 5, sagW, 7, 'S');
   setFont(doc, 'bold', 7);
-  doc.text('Tarih:', faturaBoxX + 2, y + 7);
+  doc.text('Tarih:', diagX + 2, y + 10);
   setFont(doc, 'normal', 7);
-  doc.text(transaction.transaction_date, faturaBoxX + 18, y + 7);
+  doc.text(transaction.transaction_date, diagX + 18, y + 10);
 
   // No satırı
-  doc.rect(faturaBoxX, faturaBoxStartY + 14, faturaBoxW, 7, 'S');
+  doc.rect(diagX, y + 12, sagW, 7, 'S');
   setFont(doc, 'bold', 7);
-  doc.text('No:', faturaBoxX + 2, y + 14);
+  doc.text('No:', diagX + 2, y + 17);
   setFont(doc, 'normal', 7);
-  doc.text(transaction.invoice_number || transaction.delivery_note_number || '-', faturaBoxX + 18, y + 14);
+  doc.text(transaction.invoice_number || transaction.delivery_note_number || '-', diagX + 18, y + 17);
 
   // İrsaliye satırı (varsa)
-  let irsaliyeRowH = 0;
   if (!isInvoice && transaction.delivery_note_number) {
-    doc.rect(faturaBoxX, faturaBoxStartY + 21, faturaBoxW, 7, 'S');
+    doc.rect(diagX, y + 19, sagW, 7, 'S');
     doc.setTextColor(59, 130, 246);
     setFont(doc, 'bold', 6);
-    doc.text('İrsaliye:', faturaBoxX + 2, y + 21);
+    doc.text('İrsaliye:', diagX + 2, y + 24);
     setFont(doc, 'normal', 6);
-    doc.text(formatDeliveryNoteNumber(transaction.delivery_note_number), faturaBoxX + 18, y + 21);
-    irsaliyeRowH = 7;
+    doc.text(formatDeliveryNoteNumber(transaction.delivery_note_number), diagX + 18, y + 24);
   }
 
-  // Dikey çizgi (başlık | değer) - sadece satırlar kadar
-  const faturaBoxH = 21 + irsaliyeRowH + 7;
+  // Dikey çizgi (başlık | değer)
   doc.setLineWidth(0.15);
-  doc.line(faturaBoxX + 16, faturaBoxStartY + 7, faturaBoxX + 16, faturaBoxStartY + faturaBoxH);
+  doc.line(diagX + 16, y - 2, diagX + 16, y + 26);
 
-  y += 30;
+  y += 50;
 
   // ══════════════════════════════════════════════════════════════
   // KALEMLER TABLOSU
