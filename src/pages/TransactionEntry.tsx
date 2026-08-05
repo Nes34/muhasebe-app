@@ -179,13 +179,13 @@ export default function TransactionEntry() {
     let cashQuery = supabase.from('cash_registers').select('*').eq('is_active', true);
     let bankQuery = supabase.from('bank_accounts').select('*').eq('is_active', true);
 
-    // Seçili firmaya göre filtrele
+    // Kasa/banka için firma filtresi
     if (selectedFirm) {
-      projectsQuery = projectsQuery.eq('firm_id', selectedFirm.id);
       cashQuery = cashQuery.eq('firm_id', selectedFirm.id);
       bankQuery = bankQuery.eq('firm_id', selectedFirm.id);
     }
 
+    // Projeleri firma filtresiz çek (dropdown'da firma seçince filtrelenir)
     const [firmsRes, carilerRes, projectsRes, categoriesRes, typesRes, cashRes, bankRes, productsRes, unitsRes, descriptionsRes] = await Promise.all([
       supabase.from('firms').select('*').eq('is_active', true),
       supabase.from('cariler').select('*').eq('is_active', true).order('code'),
