@@ -46,7 +46,7 @@ export default function AccountStatement() {
     }
     setSelectedCariId('');
     setTransactions([]);
-  }, [selectedFirm, selectedProject]);
+  }, [selectedFirm, selectedProject, allCariler]);
   useEffect(() => { if (selectedCariId) fetchStatement(); }, [selectedCariId, selectedProject, startDate, endDate, includeException]);
 
   const fetchCariler = async () => {
