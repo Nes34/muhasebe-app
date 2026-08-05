@@ -161,7 +161,27 @@ export default function AccountStatement() {
     return { totalDebt, totalCredit, balance: totalDebt - totalCredit };
   };
 
-  const getLabel = (type: string) => ({ income: 'Gelir', expense: 'Gider', invoice: 'Fatura', delivery_note: 'İrsaliye' }[type] || type);
+  const getLabel = (type: string) => ({
+    income: 'Gelir',
+    expense: 'Gider',
+    invoice: 'Fatura',
+    sale_invoice: 'Satış Faturası',
+    purchase_invoice: 'Alış Faturası',
+    delivery_note: 'İrsaliye',
+    sale_delivery_note: 'Satış İrsaliyesi',
+    purchase_delivery_note: 'Alış İrsaliyesi',
+    transfer: 'Transfer',
+    stock_transfer: 'Stok Transferi',
+    cash_transfer: 'Kasa Transferi',
+    bank_transfer: 'Banka Transferi',
+    check: 'Çek',
+    cash_in: 'Kasa Giriş',
+    cash_out: 'Kasa Çıkış',
+    bank_in: 'Banka Giriş',
+    bank_out: 'Banka Çıkış',
+    check_received: 'Alınan Çek',
+    check_given: 'Verilen Çek',
+  }[type] || type);
   const totals = calculateTotals();
 
   const handleTxClick = async (t: any) => {
