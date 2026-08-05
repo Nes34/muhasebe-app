@@ -1151,6 +1151,13 @@ export default function TransactionEntry() {
   const isCheckType = transactionType === 'check';
   const isAnyInvoice = isInvoiceType;
 
+  // Çek ödeme yöntemi seçildiğinde veya çek işlem tipi seçildiğinde ilk kalemi otomatik ekle
+  useEffect(() => {
+    if ((isCheckType || paymentMethod === 'check') && checkItems.length === 0) {
+      initCheckItems();
+    }
+  }, [isCheckType, paymentMethod]);
+
   // Firma/proje/cari değişince irsaliyeleri filtrele (alış/satış faturasında)
   useEffect(() => {
     if (!isInvoiceType || !firmId) {
@@ -1589,28 +1596,20 @@ export default function TransactionEntry() {
             )}
 
             {(isCheckType || ((isIncomeType || isExpenseType) && paymentMethod === 'check')) && (
-              <>
-                <ResizableCell cellId="giris-cek-tip">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Çek Türü</label>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setCheckType('received')}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${checkType === 'received' ? 'bg-green-100 text-green-700 border border-green-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
-                      Alınan
-                    </button>
-                    <button type="button" onClick={() => setCheckType('given')}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${checkType === 'given' ? 'bg-red-100 text-red-700 border border-red-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
-                      Verilen
-                    </button>
-                  </div>
-                </ResizableCell>
-                <ResizableCell cellId="giris-cek-ekle">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">&nbsp;</label>
+              <ResizableCell cellId="giris-cek-ekle">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Çek</label>
+                <div className="flex gap-2">
                   <button type="button" onClick={addCheckItem}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-                    <Plus size={16} /> Kalem Ekle
+                    className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                    <Plus size={14} /> Kalem Ekle
                   </button>
-                </ResizableCell>
-              </>
+                  {checkItems.length > 0 && (
+                    <span className="px-2 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
+                      {checkItems.length} çek
+                    </span>
+                  )}
+                </div>
+              </ResizableCell>
             )}
           </div>
         </div>
