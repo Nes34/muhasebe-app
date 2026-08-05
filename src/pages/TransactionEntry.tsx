@@ -43,6 +43,7 @@ export default function TransactionEntry() {
   const { user } = useAuth();
   const { selectedFirm } = useFirm();
   const [transactionType, setTransactionType] = useState<string>('invoice');
+  const [subType, setSubType] = useState<'sale' | 'purchase'>('sale');
   const [transactionDate, setTransactionDate] = useState(formatDateTR(new Date()));
   const [firmId, setFirmId] = useState('');
   const [cariId, setCariId] = useState('');
@@ -167,6 +168,7 @@ export default function TransactionEntry() {
       id: Date.now().toString(),
       name: templateName,
       transactionType,
+      subType,
       firmId,
       cariId,
       projectId,
@@ -186,6 +188,7 @@ export default function TransactionEntry() {
   // Şablonu yükle
   const loadTemplate = (template: any) => {
     setTransactionType(template.transactionType);
+    setSubType(template.subType);
     setFirmId(template.firmId);
     setCariId(template.cariId);
     setProjectId(template.projectId);
@@ -864,10 +867,10 @@ export default function TransactionEntry() {
         if (itemsError) throw itemsError;
 
         // Alış faturası ise stok artır, satış faturası ise stok azalt
-        if ((isPurchaseInvoice || isSaleInvoice) && items.length > 0) {
+        if ((transactionType === 'purchase_invoice' || transactionType === 'sale_invoice') && items.length > 0) {
           for (const item of items) {
             if (item.product_id && item.quantity > 0) {
-              const stockChange = isPurchaseInvoice ? item.quantity : -item.quantity;
+              const stockChange = transactionType === 'purchase_invoice' ? item.quantity : -item.quantity;
               
               // Ürünün mevcut stokunu al
               const { data: product } = await supabase
@@ -921,12 +924,10 @@ export default function TransactionEntry() {
 
   const isIncomeType = transactionType === 'income';
   const isExpenseType = transactionType === 'expense';
-  const isInvoiceType = transactionType === 'invoice';
-  const isDeliveryNoteType = transactionType === 'delivery_note';
+  const isInvoiceType = transactionType === 'invoice' || transactionType === 'sale_invoice' || transactionType === 'purchase_invoice';
+  const isDeliveryNoteType = transactionType === 'delivery_note' || transactionType === 'sale_delivery_note' || transactionType === 'purchase_delivery_note';
   const isCheckType = transactionType === 'check';
-  const isPurchaseInvoice = transactionType === 'purchase_invoice';
-  const isSaleInvoice = transactionType === 'sale_invoice';
-  const isAnyInvoice = isInvoiceType || isPurchaseInvoice || isSaleInvoice;
+  const isAnyInvoice = isInvoiceType;
 
   // Veritabanına gönderilen gerçek transaction_type
   const getDbTransactionType = () => {
@@ -1039,6 +1040,34 @@ export default function TransactionEntry() {
             })}
           </div>
 
+          {/* Fatura alt seçim: Satış / Alış */}
+          {(transactionType === 'invoice' || transactionType === 'sale_invoice' || transactionType === 'purchase_invoice') && (
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => setTransactionType('sale_invoice')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${transactionType === 'sale_invoice' ? 'bg-teal-100 text-teal-700 border border-teal-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
+                Satış Faturası
+              </button>
+              <button type="button" onClick={() => setTransactionType('purchase_invoice')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${transactionType === 'purchase_invoice' ? 'bg-orange-100 text-orange-700 border border-orange-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
+                Alış Faturası
+              </button>
+            </div>
+          )}
+
+          {/* İrsaliye alt seçim: Satış / Alış */}
+          {(transactionType === 'delivery_note' || transactionType === 'sale_delivery_note' || transactionType === 'purchase_delivery_note') && (
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => setTransactionType('sale_delivery_note')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${transactionType === 'sale_delivery_note' ? 'bg-teal-100 text-teal-700 border border-teal-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
+                Satış İrsaliyesi
+              </button>
+              <button type="button" onClick={() => setTransactionType('purchase_delivery_note')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${transactionType === 'purchase_delivery_note' ? 'bg-orange-100 text-orange-700 border border-orange-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
+                Alış İrsaliyesi
+              </button>
+            </div>
+          )}
+
           {/* Çek alt seçim: Alınan / Verilen */}
           {isCheckType && (
             <div className="mt-3 flex gap-2">
@@ -1146,7 +1175,7 @@ export default function TransactionEntry() {
             {showInvoiceNumber && (
               <ResizableCell cellId="giris-fatura-no">
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  {isIncomeType ? 'Gelir No' : isExpenseType ? 'Gider No' : isPurchaseInvoice ? 'Alış Fatura No' : isSaleInvoice ? 'Satış Fatura No' : 'Fatura No'}
+                  {isIncomeType ? 'Gelir No' : isExpenseType ? 'Gider No' : transactionType === 'purchase_invoice' ? 'Alış Fatura No' : transactionType === 'sale_invoice' ? 'Satış Fatura No' : 'Fatura No'}
                 </label>
                 <input
                   type="text"
