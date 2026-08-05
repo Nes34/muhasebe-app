@@ -503,6 +503,7 @@ export default function TransactionTracking() {
                     <thead className="bg-slate-50">
                       <tr>
                         <ResizableTh columnId="islem-tarih" className="text-left py-2 px-4">Tarih</ResizableTh>
+                        <ResizableTh columnId="islem-irsaliye-no" className="text-left py-2 px-4">İrsaliye No</ResizableTh>
                         <ResizableTh columnId="islem-cari" className="text-left py-2 px-4">Cari</ResizableTh>
                         <ResizableTh columnId="islem-firma" className="text-left py-2 px-4">Firma</ResizableTh>
                         <ResizableTh columnId="islem-proje" className="text-left py-2 px-4">Proje</ResizableTh>
@@ -515,6 +516,7 @@ export default function TransactionTracking() {
                       {items.map(t => (
                         <tr key={t.id} className="border-t border-slate-100 hover:bg-slate-50">
                           <td className="py-3 px-4">{formatDateTR(t.date)}</td>
+                          <td className="py-3 px-4 font-mono text-sm">{t._raw?.delivery_note_number || '-'}</td>
                           <td className="py-3 px-4">{t.cari || '-'}</td>
                           <td className="py-3 px-4">{t.firm || '-'}</td>
                           <td className="py-3 px-4">{t.project || '-'}</td>
