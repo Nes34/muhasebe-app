@@ -85,16 +85,44 @@ export function exportTransactionsToExcel(transactions: Transaction[]) {
   exportToExcel(data, 'islemler', 'İşlemler');
 }
 
-export function exportAccountStatementToExcel(transactions: Transaction[], firmName: string) {
-  const data = transactions.map(t => ({
-    'Tarih': t.transaction_date,
-    'İşlem': getTransactionTypeLabel(t.transaction_type),
-    'Açıklama': t.description || t.invoice_number || '-',
-    'Borç': t.transaction_type === 'income' || t.transaction_type === 'invoice' ? t.amount : 0,
-    'Alacak': t.transaction_type === 'expense' ? t.amount : 0,
-  }));
-  
-  exportToExcel(data, `cari-hesap-${firmName}`, 'Cari Hesap Ekstresi');
+export function exportAccountStatementToExcel(transactions: any[], cariName: string) {
+  let running = 0;
+  const data = transactions.map((t, i) => {
+    const amount = Math.abs(t.amount);
+    const isIncome = t.isIncome;
+    running += isIncome ? amount : -amount;
+
+    const typeLabels: Record<string, string> = {
+      income: 'Gelir', expense: 'Gider', invoice: 'Fatura',
+      sale_invoice: 'Satış Faturası', purchase_invoice: 'Alış Faturası',
+      delivery_note: 'İrsaliye', sale_delivery_note: 'Satış İrsaliyesi',
+      purchase_delivery_note: 'Alış İrsaliyesi',
+      cash_in: 'Kasa Giriş', cash_out: 'Kasa Çıkış',
+      bank_in: 'Banka Giriş', bank_out: 'Banka Çıkış',
+      check_received: 'Alınan Çek', check_given: 'Verilen Çek',
+    };
+    const kaynakLabels: Record<string, string> = {
+      transaction: 'İşlem', check: 'Çek', cash: 'Kasa', bank: 'Banka',
+    };
+
+    return {
+      'Sıra': i + 1,
+      'Tarih': t.date || t.transaction_date || '',
+      'Kaynak': kaynakLabels[t.source] || t.source || '',
+      'İşlem Türü': typeLabels[t.transaction_type] || t.transaction_type || '',
+      'Firma': t.firm?.name || '',
+      'Proje': t.project?.name || '',
+      'Açıklama': t.description || '',
+      'Fatura No': t.invoice_number || '',
+      'İrsaliye No': t.delivery_note_number || '',
+      'Borç (TL)': !isIncome ? amount : '',
+      'Alacak (TL)': isIncome ? amount : '',
+      'Bakiye (TL)': running,
+      'İstisna': t.is_exception ? 'Evet' : '',
+    };
+  });
+
+  exportToExcel(data, `cari-hesap-${cariName}`, 'Cari Hesap Ekstresi');
 }
 
 export function exportChecksToExcel(checks: any[]) {
