@@ -70,6 +70,86 @@ export default function TransactionEntry() {
   const [bankName, setBankName] = useState('');
   const [bankBranch, setBankBranch] = useState('');
   const [dueDate, setDueDate] = useState('');
+
+  // Çoklu çek kalemleri
+  interface CheckItem {
+    check_number: string;
+    bank_name: string;
+    bank_branch: string;
+    amount: number;
+    due_date: string;
+  }
+  const [checkItems, setCheckItems] = useState<CheckItem[]>([]);
+
+  // İlk çek kalemini oluştur
+  const initCheckItems = () => {
+    setCheckItems([{
+      check_number: '',
+      bank_name: '',
+      bank_branch: '',
+      amount: 0,
+      due_date: '',
+    }]);
+  };
+
+  // Yeni çek kalem ekle (son kalemi kopyala, çek no +1, vade +1 ay)
+  const addCheckItem = () => {
+    if (checkItems.length === 0) {
+      initCheckItems();
+      return;
+    }
+    const lastItem = checkItems[checkItems.length - 1];
+
+    // Çek numarasını 1 artır
+    let newCheckNumber = '';
+    const lastNum = parseInt(lastItem.check_number);
+    if (!isNaN(lastNum)) {
+      newCheckNumber = String(lastNum + 1);
+    } else {
+      const match = lastItem.check_number.match(/(.*?)(\d+)(\D*)$/);
+      if (match) {
+        newCheckNumber = match[1] + String(parseInt(match[2]) + 1).padStart(match[2].length, '0') + match[3];
+      } else {
+        newCheckNumber = lastItem.check_number;
+      }
+    }
+
+    // Vade tarihini 1 ay ileri al
+    let newDueDate = '';
+    if (lastItem.due_date) {
+      const parts = lastItem.due_date.split('.');
+      if (parts.length === 3) {
+        let day = parseInt(parts[0]);
+        let month = parseInt(parts[1]);
+        let year = parseInt(parts[2]);
+        month += 1;
+        if (month > 12) { month = 1; year += 1; }
+        const daysInMonth = new Date(year, month, 0).getDate();
+        if (day > daysInMonth) day = daysInMonth;
+        newDueDate = String(day).padStart(2, '0') + '.' + String(month).padStart(2, '0') + '.' + String(year);
+      }
+    }
+
+    setCheckItems([...checkItems, {
+      check_number: newCheckNumber,
+      bank_name: lastItem.bank_name,
+      bank_branch: lastItem.bank_branch,
+      amount: lastItem.amount,
+      due_date: newDueDate,
+    }]);
+  };
+
+  // Çek kalem güncelle
+  const updateCheckItem = (index: number, field: keyof CheckItem, value: any) => {
+    const updated = [...checkItems];
+    updated[index] = { ...updated[index], [field]: value };
+    setCheckItems(updated);
+  };
+
+  // Çek kalem sil
+  const removeCheckItem = (index: number) => {
+    setCheckItems(checkItems.filter((_, i) => i !== index));
+  };
   
   const [firms, setFirms] = useState<Firm[]>([]);
   const [cariler, setCariler] = useState<Cari[]>([]);
@@ -846,27 +926,53 @@ export default function TransactionEntry() {
       if (transactionError) throw transactionError;
 
       // Çek: check işlem tipi veya gelir/gider + çek ödeme yöntemi
-      if ((isCheckType || (paymentMethod === 'check' && (isIncomeType || isExpenseType))) && checkNumber && firmId) {
+      if ((isCheckType || (paymentMethod === 'check' && (isIncomeType || isExpenseType))) && firmId) {
         const finalCheckType = isCheckType ? checkType : (isIncomeType ? 'received' : 'given');
-        const { error: checkError } = await supabase
-          .from('checks')
-          .insert({
-            check_number: checkNumber,
-            check_type: finalCheckType,
-            firm_id: firmId,
-            cari_id: cariId || null,
-            project_id: projectId || null,
-            bank_name: bankName || null,
-            bank_branch: bankBranch || null,
-            amount: totals.grandTotal,
-            issue_date: transactionDate,
-            due_date: dueDate || transactionDate,
-            status: 'pending',
-            transaction_id: transaction.id,
-            notes: description || null,
-          });
-
-        if (checkError) throw checkError;
+        
+        if (checkItems.length > 0) {
+          // Çoklu çek kalemleri
+          const checksToInsert = checkItems
+            .filter(item => item.amount > 0)
+            .map(item => ({
+              check_number: item.check_number,
+              check_type: finalCheckType,
+              firm_id: firmId,
+              cari_id: cariId || null,
+              project_id: projectId || null,
+              bank_name: item.bank_name || null,
+              bank_branch: item.bank_branch || null,
+              amount: item.amount,
+              issue_date: transactionDate,
+              due_date: item.due_date || transactionDate,
+              status: 'pending',
+              transaction_id: transaction.id,
+              notes: description || null,
+            }));
+          if (checksToInsert.length > 0) {
+            const { error: checkError } = await supabase.from('checks').insert(checksToInsert);
+            if (checkError) throw checkError;
+          }
+        } else if (checkNumber) {
+          // Tekli çek (eski yöntem)
+          const { error: checkError } = await supabase
+            .from('checks')
+            .insert({
+              check_number: checkNumber,
+              check_type: finalCheckType,
+              firm_id: firmId,
+              cari_id: cariId || null,
+              project_id: projectId || null,
+              bank_name: bankName || null,
+              bank_branch: bankBranch || null,
+              amount: totals.grandTotal,
+              issue_date: transactionDate,
+              due_date: dueDate || transactionDate,
+              status: 'pending',
+              transaction_id: transaction.id,
+              notes: description || null,
+            });
+          if (checkError) throw checkError;
+        }
       }
 
       // Gelir/Gider için ödeme yöntemi varsa ilgili kaydı oluştur (çek hariç)
@@ -1004,6 +1110,7 @@ export default function TransactionEntry() {
       setBankName('');
       setBankBranch('');
       setDueDate('');
+      setCheckItems([]);
       setPaymentMethod('');
       setCashRegisterId('');
       setBankAccountId('');
@@ -1483,39 +1590,97 @@ export default function TransactionEntry() {
 
             {(isCheckType || ((isIncomeType || isExpenseType) && paymentMethod === 'check')) && (
               <>
-                <ResizableCell cellId="giris-cek-no" minWidth={130}>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Çek No</label>
-                  <input
-                    type="text"
-                    value={checkNumber}
-                    onChange={(e) => setCheckNumber(e.target.value)}
-                    placeholder="Çek numarası"
-                    className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
+                <ResizableCell cellId="giris-cek-tip">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Çek Türü</label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setCheckType('received')}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${checkType === 'received' ? 'bg-green-100 text-green-700 border border-green-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
+                      Alınan
+                    </button>
+                    <button type="button" onClick={() => setCheckType('given')}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${checkType === 'given' ? 'bg-red-100 text-red-700 border border-red-400' : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'}`}>
+                      Verilen
+                    </button>
+                  </div>
                 </ResizableCell>
-                <ResizableCell cellId="giris-cek-banka">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Banka</label>
-                  <input
-                    type="text"
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
-                </ResizableCell>
-                <ResizableCell cellId="giris-cek-vade" minWidth={130}>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Vade</label>
-                  <input
-                    type="text"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    placeholder="gg.aa.yyyy"
-                    className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
+                <ResizableCell cellId="giris-cek-ekle">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">&nbsp;</label>
+                  <button type="button" onClick={addCheckItem}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                    <Plus size={16} /> Kalem Ekle
+                  </button>
                 </ResizableCell>
               </>
             )}
           </div>
         </div>
+
+        {/* Çek Kalemleri Tablosu */}
+        {(isCheckType || ((isIncomeType || isExpenseType) && paymentMethod === 'check')) && checkItems.length > 0 && (
+          <div className="bg-white rounded-xl p-6 border border-slate-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-800">Çek Kalemleri</h3>
+              <button type="button" onClick={addCheckItem}
+                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                <Plus size={14} /> Kalem Ekle
+              </button>
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="py-2 px-2 text-left text-xs">#</th>
+                  <th className="py-2 px-2 text-left text-xs">Çek No</th>
+                  <th className="py-2 px-2 text-left text-xs">Banka</th>
+                  <th className="py-2 px-2 text-left text-xs">Şube</th>
+                  <th className="py-2 px-2 text-left text-xs">Vade</th>
+                  <th className="py-2 px-2 text-right text-xs">Tutar</th>
+                  <th className="py-2 px-2 w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {checkItems.map((item, idx) => (
+                  <tr key={idx} className="border-t border-slate-100 hover:bg-slate-50">
+                    <td className="py-2 px-2 text-slate-400 text-xs">{idx + 1}</td>
+                    <td className="py-2 px-2">
+                      <input type="text" value={item.check_number} onChange={(e) => updateCheckItem(idx, 'check_number', e.target.value)}
+                        className="w-full px-2 py-1 border border-slate-200 rounded text-sm" />
+                    </td>
+                    <td className="py-2 px-2">
+                      <input type="text" value={item.bank_name} onChange={(e) => updateCheckItem(idx, 'bank_name', e.target.value)}
+                        className="w-full px-2 py-1 border border-slate-200 rounded text-sm" />
+                    </td>
+                    <td className="py-2 px-2">
+                      <input type="text" value={item.bank_branch} onChange={(e) => updateCheckItem(idx, 'bank_branch', e.target.value)}
+                        className="w-full px-2 py-1 border border-slate-200 rounded text-sm" />
+                    </td>
+                    <td className="py-2 px-2">
+                      <DateInput value={item.due_date} onChange={(val) => updateCheckItem(idx, 'due_date', val)}
+                        className="w-full px-2 py-1 border border-slate-200 rounded text-sm" />
+                    </td>
+                    <td className="py-2 px-2">
+                      <input type="number" value={item.amount} onChange={(e) => updateCheckItem(idx, 'amount', parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1 border border-slate-200 rounded text-sm text-right" />
+                    </td>
+                    <td className="py-2 px-2">
+                      {checkItems.length > 1 && (
+                        <button onClick={() => removeCheckItem(idx)} className="p-1 text-red-500 hover:text-red-700">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-slate-50 font-bold">
+                  <td colSpan={5} className="py-2 px-2 text-right text-sm">Toplam:</td>
+                  <td className="py-2 px-2 text-right text-sm">{formatCurrency(checkItems.reduce((s, i) => s + i.amount, 0))}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
 
         {showItems && (
           <div className="bg-white rounded-xl p-6 border border-slate-200">

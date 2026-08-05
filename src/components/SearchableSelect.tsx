@@ -119,9 +119,11 @@ export default forwardRef<HTMLInputElement, SearchableSelectProps>(function Sear
         break;
       case 'Tab':
         if (filtered[highlightedIndex]) {
-          handleSelect(filtered[highlightedIndex]);
+          onChange(filtered[highlightedIndex].id, filtered[highlightedIndex]);
+          setSearchTerm(filtered[highlightedIndex].code ? `${filtered[highlightedIndex].code} - ${filtered[highlightedIndex].name}` : filtered[highlightedIndex].name);
+          setIsOpen(false);
+          // blur() yok — bir sonraki alana geçsin
         }
-        // e.preventDefault() yok — bir sonraki alana geçsin
         break;
       case 'Escape':
         setIsOpen(false);
