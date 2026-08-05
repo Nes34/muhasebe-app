@@ -1284,7 +1284,7 @@ export default function TransactionEntry() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-300 overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-300">
           <div className="flex flex-nowrap gap-0 border-t border-slate-300 overflow-x-auto bg-slate-100">
             {showFirm && (
               <ResizableCell cellId="giris-firma" className="bg-slate-100">
