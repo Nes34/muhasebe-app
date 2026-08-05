@@ -105,7 +105,7 @@ export default forwardRef<HTMLInputElement, SearchableSelectProps>(function Sear
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setHighlightedIndex(prev => Math.min(prev + 1, filtered.length - 1));
+        setHighlightedIndex(prev => Math.min(prev + 1, Math.min(filtered.length, 20) - 1));
         break;
       case 'ArrowUp':
         e.preventDefault();
