@@ -1321,17 +1321,13 @@ export default function TransactionEntry() {
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Proje <span className="text-red-500">*</span>
               </label>
-              <select
+              <SearchableSelect
+                options={projects.filter(p => !firmId || p.firm_id === firmId).map(p => ({ id: p.id, name: p.name }))}
                 value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                onChange={(id) => setProjectId(id)}
+                placeholder="Proje ara..."
                 required
-              >
-                <option value="">Seçiniz...</option>
-                {projects.filter(p => !firmId || p.firm_id === firmId).map((project) => (
-                  <option key={project.id} value={project.id}>{project.name}</option>
-                ))}
-              </select>
+              />
               {firmId && projects.filter(p => p.firm_id === firmId).length === 0 && (
                 <p className="text-xs text-amber-600 mt-1">Proje bulunamadı</p>
               )}
@@ -1375,16 +1371,12 @@ export default function TransactionEntry() {
             {showExpenseCategory && (
               <ResizableCell cellId="giris-gider-turu">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Gider Türü</label>
-                <select
+                <SearchableSelect
+                  options={expenseCategories.map(c => ({ id: c.id, name: c.name }))}
                   value={expenseCategoryId}
-                  onChange={(e) => setExpenseCategoryId(e.target.value)}
-                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Seçiniz...</option>
-                  {expenseCategories.map((category) => (
-                    <option key={category.id} value={category.id}>{category.name}</option>
-                  ))}
-                </select>
+                  onChange={(id) => setExpenseCategoryId(id)}
+                  placeholder="Gider türü ara..."
+                />
               </ResizableCell>
             )}
 
@@ -1447,32 +1439,24 @@ export default function TransactionEntry() {
             {(isIncomeType || isExpenseType) && paymentMethod === 'cash' && (
               <ResizableCell cellId="giris-kasa">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Kasa</label>
-                <select
+                <SearchableSelect
+                  options={cashRegisters.map(r => ({ id: r.id, name: r.name }))}
                   value={cashRegisterId}
-                  onChange={(e) => setCashRegisterId(e.target.value)}
-                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Seçiniz...</option>
-                  {cashRegisters.map((register) => (
-                    <option key={register.id} value={register.id}>{register.name}</option>
-                  ))}
-                </select>
+                  onChange={(id) => setCashRegisterId(id)}
+                  placeholder="Kasa ara..."
+                />
               </ResizableCell>
             )}
 
             {(isIncomeType || isExpenseType) && paymentMethod === 'bank' && (
               <ResizableCell cellId="giris-banka">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Banka Hesabı</label>
-                <select
+                <SearchableSelect
+                  options={bankAccounts.map(a => ({ id: a.id, name: `${a.bank_name} - ${a.iban || a.account_number}` }))}
                   value={bankAccountId}
-                  onChange={(e) => setBankAccountId(e.target.value)}
-                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Seçiniz...</option>
-                  {bankAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>{account.bank_name} - {account.iban || account.account_number}</option>
-                  ))}
-                </select>
+                  onChange={(id) => setBankAccountId(id)}
+                  placeholder="Banka ara..."
+                />
               </ResizableCell>
             )}
 
