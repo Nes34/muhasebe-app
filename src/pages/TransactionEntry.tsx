@@ -1594,6 +1594,7 @@ export default function TransactionEntry() {
                                 <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <input
                                   type="text"
+                                  data-product-input={index}
                                   value={item.description}
                                   onChange={(e) => {
                                     updateItem(index, 'description', e.target.value);
@@ -1620,8 +1621,13 @@ export default function TransactionEntry() {
                                       p.barcode?.toLowerCase().includes(item.description.toLowerCase())
                                     ).slice(0, 5);
                                     if (filtered.length === 0) return null;
+                                    const inputEl = document.querySelector(`[data-product-input="${index}"]`);
+                                    const rect = inputEl?.getBoundingClientRect();
+                                    const top = rect ? rect.bottom + 4 : 200;
+                                    const left = rect ? rect.left : 0;
+                                    const width = rect ? rect.width : 400;
                                     return (
-                                      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 999999, maxHeight: '200px', overflowY: 'auto' }} className="w-[400px] bg-white border border-slate-200 rounded-lg shadow-2xl">
+                                      <div style={{ position: 'fixed', top, left, width, zIndex: 999999, maxHeight: '200px', overflowY: 'auto' }} className="bg-white border border-slate-200 rounded-lg shadow-2xl">
                                         {filtered.map(product => (
                                           <div
                                             key={product.id}
