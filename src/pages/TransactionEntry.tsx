@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { formatInvoiceNumberOnSave } from '../lib/invoice';
 import { checkDuplicateInvoice } from '../lib/validation';
@@ -45,10 +44,6 @@ function getTypeIcon(value: string) {
 export default function TransactionEntry() {
   const { user } = useAuth();
   const { selectedFirm } = useFirm();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const editTransaction = (location.state as any)?.editTransaction || null;
-  const [isEditMode, setIsEditMode] = useState(!!editTransaction);
   const [transactionType, setTransactionType] = useState<string>('invoice');
   const [subType, setSubType] = useState<'sale' | 'purchase'>('sale');
   const [transactionDate, setTransactionDate] = useState(formatDateTR(new Date()));
@@ -168,70 +163,6 @@ export default function TransactionEntry() {
   useEffect(() => {
     fetchData();
   }, [selectedFirm]);
-
-  // Düzenleme modu: transaction verisini forma doldur
-  useEffect(() => {
-    if (!editTransaction) return;
-    // fetchData tamamlanmış mı bekle (cariler, firms, projects yüklenmiş olmalı)
-    if (cariler.length === 0 || firms.length === 0) return;
-
-    const t = editTransaction;
-
-    // İşlem tipini belirle
-    const typeMap: Record<string, { type: string; sub: 'sale' | 'purchase' }> = {
-      sale_invoice: { type: 'invoice', sub: 'sale' },
-      purchase_invoice: { type: 'invoice', sub: 'purchase' },
-      sale_delivery_note: { type: 'delivery_note', sub: 'sale' },
-      purchase_delivery_note: { type: 'delivery_note', sub: 'purchase' },
-      income: { type: 'income', sub: 'sale' },
-      expense: { type: 'expense', sub: 'sale' },
-    };
-    const mapped = typeMap[t.transaction_type] || { type: t.transaction_type, sub: 'sale' as const };
-
-    setTransactionType(mapped.type);
-    setSubType(mapped.sub);
-    setTransactionDate(t.transaction_date || formatDateTR(new Date()));
-    setFirmId(t.firm_id || '');
-    setCariId(t.cari_id || '');
-    setProjectId(t.project_id || '');
-    setExpenseCategoryId(t.expense_category_id || '');
-    setInvoiceNumber(t.invoice_number || '');
-    setDeliveryNoteNumber(t.delivery_note_number || '');
-    setDescription(t.description || '');
-    setIsException(t.is_exception || false);
-    setExceptionReason(t.exception_reason || '');
-
-    // İlgili kalemleri çek
-    const loadItems = async () => {
-      const { data: txItems } = await supabase
-        .from('transaction_items')
-        .select('*')
-        .eq('transaction_id', t.id);
-      if (txItems && txItems.length > 0) {
-        setItems(txItems.map((item: any, idx: number) => ({
-          product_id: item.product_id || '',
-          description: item.description || item.product_name || '',
-          unit: item.unit || 'adet',
-          quantity: item.quantity || 0,
-          unit_price: item.unit_price || 0,
-          discount_rate: item.discount_rate || 0,
-          discount_amount: item.discount_amount || 0,
-          vat_rate: item.vat_rate || 20,
-          vat_amount: item.vat_amount || 0,
-          amount: item.amount || 0,
-          withholding_rate: item.withholding_rate || 0,
-          withholding_code: item.withholding_code || '',
-          withholding_description: item.withholding_description || '',
-          _key: Date.now() + idx,
-        })));
-      }
-    };
-    loadItems();
-
-    setIsEditMode(true);
-    setMessage({ type: 'success', text: 'Düzenleme modu: İşlem yüklendi.' });
-    setTimeout(() => setMessage(null), 2000);
-  }, [editTransaction, cariler.length, firms.length]);
 
   const fetchData = async () => {
     let projectsQuery = supabase.from('projects').select('*').eq('status', 'active');
@@ -873,57 +804,27 @@ export default function TransactionEntry() {
 
       const totals = calculateTotals();
       
-      let transaction: any;
-      if (isEditMode && editTransaction) {
-        // Güncelleme modu
-        const { data: updated, error: updateError } = await supabase
-          .from('transactions')
-          .update({
-            transaction_date: transactionDate,
-            transaction_type: getDbTransactionType(),
-            firm_id: firmId || null,
-            cari_id: cariId || null,
-            expense_category_id: expenseCategoryId || null,
-            project_id: projectId || null,
-            amount: totals.grandTotal,
-            invoice_number: (isAnyInvoice || isIncomeType || isExpenseType) && finalInvoiceNumber ? finalInvoiceNumber : null,
-            delivery_note_number: isDeliveryNoteType ? formatInvoiceNumberOnSave(deliveryNoteNumber) : null,
-            is_exception: isException,
-            exception_reason: isException ? exceptionReason : null,
-            description,
-          })
-          .eq('id', editTransaction.id)
-          .select()
-          .single();
-        if (updateError) throw updateError;
-        transaction = updated;
+      const { data: transaction, error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          transaction_date: transactionDate,
+          transaction_type: getDbTransactionType(),
+          firm_id: firmId || null,
+          cari_id: cariId || null,
+          expense_category_id: expenseCategoryId || null,
+          project_id: projectId || null,
+          amount: totals.grandTotal,
+          invoice_number: (isAnyInvoice || isIncomeType || isExpenseType) && finalInvoiceNumber ? finalInvoiceNumber : null,
+          delivery_note_number: isDeliveryNoteType ? formatInvoiceNumberOnSave(deliveryNoteNumber) : null,
+          is_exception: isException,
+          exception_reason: isException ? exceptionReason : null,
+          description,
+          created_by: user?.id || null,
+        })
+        .select()
+        .single();
 
-        // Eski stok kalemlerini sil ve yenilerini ekle
-        await supabase.from('transaction_items').delete().eq('transaction_id', editTransaction.id);
-      } else {
-        // Yeni kayıt
-        const { data: created, error: transactionError } = await supabase
-          .from('transactions')
-          .insert({
-            transaction_date: transactionDate,
-            transaction_type: getDbTransactionType(),
-            firm_id: firmId || null,
-            cari_id: cariId || null,
-            expense_category_id: expenseCategoryId || null,
-            project_id: projectId || null,
-            amount: totals.grandTotal,
-            invoice_number: (isAnyInvoice || isIncomeType || isExpenseType) && finalInvoiceNumber ? finalInvoiceNumber : null,
-            delivery_note_number: isDeliveryNoteType ? formatInvoiceNumberOnSave(deliveryNoteNumber) : null,
-            is_exception: isException,
-            exception_reason: isException ? exceptionReason : null,
-            description,
-            created_by: user?.id || null,
-          })
-          .select()
-          .single();
-        if (transactionError) throw transactionError;
-        transaction = created;
-      }
+      if (transactionError) throw transactionError;
 
       // Çek: check işlem tipi veya gelir/gider + çek ödeme yöntemi
       if ((isCheckType || (paymentMethod === 'check' && (isIncomeType || isExpenseType))) && checkNumber && firmId) {
@@ -1055,14 +956,8 @@ export default function TransactionEntry() {
         }
       }
 
-      setMessage({ type: 'success', text: isEditMode ? 'İşlem başarıyla güncellendi!' : 'İşlem başarıyla kaydedildi!' });
+      setMessage({ type: 'success', text: 'İşlem başarıyla kaydedildi!' });
       
-      if (isEditMode) {
-        // Düzenleme modunda İşlem Takibi'ne dön
-        setTimeout(() => navigate('/islem-takibi'), 1000);
-        return;
-      }
-
       // İrsaliye kaydedildiyse "Faturaya Dönüştür" butonu için bilgileri sakla
       if (isDeliveryNoteType) {
         setLastDeliveryNote({
@@ -1134,22 +1029,12 @@ export default function TransactionEntry() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-          {isEditMode ? 'İşlem Düzenle' : 'İşlem Girişi'}
+          İşlem Girişi
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${activeColors.bg} ${activeColors.text} ${activeColors.border} border`}>
             {transactionTypes.find(t => t.value === transactionType)?.name || transactionType}
           </span>
         </h1>
         <div className="flex gap-2">
-          {isEditMode && (
-            <button
-              type="button"
-              onClick={() => navigate('/islem-takibi')}
-              className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              <X size={16} />
-              İptal
-            </button>
-          )}
           <button
             type="button"
             onClick={() => setShowTemplates(!showTemplates)}
@@ -1914,7 +1799,7 @@ export default function TransactionEntry() {
             className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
             <Save size={18} />
-            {loading ? 'Kaydediliyor...' : isEditMode ? 'Güncelle' : 'Kaydet'}
+            {loading ? 'Kaydediliyor...' : 'Kaydet'}
           </button>
         </div>
       </form>

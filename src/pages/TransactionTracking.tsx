@@ -1,17 +1,45 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDateTR } from '../lib/utils';
 import { exportTransactionsToExcel } from '../lib/excel';
 import { generateInvoicePDF, generateDeliveryNotePDF } from '../lib/pdf';
 import { useFirm } from '../hooks/useFirm';
+import SearchableSelect from '../components/SearchableSelect';
 import type { Transaction, TransactionType, Firm, Project } from '../types';
-import { Search, Edit2, Trash2, ArrowRightLeft, ChevronDown, ChevronRight, Download, FileText } from 'lucide-react';
+import { Search, Edit2, Trash2, ArrowRightLeft, ChevronDown, ChevronRight, Download, FileText, X, Save, Plus, AlertCircle, CheckCircle } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
+
+interface EditFormData {
+  id: string;
+  transaction_date: string;
+  transaction_type: string;
+  firm_id: string;
+  cari_id: string;
+  project_id: string;
+  amount: number;
+  description: string;
+  invoice_number: string;
+  delivery_note_number: string;
+  is_exception: boolean;
+  exception_reason: string;
+}
+
+interface EditItem {
+  id?: string;
+  product_id: string;
+  description: string;
+  unit: string;
+  quantity: number;
+  unit_price: number;
+  vat_rate: number;
+  vat_amount: number;
+  discount_rate: number;
+  discount_amount: number;
+  amount: number;
+}
 
 export default function TransactionTracking() {
   const { selectedFirm, selectedProject } = useFirm();
-  const navigate = useNavigate();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [cashTransactions, setCashTransactions] = useState<any[]>([]);
   const [bankTransactions, setBankTransactions] = useState<any[]>([]);
@@ -19,11 +47,24 @@ export default function TransactionTracking() {
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
   const [firms, setFirms] = useState<Firm[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [cariler, setCariler] = useState<any[]>([]);
   const [carilerMap, setCarilerMap] = useState<Map<string, any>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [expandedTypes, setExpandedTypes] = useState<string[]>([]);
+
+  // Düzenleme modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editMessage, setEditMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [editFormData, setEditFormData] = useState<EditFormData>({
+    id: '', transaction_date: '', transaction_type: '', firm_id: '', cari_id: '', project_id: '',
+    amount: 0, description: '', invoice_number: '', delivery_note_number: '',
+    is_exception: false, exception_reason: '',
+  });
+  const [editItems, setEditItems] = useState<EditItem[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -31,8 +72,7 @@ export default function TransactionTracking() {
 
   const fetchData = async () => {
     setLoading(true);
-    // Transaction'ları çek (join olmadan)
-    let txQuery = supabase.from('transactions').select('id, transaction_date, transaction_type, amount, description, invoice_number, delivery_note_number, cari_id, project_id, firm_id, created_at').order('transaction_date', { ascending: false });
+    let txQuery = supabase.from('transactions').select('id, transaction_date, transaction_type, amount, description, invoice_number, delivery_note_number, cari_id, project_id, firm_id, created_at, is_exception, exception_reason, expense_category_id').order('transaction_date', { ascending: false });
     
     if (selectedFirm) txQuery = txQuery.eq('firm_id', selectedFirm.id);
     if (selectedProject) txQuery = txQuery.eq('project_id', selectedProject.id);
@@ -55,7 +95,7 @@ export default function TransactionTracking() {
       checkQuery = checkQuery.eq('project_id', selectedProject.id);
     }
 
-    const [transactionsRes, typesRes, firmsRes, projectsRes, cashRes, bankRes, checkRes] = await Promise.all([
+    const [transactionsRes, typesRes, firmsRes, projectsRes, cashRes, bankRes, checkRes, cariRes] = await Promise.all([
       txQuery,
       supabase.from('transaction_types').select('*').eq('is_active', true),
       supabase.from('firms').select('*').eq('is_active', true).eq('type', 'both'),
@@ -63,6 +103,7 @@ export default function TransactionTracking() {
       cashQuery,
       bankQuery,
       checkQuery,
+      supabase.from('cariler').select('id, name, code').eq('is_active', true).order('code'),
     ]);
 
     const txData = (transactionsRes.data || []) as Transaction[];
@@ -73,18 +114,11 @@ export default function TransactionTracking() {
     if (cashRes.data) setCashTransactions(cashRes.data);
     if (bankRes.data) setBankTransactions(bankRes.data);
     if (checkRes.data) setChecks(checkRes.data);
+    if (cariRes.data) setCariler(cariRes.data);
 
-    // Tüm carileri çek (sadece ilgili olanları değil, hepsini - harita için)
-    const { data: cariData } = await supabase.from('cariler').select('id, name');
-    if (cariData) {
+    if (cariRes.data) {
       const newMap = new Map<string, any>();
-      cariData.forEach((c: any) => newMap.set(c.id, c));
-      setCarilerMap(newMap);
-    }
-
-    if (cariData) {
-      const newMap = new Map<string, any>();
-      cariData.forEach((c: any) => newMap.set(c.id, c));
+      cariRes.data.forEach((c: any) => newMap.set(c.id, c));
       setCarilerMap(newMap);
     }
 
@@ -92,23 +126,12 @@ export default function TransactionTracking() {
   };
 
   const typeLabels: Record<string, string> = {
-    income: 'Gelir',
-    expense: 'Gider',
-    invoice: 'Fatura',
-    sale_invoice: 'Satış Faturası',
-    purchase_invoice: 'Alış Faturası',
-    delivery_note: 'İrsaliye',
-    sale_delivery_note: 'Satış İrsaliyesi',
-    purchase_delivery_note: 'Alış İrsaliyesi',
-    cash: 'Nakit',
-    cash_in: 'Kasa Giriş',
-    cash_out: 'Kasa Çıkış',
-    bank: 'Banka',
-    bank_in: 'Banka Giriş',
-    bank_out: 'Banka Çıkış',
-    check: 'Çek',
-    check_received: 'Alınan Çek',
-    check_given: 'Verilen Çek',
+    income: 'Gelir', expense: 'Gider', invoice: 'Fatura',
+    sale_invoice: 'Satış Faturası', purchase_invoice: 'Alış Faturası',
+    delivery_note: 'İrsaliye', sale_delivery_note: 'Satış İrsaliyesi', purchase_delivery_note: 'Alış İrsaliyesi',
+    cash_in: 'Kasa Giriş', cash_out: 'Kasa Çıkış',
+    bank_in: 'Banka Giriş', bank_out: 'Banka Çıkış',
+    check_received: 'Alınan Çek', check_given: 'Verilen Çek',
   };
 
   const typeColors: Record<string, string> = {
@@ -128,118 +151,207 @@ export default function TransactionTracking() {
     check_given: 'bg-rose-100 text-rose-700 border-rose-200',
   };
 
-  const getTypeLabel = (type: string) => {
-    // Önce statik label'lardan kontrol et
-    if (typeLabels[type]) return typeLabels[type];
-    // Sonra veritabanından gelen türlerden kontrol et
-    const dbType = transactionTypes.find(t => t.value === type);
-    if (dbType) return dbType.name;
-    // Hiçbiri yoksa type'ı olduğu gibi göster
-    return type;
-  };
+  const getTypeLabel = (type: string) => typeLabels[type] || transactionTypes.find(t => t.value === type)?.name || type;
+  const getTypeColor = (type: string) => typeColors[type] || 'bg-slate-100 text-slate-700 border-slate-200';
 
-  const getTypeColor = (type: string) => {
-    return typeColors[type] || 'bg-slate-100 text-slate-700 border-slate-200';
-  };
-
-  // İsim haritaları oluştur (state değişkenlerinden)
   const firmMap = new Map(firms.map((f: any) => [f.id, f.name]));
   const projMap = new Map(projects.map((p: any) => [p.id, p.name]));
 
-  // Tüm işlemleri birleştir (transactions + nakit + banka + çek)
   const allItems = [
     ...transactions.map(t => ({
-      id: t.id,
-      type: t.transaction_type,
-      date: t.transaction_date,
+      id: t.id, type: t.transaction_type, date: t.transaction_date,
       cari: carilerMap.get(t.cari_id)?.name || '-',
       firm: firmMap.get(t.firm_id) || '-',
       project: projMap.get(t.project_id) || '-',
-      description: t.description || '-',
-      amount: t.amount,
-      invoice_number: t.invoice_number || '',
-      created_at: t.created_at,
-      _raw: t,
+      description: t.description || '-', amount: t.amount,
+      invoice_number: t.invoice_number || '', created_at: t.created_at, _raw: t,
     })),
-      ...cashTransactions.map(t => ({
-      id: t.id,
-      type: t.transaction_type === 'in' ? 'cash_in' : 'cash_out',
+    ...cashTransactions.map(t => ({
+      id: t.id, type: t.transaction_type === 'in' ? 'cash_in' : 'cash_out',
       date: t.created_at?.split('T')[0] || '',
-      cari: carilerMap.get(t.cari_id)?.name || '-',
-      firm: '-',
+      cari: carilerMap.get(t.cari_id)?.name || '-', firm: '-',
       project: projMap.get(t.project_id) || '-',
-      description: 'Kasa hareketi',
-      amount: t.amount,
-      invoice_number: '',
-      created_at: t.created_at,
-      _raw: t,
+      description: 'Kasa hareketi', amount: t.amount, invoice_number: '', created_at: t.created_at, _raw: t,
     })),
     ...bankTransactions.map(t => ({
-      id: t.id,
-      type: t.transaction_type === 'in' ? 'bank_in' : 'bank_out',
+      id: t.id, type: t.transaction_type === 'in' ? 'bank_in' : 'bank_out',
       date: t.created_at?.split('T')[0] || '',
-      cari: carilerMap.get(t.cari_id)?.name || '-',
-      firm: '-',
+      cari: carilerMap.get(t.cari_id)?.name || '-', firm: '-',
       project: projMap.get(t.project_id) || '-',
-      description: 'Banka hareketi',
-      amount: t.amount,
-      invoice_number: '',
-      created_at: t.created_at,
-      _raw: t,
+      description: 'Banka hareketi', amount: t.amount, invoice_number: '', created_at: t.created_at, _raw: t,
     })),
-      ...checks.map(t => ({
-      id: t.id,
-      type: t.check_type === 'received' ? 'check_received' : 'check_given',
+    ...checks.map(t => ({
+      id: t.id, type: t.check_type === 'received' ? 'check_received' : 'check_given',
       date: t.due_date || t.created_at?.split('T')[0] || '',
       cari: carilerMap.get(t.cari_id)?.name || '-',
       firm: firmMap.get(t.firm_id) || '-',
       project: projMap.get(t.project_id) || '-',
       description: `Çek No: ${t.check_number || '-'} (${t.status === 'pending' ? 'Bekleyen' : t.status === 'collected' ? 'Tahsil' : t.status === 'paid' ? 'Ödenen' : t.status})`,
-      amount: t.amount,
-      invoice_number: '',
-      created_at: t.created_at,
-      _raw: t,
+      amount: t.amount, invoice_number: '', created_at: t.created_at, _raw: t,
     })),
   ].sort((a, b) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime());
 
-  // Her tür için işlemleri grupla
   const groupedTransactions = allItems.reduce((acc, item) => {
-    const type = item.type;
-    if (!acc[type]) acc[type] = [];
-    acc[type].push(item);
+    if (!acc[item.type]) acc[item.type] = [];
+    acc[item.type].push(item);
     return acc;
   }, {} as Record<string, typeof allItems>);
 
-  // Filtrelenmiş işlemler
   const filteredGrouped = Object.entries(groupedTransactions).reduce((acc, [type, items]) => {
     if (filterType !== 'all' && type !== filterType) return acc;
-    
     const filtered = items.filter(t =>
       t.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (t.firm as string)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.invoice_number?.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    
     if (filtered.length > 0) acc[type] = filtered;
     return acc;
   }, {} as Record<string, typeof allItems>);
 
-  const toggleType = (type: string) => {
-    setExpandedTypes(prev =>
-      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
-    );
+  const toggleType = (type: string) => setExpandedTypes(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]);
+  const expandAll = () => setExpandedTypes(Object.keys(filteredGrouped));
+  const collapseAll = () => setExpandedTypes([]);
+
+  // Fatura/irsaliye tipi mi?
+  const isInvoiceType = (type: string) => ['invoice', 'sale_invoice', 'purchase_invoice', 'delivery_note', 'sale_delivery_note', 'purchase_delivery_note'].includes(type);
+  const isDeliveryNote = (type: string) => ['delivery_note', 'sale_delivery_note', 'purchase_delivery_note'].includes(type);
+
+  // Düzenleme modalını aç
+  const handleEdit = async (raw: Transaction) => {
+    setEditModalOpen(true);
+    setEditLoading(true);
+    setEditMessage(null);
+
+    setEditFormData({
+      id: raw.id,
+      transaction_date: raw.transaction_date || '',
+      transaction_type: raw.transaction_type,
+      firm_id: raw.firm_id || '',
+      cari_id: raw.cari_id || '',
+      project_id: raw.project_id || '',
+      amount: raw.amount || 0,
+      description: raw.description || '',
+      invoice_number: raw.invoice_number || '',
+      delivery_note_number: raw.delivery_note_number || '',
+      is_exception: raw.is_exception || false,
+      exception_reason: raw.exception_reason || '',
+    });
+
+    // Stok kalemlerini çek
+    const { data: items } = await supabase.from('transaction_items').select('*').eq('transaction_id', raw.id);
+    if (items && items.length > 0) {
+      setEditItems(items.map((item: any) => ({
+        id: item.id, product_id: item.product_id || '', description: item.description || '',
+        unit: item.unit || 'adet', quantity: item.quantity || 0, unit_price: item.unit_price || 0,
+        vat_rate: item.vat_rate || 20, vat_amount: item.vat_amount || 0,
+        discount_rate: item.discount_rate || 0, discount_amount: item.discount_amount || 0,
+        amount: item.amount || 0,
+      })));
+    } else {
+      setEditItems([]);
+    }
+
+    setEditLoading(false);
   };
 
-  const expandAll = () => {
-    setExpandedTypes(Object.keys(filteredGrouped));
+  // Düzenlemeyi kaydet
+  const handleSaveEdit = async () => {
+    setEditSaving(true);
+    setEditMessage(null);
+
+    try {
+      // Toplam tutarı hesapla (eğer kalem varsa ondan, yoksa formdan)
+      const totalAmount = editItems.length > 0
+        ? editItems.reduce((sum, item) => sum + (item.amount || 0), 0)
+        : editFormData.amount;
+
+      const { error } = await supabase
+        .from('transactions')
+        .update({
+          transaction_date: editFormData.transaction_date,
+          firm_id: editFormData.firm_id || null,
+          cari_id: editFormData.cari_id || null,
+          project_id: editFormData.project_id || null,
+          amount: totalAmount,
+          description: editFormData.description,
+          invoice_number: editFormData.invoice_number || null,
+          delivery_note_number: editFormData.delivery_note_number || null,
+          is_exception: editFormData.is_exception,
+          exception_reason: editFormData.is_exception ? editFormData.exception_reason : null,
+        })
+        .eq('id', editFormData.id);
+
+      if (error) throw error;
+
+      // Stok kalemlerini güncelle
+      if (isInvoiceType(editFormData.transaction_type)) {
+        // Eski kalemleri sil
+        await supabase.from('transaction_items').delete().eq('transaction_id', editFormData.id);
+
+        // Yeni kalemleri ekle
+        if (editItems.length > 0) {
+          const itemsToInsert = editItems.map((item, idx) => ({
+            transaction_id: editFormData.id,
+            product_id: item.product_id || null,
+            description: item.description,
+            unit: item.unit,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            vat_rate: item.vat_rate,
+            vat_amount: item.vat_amount,
+            discount_rate: item.discount_rate,
+            discount_amount: item.discount_amount,
+            amount: item.amount,
+            sort_order: idx,
+          }));
+          await supabase.from('transaction_items').insert(itemsToInsert);
+        }
+      }
+
+      setEditMessage({ type: 'success', text: 'İşlem başarıyla güncellendi!' });
+      setTimeout(() => {
+        setEditModalOpen(false);
+        setEditMessage(null);
+        fetchData();
+      }, 1000);
+    } catch (err: any) {
+      setEditMessage({ type: 'error', text: err.message || 'Güncelleme hatası!' });
+    } finally {
+      setEditSaving(false);
+    }
   };
 
-  const collapseAll = () => {
-    setExpandedTypes([]);
+  // Stok kalemi ekle
+  const addEditItem = () => {
+    setEditItems([...editItems, {
+      product_id: '', description: '', unit: 'adet', quantity: 0, unit_price: 0,
+      vat_rate: 20, vat_amount: 0, discount_rate: 0, discount_amount: 0, amount: 0,
+    }]);
   };
 
-  const handleEdit = (transaction: Transaction) => {
-    navigate('/islem-girisi', { state: { editTransaction: transaction } });
+  // Stok kalemi sil
+  const removeEditItem = (index: number) => {
+    setEditItems(editItems.filter((_, i) => i !== index));
+  };
+
+  // Stok kalemi güncelle
+  const updateEditItem = (index: number, field: keyof EditItem, value: any) => {
+    const updated = [...editItems];
+    (updated[index] as any)[field] = value;
+
+    // Tutar hesaplama
+    if (['quantity', 'unit_price', 'discount_rate', 'vat_rate'].includes(field)) {
+      const item = updated[index];
+      const net = (item.quantity || 0) * (item.unit_price || 0);
+      const discount = net * ((item.discount_rate || 0) / 100);
+      const afterDiscount = net - discount;
+      const vat = afterDiscount * ((item.vat_rate || 0) / 100);
+      item.discount_amount = discount;
+      item.vat_amount = vat;
+      item.amount = afterDiscount + vat;
+    }
+
+    setEditItems(updated);
   };
 
   const handleDelete = async (id: string) => {
@@ -249,11 +361,8 @@ export default function TransactionTracking() {
     }
   };
 
-  // İstatistikler
   const stats = Object.entries(groupedTransactions).map(([type, items]) => ({
-    type,
-    label: getTypeLabel(type),
-    count: items.length,
+    type, label: getTypeLabel(type), count: items.length,
     total: items.reduce((sum, t) => sum + (t.amount || 0), 0),
   }));
 
@@ -274,53 +383,28 @@ export default function TransactionTracking() {
         </h1>
         <div className="flex gap-2">
           <button onClick={() => exportTransactionsToExcel(transactions)} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"><Download size={16} /> Excel</button>
-          <button onClick={expandAll} className="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
-            Tümünü Aç
-          </button>
-          <button onClick={collapseAll} className="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
-            Tümünü Kapat
-          </button>
+          <button onClick={expandAll} className="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Tümünü Aç</button>
+          <button onClick={collapseAll} className="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Tümünü Kapat</button>
         </div>
       </div>
 
-
-      {/* İstatistikler */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
         {stats.map(stat => (
-          <button
-            key={stat.type}
-            onClick={() => setFilterType(filterType === stat.type ? 'all' : stat.type)}
-            className={`p-3 rounded-xl border-2 transition-all text-left ${
-              filterType === stat.type
-                ? 'border-blue-500 bg-blue-50'
-                : 'border-slate-200 bg-white hover:border-slate-300'
-            }`}
-          >
-            <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium mb-1 ${getTypeColor(stat.type)}`}>
-              {stat.label}
-            </span>
+          <button key={stat.type} onClick={() => setFilterType(filterType === stat.type ? 'all' : stat.type)}
+            className={`p-3 rounded-xl border-2 transition-all text-left ${filterType === stat.type ? 'border-blue-500 bg-blue-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+            <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium mb-1 ${getTypeColor(stat.type)}`}>{stat.label}</span>
             <p className="text-lg font-bold text-slate-800">{formatCurrency(stat.total)}</p>
           </button>
         ))}
       </div>
 
-      {/* Arama ve Filtre */}
       <div className="flex flex-wrap gap-4 mb-4">
         <div className="relative flex-1 md:w-96">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="İşlem ara..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
+          <input type="text" placeholder="İşlem ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
         </div>
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="px-4 py-2 border border-slate-300 rounded-lg"
-        >
+        <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="px-4 py-2 border border-slate-300 rounded-lg">
           <option value="all">Tüm Türler</option>
           {transactionTypes.map(type => (
             <option key={type.value} value={type.value}>{type.name}</option>
@@ -328,41 +412,28 @@ export default function TransactionTracking() {
         </select>
       </div>
 
-      {/* İşlem Grupları */}
       <div className="space-y-4">
         {Object.entries(filteredGrouped).map(([type, items]) => {
           const isExpanded = expandedTypes.includes(type);
           const typeTotal = items.reduce((sum, t) => sum + (t.amount || 0), 0);
-
           return (
             <div key={type} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              {/* Grup Başlığı */}
-              <button
-                onClick={() => toggleType(type)}
-                className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
-              >
+              <button onClick={() => toggleType(type)} className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-3">
                   {isExpanded ? <ChevronDown size={20} className="text-slate-500" /> : <ChevronRight size={20} className="text-slate-500" />}
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getTypeColor(type)}`}>
-                    {getTypeLabel(type)}
-                  </span>
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getTypeColor(type)}`}>{getTypeLabel(type)}</span>
                   <span className="text-sm text-slate-500">{items.length} işlem</span>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-slate-800">{formatCurrency(typeTotal)}</p>
-                  <p className="text-xs text-slate-500">Toplam Tutar</p>
-                </div>
+                <p className="font-bold text-slate-800">{formatCurrency(typeTotal)}</p>
               </button>
-
-              {/* İşlem Listesi */}
               {isExpanded && (
                 <div className="border-t border-slate-200">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50">
                       <tr>
                         <ResizableTh columnId="islem-tarih" className="text-left py-2 px-4">Tarih</ResizableTh>
-                        <ResizableTh columnId="islem-firma" className="text-left py-2 px-4">Cari</ResizableTh>
-                        <ResizableTh columnId="islem-firma-adi" className="text-left py-2 px-4">Firma</ResizableTh>
+                        <ResizableTh columnId="islem-cari" className="text-left py-2 px-4">Cari</ResizableTh>
+                        <ResizableTh columnId="islem-firma" className="text-left py-2 px-4">Firma</ResizableTh>
                         <ResizableTh columnId="islem-proje" className="text-left py-2 px-4">Proje</ResizableTh>
                         <ResizableTh columnId="islem-aciklama" className="text-left py-2 px-4">Açıklama</ResizableTh>
                         <ResizableTh columnId="islem-tutar" className="text-right py-2 px-4">Tutar</ResizableTh>
@@ -380,10 +451,9 @@ export default function TransactionTracking() {
                           <td className="py-3 px-4 text-right font-medium">{formatCurrency(t.amount)}</td>
                           <td className="py-3 px-4 text-center">
                             <div className="flex items-center justify-center gap-1">
-                              {(t.type === 'invoice' || t.type === 'delivery_note' || t.type === 'sale_invoice' || t.type === 'purchase_invoice' || t.type === 'sale_delivery_note' || t.type === 'purchase_delivery_note') && (
+                              {isInvoiceType(t.type) && (
                                 <button onClick={() => {
-                                  const isDeliveryNote = ['delivery_note', 'sale_delivery_note', 'purchase_delivery_note'].includes(t.type);
-                                  if (isDeliveryNote) {
+                                  if (isDeliveryNote(t.type)) {
                                     generateDeliveryNotePDF(t._raw, t.firm || '', carilerMap.get(t._raw.cari_id) || null);
                                   } else {
                                     generateInvoicePDF(t._raw, t.firm || '', carilerMap.get(t._raw.cari_id) || null);
@@ -392,9 +462,12 @@ export default function TransactionTracking() {
                                   <FileText size={14} />
                                 </button>
                               )}
-                              <button onClick={() => handleEdit(t._raw)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Düzenle">
-                                <Edit2 size={14} />
-                              </button>
+                              {/* Yalnızca transactions tablosundaki kayıtları düzenleyebiliriz */}
+                              {t._raw?.transaction_type && (
+                                <button onClick={() => handleEdit(t._raw)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Düzenle">
+                                  <Edit2 size={14} />
+                                </button>
+                              )}
                               <button onClick={() => handleDelete(t.id)} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Sil">
                                 <Trash2 size={14} />
                               </button>
@@ -409,7 +482,6 @@ export default function TransactionTracking() {
             </div>
           );
         })}
-
         {Object.keys(filteredGrouped).length === 0 && (
           <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
             <ArrowRightLeft size={48} className="mx-auto text-slate-300 mb-4" />
@@ -417,6 +489,177 @@ export default function TransactionTracking() {
           </div>
         )}
       </div>
+
+      {/* ===== DÜZENLEME MODALI ===== */}
+      {editModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
+              <h2 className="text-lg font-semibold text-slate-800">İşlemi Düzenle</h2>
+              <button onClick={() => setEditModalOpen(false)} className="p-1 hover:bg-slate-100 rounded"><X size={20} /></button>
+            </div>
+
+            {editLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <div className="p-6 space-y-4">
+                {/* Mesaj */}
+                {editMessage && (
+                  <div className={`p-3 rounded-lg flex items-center gap-2 ${editMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                    {editMessage.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+                    {editMessage.text}
+                  </div>
+                )}
+
+                {/* İlk satır: Tarih + Tür */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Tarih <span className="text-red-500">*</span></label>
+                    <input type="text" value={editFormData.transaction_date}
+                      onChange={(e) => setEditFormData({ ...editFormData, transaction_date: e.target.value })}
+                      placeholder="gg.aa.yyyy"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">İşlem Türü</label>
+                    <input type="text" value={getTypeLabel(editFormData.transaction_type)} disabled
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-500" />
+                  </div>
+                </div>
+
+                {/* İkinci satır: Firma + Cari */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Firma <span className="text-red-500">*</span></label>
+                    <SearchableSelect
+                      options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
+                      value={editFormData.firm_id}
+                      onChange={(id) => setEditFormData({ ...editFormData, firm_id: id })}
+                      placeholder="Firma ara..." />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Cari <span className="text-red-500">*</span></label>
+                    <SearchableSelect
+                      options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
+                      value={editFormData.cari_id}
+                      onChange={(id) => setEditFormData({ ...editFormData, cari_id: id })}
+                      placeholder="Cari ara..." />
+                  </div>
+                </div>
+
+                {/* Üçüncü satır: Proje */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Proje <span className="text-red-500">*</span></label>
+                  <select value={editFormData.project_id}
+                    onChange={(e) => setEditFormData({ ...editFormData, project_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                    <option value="">Proje Seçiniz...</option>
+                    {projects.filter(p => !editFormData.firm_id || p.firm_id === editFormData.firm_id).map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Dördüncü satır: Fatura No + İrsaliye No */}
+                {isInvoiceType(editFormData.transaction_type) && (
+                  <div className="grid grid-cols-2 gap-4">
+                    {!isDeliveryNote(editFormData.transaction_type) && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Fatura No</label>
+                        <input type="text" value={editFormData.invoice_number}
+                          onChange={(e) => setEditFormData({ ...editFormData, invoice_number: e.target.value })}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">İrsaliye No</label>
+                      <input type="text" value={editFormData.delivery_note_number}
+                        onChange={(e) => setEditFormData({ ...editFormData, delivery_note_number: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Tutar (kalem yoksa) */}
+                {editItems.length === 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Tutar</label>
+                    <input type="number" value={editFormData.amount}
+                      onChange={(e) => setEditFormData({ ...editFormData, amount: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                  </div>
+                )}
+
+                {/* Açıklama */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Açıklama</label>
+                  <textarea value={editFormData.description}
+                    onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                </div>
+
+                {/* Stok Kalemleri (fatura/irsaliye ise) */}
+                {isInvoiceType(editFormData.transaction_type) && (
+                  <div className="border-t border-slate-200 pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-slate-700">Stok Kalemleri</h3>
+                      <button onClick={addEditItem} className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">
+                        <Plus size={12} /> Ekle
+                      </button>
+                    </div>
+                    {editItems.length > 0 && (
+                      <div className="space-y-2">
+                        {editItems.map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-2 bg-slate-50 rounded-lg p-2">
+                            <input type="text" value={item.description} placeholder="Açıklama"
+                              onChange={(e) => updateEditItem(idx, 'description', e.target.value)}
+                              className="flex-1 px-2 py-1 border border-slate-300 rounded text-xs" />
+                            <input type="text" value={item.unit} placeholder="Birim"
+                              onChange={(e) => updateEditItem(idx, 'unit', e.target.value)}
+                              className="w-16 px-2 py-1 border border-slate-300 rounded text-xs" />
+                            <input type="number" value={item.quantity} placeholder="Miktar"
+                              onChange={(e) => updateEditItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                              className="w-20 px-2 py-1 border border-slate-300 rounded text-xs" />
+                            <input type="number" value={item.unit_price} placeholder="Birim Fiyat"
+                              onChange={(e) => updateEditItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
+                              className="w-24 px-2 py-1 border border-slate-300 rounded text-xs" />
+                            <input type="number" value={item.vat_rate} placeholder="KDV %"
+                              onChange={(e) => updateEditItem(idx, 'vat_rate', parseFloat(e.target.value) || 0)}
+                              className="w-16 px-2 py-1 border border-slate-300 rounded text-xs" />
+                            <span className="text-xs font-medium text-slate-600 w-24 text-right">{formatCurrency(item.amount)}</span>
+                            <button onClick={() => removeEditItem(idx)} className="p-1 text-red-500 hover:bg-red-50 rounded">
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
+                        <div className="text-right text-sm font-bold text-slate-800 pt-2 border-t border-slate-200">
+                          Toplam: {formatCurrency(editItems.reduce((sum, item) => sum + (item.amount || 0), 0))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Alt但onlar */}
+            <div className="sticky bottom-0 bg-white border-t border-slate-200 px-6 py-4 flex justify-end gap-2">
+              <button onClick={() => setEditModalOpen(false)}
+                className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm">
+                İptal
+              </button>
+              <button onClick={handleSaveEdit} disabled={editSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2 disabled:opacity-50">
+                <Save size={16} />
+                {editSaving ? 'Kaydediliyor...' : 'Kaydet'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
