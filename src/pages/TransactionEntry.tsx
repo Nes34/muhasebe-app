@@ -289,6 +289,12 @@ export default function TransactionEntry() {
         setOpenProductDropdown(null);
         fetchPendingOrderItems(cariId, firmId, projectId);
       }
+      // Alt+S = Kaydet
+      if (e.altKey && e.key === 's') {
+        e.preventDefault();
+        const form = document.querySelector('form');
+        if (form) form.requestSubmit();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
