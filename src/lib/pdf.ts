@@ -568,6 +568,14 @@ export function generateDeliveryNotePDF(transaction: Transaction, companyName = 
     doc.text(`${transaction.linked_order?.order_date || '-'} - ${formatDeliveryNoteNumber(transaction.linked_order?.order_number || '-')}`, diagX + 18, y + 23);
   }
 
+  // Dikey çizgi (Tarih üstünden No/İrsaliye altına kadar)
+  const dikeyCizgiBitis = hasSiparis ? y + 25 : y + 18;
+  doc.setDrawColor(200, 210, 220);
+  doc.setLineWidth(0.15);
+  doc.line(diagX + 16, y + 4, diagX + 16, dikeyCizgiBitis);
+
+  y += irsBoxH + 16;
+
   // ══════════════════════════════════════════════════════════════
   // KALEMLER TABLOSU
   // ══════════════════════════════════════════════════════════════

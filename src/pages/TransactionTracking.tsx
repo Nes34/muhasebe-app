@@ -633,36 +633,35 @@ export default function TransactionTracking() {
                 </div>
 
                 {/* Dördüncü satır: Fatura No + İrsaliye No */}
-                {isInvoiceType(editFormData.transaction_type) && (
-                  <div className="grid grid-cols-2 gap-4">
-                    {!isDeliveryNote(editFormData.transaction_type) && (
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Fatura No</label>
-                        <input type="text" value={editFormData.invoice_number}
-                          onChange={(e) => setEditFormData({ ...editFormData, invoice_number: e.target.value })}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-                      </div>
-                    )}
+                <div className="grid grid-cols-2 gap-4">
+                  {isInvoiceType(editFormData.transaction_type) && !isDeliveryNote(editFormData.transaction_type) && (
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">İrsaliye No</label>
-                      {(editFormData.transaction_type === 'sale_invoice' || editFormData.transaction_type === 'purchase_invoice') ? (
-                        <div className="flex gap-2">
-                          <input type="text" value={editFormData.delivery_note_number} readOnly
-                            placeholder={editSelectedDNIds.length > 0 ? `${editSelectedDNIds.length} irsaliye seçildi` : "İrsaliye seçin..."}
-                            className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-50 cursor-default" />
-                          <button type="button" onClick={() => setEditShowDNModal(true)}
-                            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
-                            {editSelectedDNIds.length > 0 ? `${editSelectedDNIds.length} Seçili` : 'İrsaliye Seç'}
-                          </button>
-                        </div>
-                      ) : (
-                        <input type="text" value={editFormData.delivery_note_number}
-                          onChange={(e) => setEditFormData({ ...editFormData, delivery_note_number: e.target.value })}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-                      )}
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Fatura No</label>
+                      <input type="text" value={editFormData.invoice_number}
+                        onChange={(e) => setEditFormData({ ...editFormData, invoice_number: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
                     </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">İrsaliye No</label>
+                    {(editFormData.transaction_type === 'sale_invoice' || editFormData.transaction_type === 'purchase_invoice') ? (
+                      <div className="flex gap-2">
+                        <input type="text" value={editFormData.delivery_note_number} readOnly
+                          placeholder={editSelectedDNIds.length > 0 ? `${editSelectedDNIds.length} irsaliye seçildi` : "İrsaliye seçin..."}
+                          className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-50 cursor-default" />
+                        <button type="button" onClick={() => setEditShowDNModal(true)}
+                          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+                          {editSelectedDNIds.length > 0 ? `${editSelectedDNIds.length} Seçili` : 'İrsaliye Seç'}
+                        </button>
+                      </div>
+                    ) : (
+                      <input type="text" value={editFormData.delivery_note_number}
+                        onChange={(e) => setEditFormData({ ...editFormData, delivery_note_number: e.target.value })}
+                        placeholder="İrsaliye numarası"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                    )}
                   </div>
-                )}
+                </div>
 
                 {/* Tutar (kalem yoksa) */}
                 {editItems.length === 0 && (
