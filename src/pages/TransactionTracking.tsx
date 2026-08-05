@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDateTR } from '../lib/utils';
 import { exportTransactionsToExcel } from '../lib/excel';
 import { generateInvoicePDF, generateDeliveryNotePDF } from '../lib/pdf';
 import { useFirm } from '../hooks/useFirm';
-import SearchableSelect from '../components/SearchableSelect';
 import type { Transaction, TransactionType, Firm, Project } from '../types';
-import { Search, Edit2, Trash2, ArrowRightLeft, ChevronDown, ChevronRight, Save, X, AlertCircle, CheckCircle, Download, FileText } from 'lucide-react';
+import { Search, Edit2, Trash2, ArrowRightLeft, ChevronDown, ChevronRight, Download, FileText } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 
 export default function TransactionTracking() {
   const { selectedFirm, selectedProject } = useFirm();
+  const navigate = useNavigate();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [cashTransactions, setCashTransactions] = useState<any[]>([]);
   const [bankTransactions, setBankTransactions] = useState<any[]>([]);
@@ -23,17 +24,6 @@ export default function TransactionTracking() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [expandedTypes, setExpandedTypes] = useState<string[]>([]);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [editFormData, setEditFormData] = useState({
-    transaction_date: '',
-    transaction_type: '',
-    firm_id: '',
-    project_id: '',
-    amount: 0,
-    description: '',
-    invoice_number: '',
-  });
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -249,46 +239,7 @@ export default function TransactionTracking() {
   };
 
   const handleEdit = (transaction: Transaction) => {
-    setEditingTransaction(transaction);
-    setEditFormData({
-      transaction_date: transaction.transaction_date,
-      transaction_type: transaction.transaction_type,
-      firm_id: transaction.firm_id || '',
-      project_id: transaction.project_id || '',
-      amount: transaction.amount,
-      description: transaction.description || '',
-      invoice_number: transaction.invoice_number || '',
-    });
-    setMessage(null);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingTransaction) return;
-
-    try {
-      const { error } = await supabase
-        .from('transactions')
-        .update({
-          transaction_date: editFormData.transaction_date,
-          transaction_type: editFormData.transaction_type,
-          firm_id: editFormData.firm_id || null,
-          project_id: editFormData.project_id || null,
-          amount: editFormData.amount,
-          description: editFormData.description,
-          invoice_number: editFormData.invoice_number || null,
-        })
-        .eq('id', editingTransaction.id);
-
-      if (error) throw error;
-
-      setMessage({ type: 'success', text: 'İşlem başarıyla güncellendi!' });
-      setEditingTransaction(null);
-      fetchData();
-      
-      setTimeout(() => setMessage(null), 3000);
-    } catch (err) {
-      setMessage({ type: 'error', text: 'Güncelleme sırasında hata oluştu.' });
-    }
+    navigate('/islem-girisi', { state: { editTransaction: transaction } });
   };
 
   const handleDelete = async (id: string) => {
@@ -332,13 +283,6 @@ export default function TransactionTracking() {
         </div>
       </div>
 
-      {/* Mesaj */}
-      {message && (
-        <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-          {message.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
-          {message.text}
-        </div>
-      )}
 
       {/* İstatistikler */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
@@ -473,111 +417,6 @@ export default function TransactionTracking() {
           </div>
         )}
       </div>
-
-      {/* Düzenleme Modal */}
-      {editingTransaction && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-800">İşlemi Düzenle</h2>
-              <button onClick={() => setEditingTransaction(null)} className="p-1 hover:bg-slate-100 rounded">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Tarih</label>
-                  <input
-                    type="text"
-                    value={editFormData.transaction_date}
-                    onChange={(e) => setEditFormData({ ...editFormData, transaction_date: e.target.value })}
-                    placeholder="gg.aa.yyyy"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">İşlem Türü</label>
-                  <select
-                    value={editFormData.transaction_type}
-                    onChange={(e) => setEditFormData({ ...editFormData, transaction_type: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                  >
-                    {transactionTypes.map(type => (
-                      <option key={type.value} value={type.value}>{type.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <SearchableSelect
-                  options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
-                  value={editFormData.firm_id}
-                  onChange={(id) => setEditFormData({ ...editFormData, firm_id: id })}
-                  placeholder="Kod veya isim ile cari ara..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Proje</label>
-                <select
-                  value={editFormData.project_id}
-                  onChange={(e) => setEditFormData({ ...editFormData, project_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                >
-                  <option value="">Proje Seçiniz...</option>
-                  {projects.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Tutar</label>
-                  <input
-                    type="number"
-                    value={editFormData.amount}
-                    onChange={(e) => setEditFormData({ ...editFormData, amount: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Fatura No</label>
-                  <input
-                    type="text"
-                    value={editFormData.invoice_number}
-                    onChange={(e) => setEditFormData({ ...editFormData, invoice_number: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Açıklama</label>
-                <input
-                  type="text"
-                  value={editFormData.description}
-                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2 justify-end mt-6">
-              <button onClick={() => setEditingTransaction(null)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm">
-                İptal
-              </button>
-              <button onClick={handleSaveEdit} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2">
-                <Save size={16} />
-                Kaydet
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
