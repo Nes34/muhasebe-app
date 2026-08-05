@@ -102,11 +102,16 @@ export default function SearchableSelect({
         setHighlightedIndex(prev => Math.max(prev - 1, 0));
         break;
       case 'Enter':
-      case 'Tab':
         e.preventDefault();
         if (filtered[highlightedIndex]) {
           handleSelect(filtered[highlightedIndex]);
         }
+        break;
+      case 'Tab':
+        if (filtered[highlightedIndex]) {
+          handleSelect(filtered[highlightedIndex]);
+        }
+        // e.preventDefault() yok — bir sonraki alana geçsin
         break;
       case 'Escape':
         setIsOpen(false);
