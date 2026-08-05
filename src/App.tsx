@@ -37,6 +37,8 @@ import DueDateCalendar from './pages/DueDateCalendar';
 import DocumentManagement from './pages/DocumentManagement';
 import AssetManagement from './pages/AssetManagement';
 import DeliveryNoteToInvoice from './pages/DeliveryNoteToInvoice';
+import DeliveryNoteLink from './pages/DeliveryNoteLink';
+import LinkedDeliveryNotes from './pages/LinkedDeliveryNotes';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -99,6 +101,8 @@ function AppLayout() {
             <Route path="/dokumanlar" element={<DocumentManagement />} />
             <Route path="/demirbaslar" element={<AssetManagement />} />
             <Route path="/irsaliye-fatura" element={<DeliveryNoteToInvoice />} />
+            <Route path="/irsaliye-baglanti" element={<DeliveryNoteLink />} />
+            <Route path="/bagli-irsaliyeler" element={<LinkedDeliveryNotes />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>

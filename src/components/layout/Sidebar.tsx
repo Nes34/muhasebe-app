@@ -25,6 +25,7 @@ import {
   ClipboardCheck,
   FolderOpen,
   Car,
+  Link2,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -71,6 +72,8 @@ const menuGroups: MenuGroup[] = [
       { to: '/islem-girisi', icon: ArrowRightLeft, label: 'İşlem Girişi' },
       { to: '/islem-takibi', icon: ArrowRightLeft, label: 'İşlem Takibi' },
       { to: '/irsaliye-fatura', icon: Truck, label: 'İrsaliyeden Fatura' },
+      { to: '/irsaliye-baglanti', icon: Link2, label: 'İrsaliye-Fatura Bağlantı' },
+      { to: '/bagli-irsaliyeler', icon: Link2, label: 'Bağlı İrsaliyeler' },
     ],
   },
   {

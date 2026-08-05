@@ -102,6 +102,8 @@ export interface Product {
   barcode?: string;
   min_stock_level?: number;
   category?: string;
+  product_type?: 'stock' | 'service' | 'expense';
+  is_fixed_asset?: boolean;
 }
 
 export interface Check {

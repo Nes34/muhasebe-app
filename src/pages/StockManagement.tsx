@@ -25,6 +25,8 @@ export default function StockManagement() {
     unit_price: 0,
     min_stock_level: 0,
     category: '',
+    product_type: 'stock' as 'stock' | 'service' | 'expense',
+    is_fixed_asset: false,
   });
 
   useEffect(() => { fetchProducts(); }, []);
@@ -52,7 +54,8 @@ export default function StockManagement() {
     if (editingProduct) {
       await supabase.from('products').update({
         name: formData.name, barcode: formData.barcode || null, stock_quantity: formData.stock_quantity,
-        unit: formData.unit, unit_price: formData.unit_price, min_stock_level: formData.min_stock_level, category: formData.category || null,
+        unit: formData.unit, unit_price: formData.unit_price, min_stock_level: formData.min_stock_level, 
+        category: formData.category || null, product_type: formData.product_type, is_fixed_asset: formData.is_fixed_asset,
       }).eq('id', editingProduct.id);
       setMessage({ type: 'success', text: 'Ürün başarıyla güncellendi!' });
     } else {
@@ -61,12 +64,13 @@ export default function StockManagement() {
       await supabase.from('products').insert({
         code: newCode, name: formData.name, barcode: formData.barcode || null,
         stock_quantity: formData.stock_quantity, unit: formData.unit, unit_price: formData.unit_price,
-        min_stock_level: formData.min_stock_level, category: formData.category || null, is_active: true,
+        min_stock_level: formData.min_stock_level, category: formData.category || null, 
+        product_type: formData.product_type, is_fixed_asset: formData.is_fixed_asset, is_active: true,
       });
       setMessage({ type: 'success', text: `"${formData.name}" ürünü "${newCode}" koduyla eklendi!` });
     }
     setShowForm(false); setEditingProduct(null);
-    setFormData({ name: '', barcode: '', stock_quantity: 0, unit: 'adet', unit_price: 0, min_stock_level: 0, category: '' });
+    setFormData({ name: '', barcode: '', stock_quantity: 0, unit: 'adet', unit_price: 0, min_stock_level: 0, category: '', product_type: 'stock', is_fixed_asset: false });
     setSimilarWarning([]);
     fetchProducts();
     setTimeout(() => setMessage(null), 3000);
@@ -77,6 +81,7 @@ export default function StockManagement() {
     setFormData({
       name: product.name, barcode: product.barcode || '', stock_quantity: product.stock_quantity,
       unit: product.unit, unit_price: product.unit_price, min_stock_level: product.min_stock_level || 0, category: product.category || '',
+      product_type: (product as any).product_type || 'stock', is_fixed_asset: (product as any).is_fixed_asset || false,
     });
     setShowForm(true);
   };
@@ -107,7 +112,7 @@ export default function StockManagement() {
           <button onClick={() => exportToExcel(products.map(p => ({ 'Kod': p.code, 'Ürün': p.name, 'Barkod': p.barcode || '', 'Kategori': p.category || '', 'Stok': p.stock_quantity, 'Birim': p.unit, 'Birim Fiyat': p.unit_price, 'Min Stok': p.min_stock_level || 0 })), 'stok-listesi')} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
             <Download size={16} />Excel İndir
           </button>
-          <button onClick={() => { setEditingProduct(null); setFormData({ name: '', barcode: '', stock_quantity: 0, unit: 'adet', unit_price: 0, min_stock_level: 0, category: '' }); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          <button onClick={() => { setEditingProduct(null); setFormData({ name: '', barcode: '', stock_quantity: 0, unit: 'adet', unit_price: 0, min_stock_level: 0, category: '', product_type: 'stock', is_fixed_asset: false }); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             <Plus size={16} />Yeni Ürün
           </button>
         </div>
@@ -182,6 +187,8 @@ export default function StockManagement() {
                 <ResizableTh columnId="stok-kod" className="text-left py-3 px-4">Kod</ResizableTh>
                 <ResizableTh columnId="stok-barkod" className="text-left py-3 px-4">Barkod</ResizableTh>
                 <ResizableTh columnId="stok-urun" className="text-left py-3 px-4">Ürün Adı</ResizableTh>
+                <ResizableTh columnId="stok-tur" className="text-center py-3 px-4">Tür</ResizableTh>
+                <ResizableTh columnId="stok-demirbas" className="text-center py-3 px-4">Demirbaş</ResizableTh>
                 <ResizableTh columnId="stok-kategori" className="text-left py-3 px-4">Kategori</ResizableTh>
                 <ResizableTh columnId="stok-stok" className="text-right py-3 px-4">Stok</ResizableTh>
                 <ResizableTh columnId="stok-min" className="text-right py-3 px-4">Min. Stok</ResizableTh>
@@ -199,6 +206,20 @@ export default function StockManagement() {
                     <td className="py-3 px-4 font-mono text-xs font-bold text-blue-600">{product.code}</td>
                     <td className="py-3 px-4 font-mono text-xs">{product.barcode || '-'}</td>
                     <td className="py-3 px-4 font-medium">{product.name}</td>
+                    <td className="py-3 px-4 text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        product.product_type === 'stock' ? 'bg-blue-100 text-blue-700' :
+                        product.product_type === 'service' ? 'bg-purple-100 text-purple-700' :
+                        'bg-orange-100 text-orange-700'
+                      }`}>
+                        {product.product_type === 'stock' ? 'Stok' : product.product_type === 'service' ? 'Hizmet' : 'Masraf'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      {product.is_fixed_asset ? (
+                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">Demirbaş</span>
+                      ) : '-'}
+                    </td>
                     <td className="py-3 px-4 text-slate-600">{product.category || '-'}</td>
                     <td className="py-3 px-4 text-right font-mono">{product.stock_quantity} {product.unit}</td>
                     <td className="py-3 px-4 text-right font-mono text-slate-500">{product.min_stock_level || '-'}</td>
@@ -254,7 +275,19 @@ export default function StockManagement() {
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Birim</label><select value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg"><option value="adet">Adet</option><option value="kg">Kg</option><option value="lt">Litre</option><option value="mt">Metre</option><option value="m2">m²</option><option value="m3">m³</option><option value="kutu">Kutu</option><option value="paket">Paket</option></select></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Birim Fiyat *</label><input type="number" step="0.01" value={formData.unit_price} onChange={(e) => setFormData({ ...formData, unit_price: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
               </div>
-              <div><label className="block text-sm font-medium text-slate-700 mb-1">Kategori</label><input type="text" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" placeholder="Elektronik, Gıda, vb." /></div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Kategori</label><input type="text" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" placeholder="Elektronik, Gıda, vb." /></div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tür</label>
+                  <select value={formData.product_type} onChange={(e) => setFormData({ ...formData, product_type: e.target.value as 'stock' | 'service' | 'expense' })} className="w-full px-4 py-2 border border-slate-300 rounded-lg">
+                    <option value="stock">Stok</option>
+                    <option value="service">Hizmet</option>
+                    <option value="expense">Masraf</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="is_fixed_asset" checked={formData.is_fixed_asset} onChange={(e) => setFormData({ ...formData, is_fixed_asset: e.target.checked })} className="w-4 h-4 text-blue-600 rounded" />
+                  <label htmlFor="is_fixed_asset" className="text-sm font-medium text-slate-700">Demirbaş</label>
+                </div>
               <div className="flex gap-2 justify-end">
                 <button type="button" onClick={() => { setShowForm(false); setEditingProduct(null); setSimilarWarning([]); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button>
