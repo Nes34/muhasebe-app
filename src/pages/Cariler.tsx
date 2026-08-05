@@ -138,8 +138,8 @@ export default function Cariler() {
       const bankIn = cariBankTx.filter(t => t.transaction_type === 'in').reduce((sum, t) => sum + t.amount, 0);
       const bankOut = cariBankTx.filter(t => t.transaction_type === 'out').reduce((sum, t) => sum + t.amount, 0);
 
-      // Borç = gider + fatura + verilen çekler + kasa çıkışı + banka çıkışı
-      const debt = totalExpense + issuedInvoices + issuedChecks + cashOut + bankOut;
+      // Borç = gider + verilen çekler + kasa çıkışı + banka çıkışı
+      const debt = totalExpense + issuedChecks + cashOut + bankOut;
       // Alacak = gelir + alınan çekler + kasa girişi + banka girişi
       const credit = totalIncome + receivedChecks + cashIn + bankIn;
       // Bakiye = alacak - borç

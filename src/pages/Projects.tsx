@@ -105,8 +105,11 @@ export default function Projects() {
       const cashTx = cashTxRes.data?.filter(t => t.project_id === project.id && !t.transaction_id) || [];
       const bankTx = bankTxRes.data?.filter(t => t.project_id === project.id && !t.transaction_id) || [];
 
-      const income = txs.filter(t => t.transaction_type === 'income' || t.transaction_type === 'invoice' || t.transaction_type === 'sale_invoice').reduce((s, t) => s + t.amount, 0);
-      const expense = txs.filter(t => t.transaction_type !== 'income' && t.transaction_type !== 'invoice' && t.transaction_type !== 'sale_invoice').reduce((s, t) => s + t.amount, 0);
+      // Hariç tutulacak tipler (para hareketi değil)
+      const excludedTypes = ['delivery_note', 'sale_delivery_note', 'purchase_delivery_note', 'transfer', 'stock_transfer', 'cash_transfer', 'bank_transfer'];
+
+      const income = txs.filter(t => ['income', 'invoice', 'sale_invoice'].includes(t.transaction_type)).reduce((s, t) => s + t.amount, 0);
+      const expense = txs.filter(t => !['income', 'invoice', 'sale_invoice'].includes(t.transaction_type) && !excludedTypes.includes(t.transaction_type)).reduce((s, t) => s + t.amount, 0);
 
       // Kasa ve banka hareketleri (transaction_id olmayanlar - mükerrer önlem)
       const cashIn = cashTx.filter(t => t.transaction_type === 'in').reduce((s, t) => s + t.amount, 0);

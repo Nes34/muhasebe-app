@@ -153,9 +153,10 @@ export default function Firms() {
       const firmCashTxs = (cashTxRes.data || []).filter((t: any) => firmCashIds.includes(t.cash_register_id));
       const firmBankTxs = (bankTxRes.data || []).filter((t: any) => firmBankIds.includes(t.bank_account_id));
 
-      // Transactions: transfer hariç gelir/gider
-      let income = txs.filter(t => !transferTypes.includes(t.transaction_type) && (t.transaction_type === 'income' || t.transaction_type === 'invoice' || t.transaction_type === 'sale_invoice')).reduce((s, t) => s + t.amount, 0);
-      let expense = txs.filter(t => !transferTypes.includes(t.transaction_type) && t.transaction_type !== 'income' && t.transaction_type !== 'invoice' && t.transaction_type !== 'sale_invoice').reduce((s, t) => s + t.amount, 0);
+      // Transactions: transfer ve irsaliye hariç gelir/gider
+      const excludedTypes = ['delivery_note', 'sale_delivery_note', 'purchase_delivery_note'];
+      let income = txs.filter(t => !transferTypes.includes(t.transaction_type) && !excludedTypes.includes(t.transaction_type) && ['income', 'invoice', 'sale_invoice'].includes(t.transaction_type)).reduce((s, t) => s + t.amount, 0);
+      let expense = txs.filter(t => !transferTypes.includes(t.transaction_type) && !excludedTypes.includes(t.transaction_type) && !['income', 'invoice', 'sale_invoice'].includes(t.transaction_type)).reduce((s, t) => s + t.amount, 0);
 
       // Bağımsız kasa/banka işlemleri
       firmCashTxs.forEach((t: any) => {

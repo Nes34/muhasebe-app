@@ -172,8 +172,9 @@ export default function Dashboard() {
       const expenseList: any[] = [];
 
       (allTx || []).forEach((t: any) => {
-        if (transferTypes.includes(t.transaction_type)) {
-          // Transferler gelir/gider olarak sayılmaz
+        const excludedTypes = ['delivery_note', 'sale_delivery_note', 'purchase_delivery_note'];
+        if (transferTypes.includes(t.transaction_type) || excludedTypes.includes(t.transaction_type)) {
+          // Transferler ve irsaliyeler gelir/gider olarak sayılmaz
         } else if (['income', 'invoice', 'sale_invoice'].includes(t.transaction_type)) {
           totalIncome += t.amount;
           incomeList.push({ ...t, _type: 'income' });
