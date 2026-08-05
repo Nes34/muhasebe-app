@@ -102,6 +102,7 @@ export default function SearchableSelect({
         setHighlightedIndex(prev => Math.max(prev - 1, 0));
         break;
       case 'Enter':
+      case 'Tab':
         e.preventDefault();
         if (filtered[highlightedIndex]) {
           handleSelect(filtered[highlightedIndex]);
