@@ -18,6 +18,8 @@ export default function AccountStatement() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [includeException, setIncludeException] = useState(true);
+  const [selectedTx, setSelectedTx] = useState<any>(null);
+  const [txItems, setTxItems] = useState<any[]>([]);
 
   useEffect(() => { fetchCariler(); }, []);
   useEffect(() => {
@@ -142,6 +144,16 @@ export default function AccountStatement() {
   const getLabel = (type: string) => ({ income: 'Gelir', expense: 'Gider', invoice: 'Fatura', delivery_note: 'İrsaliye' }[type] || type);
   const totals = calculateTotals();
 
+  const handleTxClick = async (t: any) => {
+    setSelectedTx(t);
+    if (t.source === 'transaction') {
+      const { data } = await supabase.from('transaction_items').select('*').eq('transaction_id', t.id);
+      setTxItems(data || []);
+    } else {
+      setTxItems([]);
+    }
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-slate-800 mb-6">Cari Hesap Ekstresi</h1>
@@ -194,7 +206,7 @@ export default function AccountStatement() {
                     const amount = Math.abs(t.amount);
                     const running = transactions.slice(0, i + 1).reduce((acc, tr) => acc + (tr.isIncome ? Math.abs(tr.amount) : -Math.abs(tr.amount)), 0);
                     return (
-                      <tr key={t.id} className="border-t border-slate-100 hover:bg-slate-50">
+                      <tr key={t.id} className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer" onClick={() => handleTxClick(t)}>
                         <td className="py-3 px-4">{formatDateTR(t.date || t.transaction_date)}</td>
                         <td className="py-3 px-4 text-slate-600">{(t as any).firm?.name || '-'}</td>
                         <td className="py-3 px-4"><div className="flex items-center gap-2"><span className={`px-2 py-1 rounded text-xs font-medium ${t.isIncome ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.label || getLabel(t.transaction_type)}</span>{t.is_exception && <span className="px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-700">İstisna</span>}</div></td>
@@ -215,6 +227,104 @@ export default function AccountStatement() {
 
       {transactions.length === 0 && !loading && selectedCariId && <div className="text-center py-12 bg-white rounded-xl border border-slate-200"><FileText size={48} className="mx-auto text-slate-300 mb-4" /><p className="text-slate-500">Bu cari için işlem bulunamadı.</p></div>}
       {!selectedCariId && <div className="text-center py-12 bg-white rounded-xl border border-slate-200"><Search size={48} className="mx-auto text-slate-300 mb-4" /><p className="text-slate-500">Ekstre görmek için cari seçiniz.</p></div>}
+
+      {/* İşlem Detay Modalı */}
+      {selectedTx && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={() => { setSelectedTx(null); setTxItems([]); }}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <h3 className="text-lg font-bold text-slate-800">İşlem Detayı</h3>
+              <button onClick={() => { setSelectedTx(null); setTxItems([]); }} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+            </div>
+            <div className="flex-1 overflow-auto p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-500">Tarih</p>
+                  <p className="font-medium text-slate-800">{formatDateTR(selectedTx.date || selectedTx.transaction_date)}</p>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-500">İşlem Türü</p>
+                  <p className="font-medium text-slate-800">{selectedTx.label || getLabel(selectedTx.transaction_type)}</p>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-500">Firma</p>
+                  <p className="font-medium text-slate-800">{selectedTx.firm?.name || '-'}</p>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-500">Proje</p>
+                  <p className="font-medium text-slate-800">{selectedTx.project?.name || '-'}</p>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-500">Tutar</p>
+                  <p className={`font-bold text-lg ${selectedTx.isIncome ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(Math.abs(selectedTx.amount))}</p>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-500">Kaynak</p>
+                  <p className="font-medium text-slate-800">{{ transaction: 'İşlem', check: 'Çek', cash: 'Kasa', bank: 'Banka' }[selectedTx.source] || selectedTx.source}</p>
+                </div>
+              </div>
+              {selectedTx.description && (
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-500">Açıklama</p>
+                  <p className="font-medium text-slate-800">{selectedTx.description}</p>
+                </div>
+              )}
+              {selectedTx.invoice_number && (
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-500">Fatura No</p>
+                  <p className="font-mono font-medium text-slate-800">{selectedTx.invoice_number}</p>
+                </div>
+              )}
+              {selectedTx.delivery_note_number && (
+                <div className="bg-slate-50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-500">İrsaliye No</p>
+                  <p className="font-mono font-medium text-slate-800">{selectedTx.delivery_note_number}</p>
+                </div>
+              )}
+              {selectedTx.is_exception && (
+                <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                  <p className="text-xs text-yellow-700">İstisna İşlem</p>
+                  {selectedTx.exception_reason && <p className="text-sm text-yellow-800">{selectedTx.exception_reason}</p>}
+                </div>
+              )}
+
+              {/* Kalemler */}
+              {txItems.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-slate-700 mb-2">Kalemler</p>
+                  <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
+                    <thead>
+                      <tr className="bg-slate-100">
+                        <th className="py-1.5 px-2 text-left">Açıklama</th>
+                        <th className="py-1.5 px-2 text-right">Miktar</th>
+                        <th className="py-1.5 px-2 text-left">Birim</th>
+                        <th className="py-1.5 px-2 text-right">Birim Fiyat</th>
+                        <th className="py-1.5 px-2 text-right">KDV</th>
+                        <th className="py-1.5 px-2 text-right">Tutar</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {txItems.map((item, idx) => (
+                        <tr key={idx} className="border-t border-slate-200">
+                          <td className="py-1.5 px-2 font-medium">{item.description}</td>
+                          <td className="py-1.5 px-2 text-right">{item.quantity}</td>
+                          <td className="py-1.5 px-2">{item.unit}</td>
+                          <td className="py-1.5 px-2 text-right">{formatCurrency(item.unit_price)}</td>
+                          <td className="py-1.5 px-2 text-right">%{item.vat_rate || 0}</td>
+                          <td className="py-1.5 px-2 text-right font-bold">{formatCurrency(item.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end p-4 border-t border-slate-200">
+              <button onClick={() => { setSelectedTx(null); setTxItems([]); }} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors text-sm">Kapat</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
