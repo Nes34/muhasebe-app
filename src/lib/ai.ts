@@ -202,28 +202,53 @@ ALÜMİNYUM PROFİL İÇİN:
 CARİ YÖNETİMİ:
 - Cari arama: SearchableSelect dropdown ile cari arama (kod, isim, vergi no ile)
 - Form validasyonu: Cari adı zorunlu (min 2 karakter), vergi no 10-11 haneli, telefon rakamlardan oluşmalı (min 7 haneli), e-posta geçerli formatta olmalı
-- Cari bakiye hesaplama: Gelir + Alınan Çek - Gider - Verilen Çek = Bakiye
-- Gelir kalemleri: income, invoice, sale_invoice
-- Gider kalemleri: expense (irsaliye ve transfer tipleri hariç)
-- Çekler: Tüm alınan ve verilen çekler (iptal hariç)
+- Vergi dairesi alanı da mevcut
+- Cari bakiye formülü: Toplam Borç = Satış Faturaları + Tedarikçiye Yapılan Ödemeler / Toplam Alacak = Alış Faturaları + Müşteriden Yapılan Tahsilatlar / Net Bakiye = Borç - Alacak
+- Çekler: Tüm alınan ve verilen çekler (iptal hariç) bakiyeye dahil
 
 CARİ HESAP EKSTRESİ:
 - Cari seçimi: SearchableSelect dropdown ile cari arama
-- Tarih filtresi: Başlangıç ve bitiş tarihi girilebilir
+- Tarih filtresi: Başlangıç ve bitiş tarihi (otomatik ayıraçlı DateInput)
 - İstisna işlemleri dahil etme seçeneği
-- Excel'e aktarma özelliği
+- İşlem detayı modalı: Herhangi bir işleme tıklayınca detay modalı açılır (düzenleme yapılabilir)
+- Excel'e aktarma: Projelere göre gruplanmış, her proje ayrı bakiye, genel toplam
 
-İŞLEM GİRİŞİ İRSALİYE SEÇİMİ:
-- Satış/Alış faturası girerken "İrsaliye Seç" butonu ile modal açılır
-- Firma + Proje + Cari'ye göre filtrelenmiş irsaliyeler listelenir
-- Birden fazla irsaliye seçilebilir (çoklu checkbox)
-- Seçilen irsaliyelerin kalemleri otomatik olarak faturaya aktarılır
-- İrsaliye numaraları otomatik olarak irsaliye no alanına yazılır
+İRSALİYEDEN FATURA DÖNÜŞTÜRME:
+- Popup ile fatura tarihi, numarası ve kalemler gösterilir
+- Kalemler düzenlenebilir, yeni kalem eklenebilir
+- Toplam otomatik hesaplanır
 
-İŞLEM TAKİBİ DÜZENLEME İRSALİYE SEÇİMİ:
-- Düzenleme modalında satış/alış faturası düzenlenirken "İrsaliye Seç" butonu görünür
-- Aynı çoklu irsaliye seçimi yapılabilir
-- Seçilen irsaliyelerin kalemleri düzenleme formuna eklenir
+İŞLEM TAKİBİ:
+- Tabloda "İrsaliye No" sütunu var
+- Düzenleme modalında irsaliye no tüm işlem türlerinde görünür
+- Satış/Alış faturası düzenlenirken "İrsaliye Seç" butonu ile çoklu irsaliye seçimi yapılabilir
+
+İŞLEM GİRİŞİ SIRASI:
+- Fatura: Tarih → Fatura No → Firma → Proje → Cari → İrsaliye No (en sonda)
+- Diğer tipler: Firma → Proje → Tarih → İrsaliye No → Fatura No → Cari
+- Fatura ve irsaliye için alt tip seçimi zorunlu (Satış/Alış seçilmeden kayıt yapılamaz)
+- Alt+S ile kaydetme kısayolu, kayıt sonrası imleç firmaya atlar
+
+ÇOKLU ÇEK SİSTEMİ:
+- İşlem Girişinde ve Çek Yönetimi'nde çoklu çek kalemleri
+- Kalem Ekle butonu ile yeni çek satırı eklenir
+- Her kalem: Çek No, Banka, Şube, Vade, Tutar
+- Yeni kalem eklenince: Çek No +1, Vade +1 ay, Tutar aynı kopyalanır
+- Tüm alanlar değiştirilebilir
+
+FATURA VE İRSALİYE NUMARASI:
+- Format: Satış Faturası SF000000001, Alış Faturası AF000000001
+- Enter ile formatla, küçük harf → büyük harf, özel karakter engelleme
+- Her alanda uygulanır (İşlem Girişi, İşlem Takibi, Cari Hesap Ekstresi)
+
+İRSALİYE PDF:
+- Fatura ile aynı düzen (3 sütunlu üst kısım, renkli başlık yok)
+- İmza alanı: Teslim Eden / Teslim Alan
+
+DROPDOWN KURALLARI:
+- Klavye navigasyonu: ↓↑ ile gezinme, Enter/Tab ile seçme, Escape ile kapatma
+- Yön tuşlarıyla gezinirken otomatik kaydırma (scrollIntoView)
+- Tüm öğeler gösterilir (20 sınırı yok)
 
 SORULARA CEVAP VERİRKEN:
 - Ürün/hizmet türünü belirle

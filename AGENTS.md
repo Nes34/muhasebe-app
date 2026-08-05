@@ -37,7 +37,9 @@
 - Header'daki Bot butonu ile açılır
 - Kullanıcı kendi API key'ini girer (Gemini, Groq, HF, OpenAI)
 - **Yeni özellik eklendiğinde `src/lib/ai.ts` dosyasındaki SYSTEM_PROMPT'u güncelle!**
+- **Her deploy'dan önce AI asistanına yeni özellikleriöğret!**
 - Kullanıcı "nasıl yaparım" dediğinde asistan yeni özellikleri bilmeli
+- **Nasıl yapılır:** `src/lib/ai.ts` dosyasındaki `SYSTEM_PROMPT` sabitini bul, yeni özellikleri Türkçe olarak ekle
 
 ## 🔧 Yeni Özellik Eklerken Kontrol Listesi
 
@@ -173,3 +175,74 @@ useEffect(() => {
 // Dropdown öğesinde:
 data-highlight={index}
 ```
+
+## 📄 Fatura Numarası Mantığı
+
+### Format:
+- Satış Faturası: `SF` + 9 haneli numara (örn: `SF000000001`)
+- Alış Faturası: `AF` + 9 haneli numara (örn: `AF000000001`)
+- Gelir: `GEL` + yıl + `/` + sıra (örn: `GEL2026/1`)
+- Gider: `GID` + yıl + `/` + sıra (örn: `GID2026/1`)
+
+### Kurallar:
+1. **Otomatik numara:** Yeni fatura oluşturulurken son numara +1 yapılır
+2. **Enter ile formatla:** Fatura no input'unda Enter'a basınca `formatInvoiceNumberOnSave()` çalışır
+3. **Küçük harf → Büyük harf:** Kullanıcı küçük harf girse bile otomatik büyük harfe çevrilir
+4. **Özel karakter engelleme:** Sadece harf, rakam ve `/` kabul edilir
+5. **Her alanda uygulanır:** İşlem Girişi, İşlem Takibi düzenleme modalı, Cari Hesap Ekstresi düzenleme
+
+### Fonksiyonlar:
+- `handleInvoiceNumberChange(value)` → onChange'de çağrılır, temizleme yapar
+- `handleInvoiceNumberKeyDown(e)` → onKeyDown'de Enter ile format uygular
+- `formatInvoiceNumberOnSave(number)` → Kaydetmeden önce format uygular
+
+## 📦 İrsaliye Numarası Mantığı
+
+### Format:
+- Satış İrsaliyesi: `SI` + 9 haneli numara
+- Alış İrsaliyesi: `AI` + 9 haneli numara
+
+### Kurallar:
+1. **Otomatik numara:** Yeni irsaliye oluşturulurken son numara +1 yapılır
+2. **Enter ile formatla:** İrsaliye no input'unda Enter'a basınca `formatInvoiceNumberOnSave()` çalışır
+3. **Küçük harf → Büyük harf:** Otomatik büyük harfe çevrilir
+4. **Özel karakter engelleme:** Sadece harf, rakam ve `/` kabul edilir
+5. **Fatura ile irsaliye bağlantısı:** Satış/Alış faturasında irsaliye seçimi yapılabilir (çoklu seçim desteklenir)
+
+### İrsaliye Seçimi (Fatura Girişinde):
+- Firma + Proje + Cari'ye göre filtrelenmiş irsaliyeler listelenir
+- Birden fazla irsaliye seçilebilir (checkbox)
+- Seçilen irsaliyelerin kalemleri otomatik faturaya aktarılır
+- İrsaliye numaraları otomatik irsaliye no alanına yazılır
+
+### İrsaliye Seçimi (İşlem Takibi Düzenleme):
+- Satış/Alış faturası düzenlenirken "İrsaliye Seç" butonu görünür
+- Aynı çoklu irsaliye seçimi yapılabilir
+
+## 📊 Cari Hesap Formülü
+
+### Formül:
+```
+Toplam Borç = Satış Faturaları + Tedarikçiye Yapılan Ödemeler (çek + nakit + banka)
+Toplam Alacak = Alış Faturaları + Müşteriden Yapılan Tahsilatlar (çek + nakit + banka)
+Net Bakiye = Toplam Borç - Toplam Alacak
+```
+
+### Sonuç:
+- Pozitif (+) → Müşteri bize borçlu
+- Negatif (-) → Biz tedarikçiye borçluyuz (Cari alacaklı)
+- Sıfır (0) → Hesap kapanmış
+
+### Çek Mantığı:
+- Tüm çekler (bekleyen + tahsil edilen + ödenmiş) bakiyeye dahil
+- Sadece iptal edilen çekler hariç
+- Tahsil edilen çek → Alacak
+- Ödenen çek → Borç
+
+### Kasa/Banka Mantığı (Firma/Proje Sayfaları):
+- Kasa/banka gelen → Alacak
+- Kasa/banka giden → Borç
+
+### Hariç Tutulan Tipler:
+- `delivery_note`, `sale_delivery_note`, `purchase_delivery_note` → Para hareketi değil
+- `transfer`, `stock_transfer`, `cash_transfer`, `bank_transfer` → Hesaplar arası transfer
