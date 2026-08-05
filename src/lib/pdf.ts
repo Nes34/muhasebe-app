@@ -138,20 +138,22 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   doc.setLineWidth(0.3);
   doc.line(15, y, 65, y);
 
-  y += 5;
+  y += 4;
 
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 14);
   doc.text('FATURA', pageWidth / 2, y, { align: 'center' });
 
-  y += 5;
+  y += 4;
 
   doc.setDrawColor(0, 0, 0);
   doc.line(15, y, 65, y);
 
-  drawGibEmblem(doc, pageWidth / 2, y + 7, 24);
+  y += 5;
 
-  y += 16;
+  drawGibEmblem(doc, pageWidth / 2, y + 10, 30);
+
+  y += 24;
 
   // ══════════════════════════════════════════════════════════════
   // ALICI BİLGİLERİ + FATURA TARİHİ/NO (Sağ)
@@ -186,7 +188,7 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   doc.text('FATURA BİLGİLERİ', faturaBoxX + 2, y);
 
   // Tarih satırı
-  doc.rect(faturaBoxX, faturaBoxStartY + 7, faturaBoxW, 8, 'S');
+  doc.rect(faturaBoxX, faturaBoxStartY + 7, faturaBoxW, 7, 'S');
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 7);
   doc.text('Tarih:', faturaBoxX + 2, y + 7);
@@ -194,30 +196,30 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   doc.text(transaction.transaction_date, faturaBoxX + 18, y + 7);
 
   // No satırı
-  doc.rect(faturaBoxX, faturaBoxStartY + 15, faturaBoxW, 8, 'S');
+  doc.rect(faturaBoxX, faturaBoxStartY + 14, faturaBoxW, 7, 'S');
   setFont(doc, 'bold', 7);
-  doc.text('No:', faturaBoxX + 2, y + 15);
+  doc.text('No:', faturaBoxX + 2, y + 14);
   setFont(doc, 'normal', 7);
-  doc.text(transaction.invoice_number || transaction.delivery_note_number || '-', faturaBoxX + 18, y + 15);
+  doc.text(transaction.invoice_number || transaction.delivery_note_number || '-', faturaBoxX + 18, y + 14);
 
   // İrsaliye satırı (varsa)
   let irsaliyeRowH = 0;
   if (!isInvoice && transaction.delivery_note_number) {
-    doc.rect(faturaBoxX, faturaBoxStartY + 23, faturaBoxW, 8, 'S');
+    doc.rect(faturaBoxX, faturaBoxStartY + 21, faturaBoxW, 7, 'S');
     doc.setTextColor(59, 130, 246);
     setFont(doc, 'bold', 6);
-    doc.text('İrsaliye:', faturaBoxX + 2, y + 23);
+    doc.text('İrsaliye:', faturaBoxX + 2, y + 21);
     setFont(doc, 'normal', 6);
-    doc.text(formatDeliveryNoteNumber(transaction.delivery_note_number), faturaBoxX + 18, y + 23);
-    irsaliyeRowH = 8;
+    doc.text(formatDeliveryNoteNumber(transaction.delivery_note_number), faturaBoxX + 18, y + 21);
+    irsaliyeRowH = 7;
   }
 
-  // Dikey çizgi (başlık | değer)
-  const faturaBoxH = 23 + irsaliyeRowH + 7;
+  // Dikey çizgi (başlık | değer) - sadece satırlar kadar
+  const faturaBoxH = 21 + irsaliyeRowH + 7;
   doc.setLineWidth(0.15);
-  doc.line(faturaBoxX + 16, faturaBoxStartY, faturaBoxX + 16, faturaBoxStartY + faturaBoxH);
+  doc.line(faturaBoxX + 16, faturaBoxStartY + 7, faturaBoxX + 16, faturaBoxStartY + faturaBoxH);
 
-  y += 36;
+  y += 30;
 
   // ══════════════════════════════════════════════════════════════
   // KALEMLER TABLOSU
