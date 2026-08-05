@@ -13,8 +13,12 @@ interface Transaction {
   invoice_number: string;
   delivery_note_number: string;
   linked_invoice_id: string | null;
-  cari?: { name: string };
-  project?: { name: string };
+  cari_id?: string;
+  project_id?: string;
+  firm_id?: string;
+  cari?: { name: string } | null;
+  project?: { name: string } | null;
+  firm?: { name: string } | null;
 }
 
 export default function DeliveryNoteLink() {
@@ -58,6 +62,7 @@ export default function DeliveryNoteLink() {
       
       const enrichedDN = dnData.map(dn => ({
         ...dn,
+        invoice_number: null,
         cari: { name: dnCariMap.get(dn.cari_id) || '-' },
         project: { name: dnProjMap.get(dn.project_id) || '-' },
       }));
@@ -91,8 +96,11 @@ export default function DeliveryNoteLink() {
       
       const enriched = invData.map(inv => ({
         ...inv,
+        delivery_note_number: null,
+        linked_invoice_id: null,
         cari: { name: cariMap.get(inv.cari_id) || '-' },
         project: { name: projMap.get(inv.project_id) || '-' },
+        firm: null,
       }));
       setInvoices(enriched);
     } else {
@@ -294,7 +302,6 @@ export default function DeliveryNoteLink() {
                 </div>
                 <p className="text-sm font-medium text-slate-800">{inv.cari?.name || '-'}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-slate-500">Firma: {inv.firm?.name || '-'}</span>
                   <span className="text-xs text-slate-500">Proje: {inv.project?.name || '-'}</span>
                 </div>
                 <div className="flex items-center justify-between mt-1">
