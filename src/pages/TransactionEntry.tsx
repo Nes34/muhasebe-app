@@ -136,7 +136,7 @@ export default function TransactionEntry() {
       })));
     }
     
-    setShowConvertModal(false);
+    setLastDeliveryNote(null);
     setMessage({ type: 'success', text: 'İrsaliye faturaya dönüştürüldü! Bilgileri kontrol edip kaydedin.' });
     setTimeout(() => setMessage(null), 5000);
   };
