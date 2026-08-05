@@ -856,6 +856,18 @@ export default function TransactionEntry() {
         return;
       }
 
+      // Validasyon: Alt tip zorunlu (fatura/irsaliye)
+      if (transactionType === 'invoice') {
+        setMessage({ type: 'error', text: 'Lütfen Satış Faturası veya Alış Faturası seçin!' });
+        setLoading(false);
+        return;
+      }
+      if (transactionType === 'delivery_note') {
+        setMessage({ type: 'error', text: 'Lütfen Satış İrsaliyesi veya Alış İrsaliyesi seçin!' });
+        setLoading(false);
+        return;
+      }
+
       // Validasyon: Firma zorunlu
       if (!firmId) {
         setMessage({ type: 'error', text: 'Firma seçimi zorunludur! Lütfen üstten bir firma seçin.' });
