@@ -1253,7 +1253,6 @@ export default function TransactionEntry() {
     return transactionType;
   };
   
-  const showFirm = true;
   const showExpenseCategory = isExpenseType;
   const showInvoiceNumber = isAnyInvoice || isIncomeType || isExpenseType;
   const showDeliveryNoteNumber = isDeliveryNoteType || isInvoiceType;
@@ -1440,248 +1439,85 @@ export default function TransactionEntry() {
 
         <div className="bg-white rounded-xl border border-slate-300">
           <div className="flex flex-nowrap gap-0 border-t border-slate-300 overflow-x-auto bg-slate-100">
-            {showFirm && (
-              <ResizableCell cellId="giris-firma" className="bg-slate-100">
-                <div className="flex items-center justify-between mb-0.5">
-                  <label className="block text-sm font-medium text-slate-700">Firma <span className="text-red-500">*</span></label>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddFirmModal(true)}
-                    className="text-xs text-blue-600 hover:text-blue-700"
-                  >
-                    <Plus size={12} />
-                    Yeni Ekle
-                  </button>
-                </div>
-                <SearchableSelect
-                  ref={firmInputRef}
-                  options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
-                  value={firmId}
-                  onChange={(id) => setFirmId(id)}
-                  placeholder="Firma ara..."
-                  required
-                />
-              </ResizableCell>
-            )}
 
-            <ResizableCell cellId="giris-proje" className="bg-slate-100">
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Proje <span className="text-red-500">*</span>
-              </label>
-              <SearchableSelect
-                options={projects.filter(p => !firmId || p.firm_id === firmId).map(p => ({ id: p.id, name: p.name }))}
-                value={projectId}
-                onChange={(id) => setProjectId(id)}
-                placeholder="Proje ara..."
-                required
-              />
-              {firmId && projects.filter(p => p.firm_id === firmId).length === 0 && (
-                <p className="text-xs text-amber-600 mt-1">Proje bulunamadı</p>
-              )}
-            </ResizableCell>
-
-            {/* Tarih - fatura tiplerinde 1. sırada */}
+            {/* ═══ FATURA GİRİŞİ SIRASI ═══ */}
             {isInvoiceType && (
-              <ResizableCell cellId="giris-tarih">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Tarih</label>
-                <DateInput
-                  value={transactionDate}
-                  onChange={(val) => setTransactionDate(val)}
-                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </ResizableCell>
+              <>
+                <ResizableCell cellId="giris-tarih">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tarih</label>
+                  <DateInput value={transactionDate} onChange={(val) => setTransactionDate(val)} className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
+                </ResizableCell>
+                <ResizableCell cellId="giris-fatura-no">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{transactionType === 'purchase_invoice' ? 'Alış Fatura No' : 'Satış Fatura No'}</label>
+                  <input type="text" value={invoiceNumber} onChange={(e) => handleInvoiceNumberChange(e.target.value)} onKeyDown={handleInvoiceNumberKeyDown} placeholder="aab2026/1" className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
+                </ResizableCell>
+                <ResizableCell cellId="giris-firma">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="block text-sm font-medium text-slate-700">Firma <span className="text-red-500">*</span></label>
+                    <button type="button" onClick={() => setShowAddFirmModal(true)} className="text-xs text-blue-600 hover:text-blue-700"><Plus size={12} /> Yeni Ekle</button>
+                  </div>
+                  <SearchableSelect ref={firmInputRef} options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))} value={firmId} onChange={(id) => setFirmId(id)} placeholder="Firma ara..." required />
+                </ResizableCell>
+                <ResizableCell cellId="giris-proje" className="bg-slate-100">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Proje <span className="text-red-500">*</span></label>
+                  <SearchableSelect options={projects.filter(p => !firmId || p.firm_id === firmId).map(p => ({ id: p.id, name: p.name }))} value={projectId} onChange={(id) => setProjectId(id)} placeholder="Proje ara..." required />
+                </ResizableCell>
+                <ResizableCell cellId="giris-cari">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Cari <span className="text-red-500">*</span></label>
+                  <SearchableSelect options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))} value={cariId} onChange={(id) => setCariId(id)} placeholder="Cari ara..." />
+                </ResizableCell>
+              </>
             )}
 
-            {/* Fatura No - fatura tiplerinde 2. sırada */}
-            {isInvoiceType && showInvoiceNumber && (
-              <ResizableCell cellId="giris-fatura-no">
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  {transactionType === 'purchase_invoice' ? 'Alış Fatura No' : transactionType === 'sale_invoice' ? 'Satış Fatura No' : 'Fatura No'}
-                </label>
-                <input
-                  type="text"
-                  value={invoiceNumber}
-                  onChange={(e) => handleInvoiceNumberChange(e.target.value)}
-                  onKeyDown={handleInvoiceNumberKeyDown}
-                  placeholder="aab2026/1"
-                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
-              </ResizableCell>
-            )}
-
-            {/* Firma - fatura tiplerinde 3. sırada */}
-            {showFirm && isInvoiceType && (
-              <ResizableCell cellId="giris-firma">
-                <div className="flex items-center justify-between mb-0.5">
-                  <label className="block text-sm font-medium text-slate-700">Firma <span className="text-red-500">*</span></label>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddFirmModal(true)}
-                    className="text-xs text-blue-600 hover:text-blue-700"
-                  >
-                    <Plus size={12} />
-                    Yeni Ekle
-                  </button>
-                </div>
-                <SearchableSelect
-                  ref={firmInputRef}
-                  options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
-                  value={firmId}
-                  onChange={(id) => setFirmId(id)}
-                  placeholder="Firma ara..."
-                  required
-                />
-              </ResizableCell>
-            )}
-
-            {/* Proje - fatura tiplerinde 4. sırada */}
-            {isInvoiceType && (
-              <ResizableCell cellId="giris-proje" className="bg-slate-100">
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Proje <span className="text-red-500">*</span>
-                </label>
-                <SearchableSelect
-                  options={projects.filter(p => !firmId || p.firm_id === firmId).map(p => ({ id: p.id, name: p.name }))}
-                  value={projectId}
-                  onChange={(id) => setProjectId(id)}
-                  placeholder="Proje ara..."
-                  required
-                />
-              </ResizableCell>
-            )}
-
-            {/* Cari - fatura tiplerinde 5. sırada */}
-            {isInvoiceType && (
-              <ResizableCell cellId="giris-cari">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Cari <span className="text-red-500">*</span></label>
-                <SearchableSelect
-                  options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
-                  value={cariId}
-                  onChange={(id) => setCariId(id)}
-                  placeholder="Cari ara..."
-                />
-              </ResizableCell>
-            )}
-
-            {/* Fatura olmayan tipler için mevcut sıra */}
+            {/* ═══ FATURA DIŞI SIRALAMA ═══ */}
             {!isInvoiceType && (
               <>
                 <ResizableCell cellId="giris-firma">
                   <div className="flex items-center justify-between mb-0.5">
                     <label className="block text-sm font-medium text-slate-700">Firma <span className="text-red-500">*</span></label>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddFirmModal(true)}
-                      className="text-xs text-blue-600 hover:text-blue-700"
-                    >
-                      <Plus size={12} />
-                      Yeni Ekle
-                    </button>
+                    <button type="button" onClick={() => setShowAddFirmModal(true)} className="text-xs text-blue-600 hover:text-blue-700"><Plus size={12} /> Yeni Ekle</button>
                   </div>
-                  <SearchableSelect
-                    ref={firmInputRef}
-                    options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))}
-                    value={firmId}
-                    onChange={(id) => setFirmId(id)}
-                    placeholder="Firma ara..."
-                    required
-                  />
+                  <SearchableSelect ref={firmInputRef} options={firms.map(f => ({ id: f.id, code: f.code, name: f.name }))} value={firmId} onChange={(id) => setFirmId(id)} placeholder="Firma ara..." required />
                 </ResizableCell>
-
                 <ResizableCell cellId="giris-proje" className="bg-slate-100">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Proje <span className="text-red-500">*</span>
-                  </label>
-                  <SearchableSelect
-                    options={projects.filter(p => !firmId || p.firm_id === firmId).map(p => ({ id: p.id, name: p.name }))}
-                    value={projectId}
-                    onChange={(id) => setProjectId(id)}
-                    placeholder="Proje ara..."
-                    required
-                  />
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Proje <span className="text-red-500">*</span></label>
+                  <SearchableSelect options={projects.filter(p => !firmId || p.firm_id === firmId).map(p => ({ id: p.id, name: p.name }))} value={projectId} onChange={(id) => setProjectId(id)} placeholder="Proje ara..." required />
                 </ResizableCell>
-
                 <ResizableCell cellId="giris-tarih">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Tarih</label>
-                  <DateInput
-                    value={transactionDate}
-                    onChange={(val) => setTransactionDate(val)}
-                    className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  />
+                  <DateInput value={transactionDate} onChange={(val) => setTransactionDate(val)} className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
                 </ResizableCell>
-
-                {/* İrsaliye No */}
                 {showDeliveryNoteNumber && (
                   <ResizableCell cellId="giris-irsaliye-no">
                     <label className="block text-sm font-medium text-slate-700 mb-1">İrsaliye No</label>
-                    <input
-                      type="text"
-                      value={deliveryNoteNumber}
-                      onChange={(e) => {
-                        const clean = e.target.value.replace(/[^a-zA-Z0-9/]/g, '').toUpperCase();
-                        setDeliveryNoteNumber(clean);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          setDeliveryNoteNumber(formatInvoiceNumberOnSave(deliveryNoteNumber));
-                        }
-                      }}
-                      placeholder="İrsaliye numarası"
-                      className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
+                    <input type="text" value={deliveryNoteNumber} onChange={(e) => { const clean = e.target.value.replace(/[^a-zA-Z0-9/]/g, '').toUpperCase(); setDeliveryNoteNumber(clean); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setDeliveryNoteNumber(formatInvoiceNumberOnSave(deliveryNoteNumber)); } }} placeholder="İrsaliye numarası" className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
                   </ResizableCell>
                 )}
-
-                {/* Fatura No - gelir/gider */}
                 {showInvoiceNumber && (
                   <ResizableCell cellId="giris-fatura-no">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      {isIncomeType ? 'Gelir No' : isExpenseType ? 'Gider No' : 'Fatura No'}
-                    </label>
-                    <input
-                      type="text"
-                      value={invoiceNumber}
-                      onChange={(e) => handleInvoiceNumberChange(e.target.value)}
-                      onKeyDown={handleInvoiceNumberKeyDown}
-                      placeholder={isIncomeType ? 'GEL2026/1' : isExpenseType ? 'GID2026/1' : 'aab2026/1'}
-                      className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    />
+                    <label className="block text-sm font-medium text-slate-700 mb-1">{isIncomeType ? 'Gelir No' : isExpenseType ? 'Gider No' : 'Fatura No'}</label>
+                    <input type="text" value={invoiceNumber} onChange={(e) => handleInvoiceNumberChange(e.target.value)} onKeyDown={handleInvoiceNumberKeyDown} placeholder={isIncomeType ? 'GEL2026/1' : isExpenseType ? 'GID2026/1' : 'aab2026/1'} className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
                   </ResizableCell>
                 )}
+                <ResizableCell cellId="giris-cari">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Cari <span className="text-red-500">*</span></label>
+                  <SearchableSelect options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))} value={cariId} onChange={(id) => setCariId(id)} placeholder="Cari ara..." />
+                </ResizableCell>
               </>
             )}
 
-            <ResizableCell cellId="giris-cari">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Cari <span className="text-red-500">*</span></label>
-              <SearchableSelect
-                options={cariler.map(c => ({ id: c.id, code: c.code, name: c.name }))}
-                value={cariId}
-                onChange={(id) => setCariId(id)}
-                placeholder="Cari ara..."
-              />
-            </ResizableCell>
-
+            {/* ═══ ORTAK ALANLAR ═══ */}
             {showExpenseCategory && (
               <ResizableCell cellId="giris-gider-turu">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Gider Türü</label>
-                <SearchableSelect
-                  options={expenseCategories.map(c => ({ id: c.id, name: c.name }))}
-                  value={expenseCategoryId}
-                  onChange={(id) => setExpenseCategoryId(id)}
-                  placeholder="Gider türü ara..."
-                />
+                <SearchableSelect options={expenseCategories.map(c => ({ id: c.id, name: c.name }))} value={expenseCategoryId} onChange={(id) => setExpenseCategoryId(id)} placeholder="Gider türü ara..." />
               </ResizableCell>
             )}
 
             {(isIncomeType || isExpenseType) && (
               <ResizableCell cellId="giris-odeme-yontemi">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Ödeme Yöntemi</label>
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as 'cash' | 'bank' | 'check' | '')}
-                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
+                <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as 'cash' | 'bank' | 'check' | '')} className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
                   <option value="">Seçiniz...</option>
                   <option value="cash">Nakit (Kasa)</option>
                   <option value="bank">Banka Havalesi</option>

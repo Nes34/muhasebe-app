@@ -1,6 +1,7 @@
 import { useState, useEffect, Fragment } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDateTR } from '../lib/utils';
+import { formatInvoiceNumberOnSave } from '../lib/invoice';
 import { exportTransactionsToExcel } from '../lib/excel';
 import { generateInvoicePDF, generateDeliveryNotePDF } from '../lib/pdf';
 import { useFirm } from '../hooks/useFirm';
@@ -641,6 +642,12 @@ export default function TransactionTracking() {
                       <label className="block text-sm font-medium text-slate-700 mb-1">Fatura No</label>
                       <input type="text" value={editFormData.invoice_number}
                         onChange={(e) => setEditFormData({ ...editFormData, invoice_number: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            setEditFormData({ ...editFormData, invoice_number: formatInvoiceNumberOnSave(editFormData.invoice_number) });
+                          }
+                        }}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
                     </div>
                   )}
