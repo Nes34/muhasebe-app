@@ -4,6 +4,7 @@ import { formatDateTR, formatCurrency } from '../lib/utils';
 import { exportAccountStatementToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
+import DateInput from '../components/DateInput';
 import type { Cari } from '../types';
 import { Search, Download, FileText } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
@@ -295,8 +296,8 @@ export default function AccountStatement() {
               showCode={true}
             />
           </div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç</label><input type="text" value={startDate} onChange={(e) => setStartDate(e.target.value)} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" /></div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Bitiş</label><input type="text" value={endDate} onChange={(e) => setEndDate(e.target.value)} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" /></div>
+          <div><label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç</label><DateInput value={startDate} onChange={(val) => setStartDate(val)} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" /></div>
+          <div><label className="block text-sm font-medium text-slate-700 mb-1">Bitiş</label><DateInput value={endDate} onChange={(val) => setEndDate(val)} className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" /></div>
         </div>
         <div className="mt-4 flex items-center justify-between">
           <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={includeException} onChange={(e) => setIncludeException(e.target.checked)} className="w-4 h-4 text-blue-600 rounded" /><span className="text-sm text-slate-700">İstisna işlemleri dahil et</span></label>
@@ -374,7 +375,7 @@ export default function AccountStatement() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs text-slate-500 mb-1">Tarih</label>
-                      <input type="text" value={editForm.transaction_date} onChange={(e) => setEditForm({ ...editForm, transaction_date: e.target.value })} placeholder="gg.aa.yyyy" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                      <DateInput value={editForm.transaction_date} onChange={(val) => setEditForm({ ...editForm, transaction_date: val })} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
                     </div>
                     <div>
                       <label className="block text-xs text-slate-500 mb-1">İşlem Türü</label>

@@ -9,6 +9,7 @@ import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
 import DescriptionAutocomplete from '../components/DescriptionAutocomplete';
 import WithholdingTaxModal from '../components/WithholdingTaxModal';
+import DateInput from '../components/DateInput';
 import { Plus, Trash2, Save, AlertCircle, CheckCircle, X, Upload, FileSpreadsheet, Search, Package, Download, TrendingUp, TrendingDown, FileText, Truck, Receipt } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 import ResizableCell from '../components/tables/ResizableCell';
@@ -1332,11 +1333,9 @@ export default function TransactionEntry() {
 
             <ResizableCell cellId="giris-tarih">
               <label className="block text-sm font-medium text-slate-700 mb-1">Tarih</label>
-              <input
-                type="text"
+              <DateInput
                 value={transactionDate}
-                onChange={(e) => setTransactionDate(e.target.value)}
-                placeholder="gg.aa.yyyy"
+                onChange={(val) => setTransactionDate(val)}
                 className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
               />
             </ResizableCell>

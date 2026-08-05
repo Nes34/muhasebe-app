@@ -4,6 +4,7 @@ import { formatDateTR, formatCurrency, toISODate, parseDateTR, todayISO } from '
 import { exportChecksToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
+import DateInput from '../components/DateInput';
 import type { Check, Cari, BankAccount, Firm } from '../types';
 import { Plus, Edit2, Trash2, Search, AlertTriangle, Send, Download } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
@@ -313,7 +314,7 @@ export default function CheckManagement() {
                 <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Banka</label><input type="text" value={formData.bank_name} onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Şube</label><input type="text" value={formData.bank_branch} onChange={(e) => setFormData({ ...formData, bank_branch: e.target.value })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div></div>
               )}
               <div><label className="block text-sm font-medium text-slate-700 mb-1">Tutar</label><input type="number" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div>
-              <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Düzenleme</label><input type="text" value={formData.issue_date} onChange={(e) => setFormData({ ...formData, issue_date: e.target.value })} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Vade</label><input type="text" value={formData.due_date} onChange={(e) => setFormData({ ...formData, due_date: e.target.value })} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg" required /></div></div>
+              <div className="grid grid-cols-2 gap-4"><div><label className="block text-sm font-medium text-slate-700 mb-1">Düzenleme</label><DateInput value={formData.issue_date} onChange={(val) => setFormData({ ...formData, issue_date: val })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div><div><label className="block text-sm font-medium text-slate-700 mb-1">Vade</label><DateInput value={formData.due_date} onChange={(val) => setFormData({ ...formData, due_date: val })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" /></div></div>
               <div className="flex gap-2 justify-end">
                 <button type="button" onClick={() => { setShowForm(false); setEditingCheck(null); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50">İptal</button>
                 <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Kaydet</button>
@@ -343,7 +344,7 @@ export default function CheckManagement() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Tarih</label>
-                <input type="text" value={endorseData.endorsed_date} onChange={(e) => setEndorseData({ ...endorseData, endorsed_date: e.target.value })} placeholder="gg.aa.yyyy" className="w-full px-4 py-2 border border-slate-300 rounded-lg" />
+                <DateInput value={endorseData.endorsed_date} onChange={(val) => setEndorseData({ ...endorseData, endorsed_date: val })} className="w-full px-4 py-2 border border-slate-300 rounded-lg" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Not</label>

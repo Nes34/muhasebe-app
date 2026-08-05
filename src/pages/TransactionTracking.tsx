@@ -5,6 +5,7 @@ import { exportTransactionsToExcel } from '../lib/excel';
 import { generateInvoicePDF, generateDeliveryNotePDF } from '../lib/pdf';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
+import DateInput from '../components/DateInput';
 import type { Transaction, TransactionType, Firm, Project } from '../types';
 import { Search, Edit2, Trash2, ArrowRightLeft, ChevronDown, ChevronRight, Download, FileText, X, Save, Plus, AlertCircle, CheckCircle } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
@@ -587,9 +588,8 @@ export default function TransactionTracking() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Tarih <span className="text-red-500">*</span></label>
-                    <input type="text" value={editFormData.transaction_date}
-                      onChange={(e) => setEditFormData({ ...editFormData, transaction_date: e.target.value })}
-                      placeholder="gg.aa.yyyy"
+                    <DateInput value={editFormData.transaction_date}
+                      onChange={(val) => setEditFormData({ ...editFormData, transaction_date: val })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
                   </div>
                   <div>

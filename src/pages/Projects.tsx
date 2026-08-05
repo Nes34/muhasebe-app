@@ -4,6 +4,7 @@ import { formatDateTR, formatCurrency } from '../lib/utils';
 import { exportProjectsToExcel } from '../lib/excel';
 import { useFirm } from '../hooks/useFirm';
 import SearchableSelect from '../components/SearchableSelect';
+import DateInput from '../components/DateInput';
 import type { Project, Firm } from '../types';
 import { Plus, Edit2, Trash2, FolderKanban, AlertTriangle, CheckCircle, Search, TrendingUp, TrendingDown, Wallet, Download, FileCheck, Building2 } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
@@ -590,21 +591,17 @@ export default function Projects() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Başlangıç</label>
-                  <input
-                    type="text"
+                  <DateInput
                     value={formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    placeholder="gg.aa.yyyy"
+                    onChange={(val) => setFormData({ ...formData, start_date: val })}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Bitiş</label>
-                  <input
-                    type="text"
+                  <DateInput
                     value={formData.end_date}
-                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    placeholder="gg.aa.yyyy"
+                    onChange={(val) => setFormData({ ...formData, end_date: val })}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg"
                   />
                 </div>
