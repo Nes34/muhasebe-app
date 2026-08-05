@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDateTR } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
-import { Truck, ArrowRight, Search, CheckCircle, AlertTriangle } from 'lucide-react';
+import DateInput from '../components/DateInput';
+import { Truck, ArrowRight, Search, CheckCircle, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 
 interface DeliveryNote {
@@ -21,6 +22,16 @@ interface DeliveryNote {
   items?: any[];
 }
 
+interface InvoiceItem {
+  description: string;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+  amount: number;
+  vat_rate: number;
+  vat_amount: number;
+}
+
 export default function DeliveryNoteToInvoice() {
   const { selectedFirm } = useFirm();
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNote[]>([]);
@@ -28,6 +39,13 @@ export default function DeliveryNoteToInvoice() {
   const [searchTerm, setSearchTerm] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [converting, setConverting] = useState<string | null>(null);
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<DeliveryNote | null>(null);
+  const [invoiceForm, setInvoiceForm] = useState({
+    invoice_date: '',
+    invoice_number: '',
+  });
+  const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
 
   useEffect(() => { fetchDeliveryNotes(); }, [selectedFirm]);
 
@@ -46,47 +64,106 @@ export default function DeliveryNoteToInvoice() {
     setLoading(false);
   };
 
-  const convertToInvoice = async (note: DeliveryNote) => {
-    setConverting(note.id);
+  // Dönüştürme modalını aç
+  const openConvertModal = async (note: DeliveryNote) => {
+    setSelectedNote(note);
+
+    // Fatura numarası oluştur
+    const invoiceType = note.transaction_type === 'sale_delivery_note' ? 'sale_invoice' :
+                        note.transaction_type === 'purchase_delivery_note' ? 'purchase_invoice' : 'invoice';
+    const prefix = invoiceType === 'sale_invoice' ? 'SF' : 'AF';
+    const { data: lastInvoice } = await supabase
+      .from('transactions')
+      .select('invoice_number')
+      .like('invoice_number', `${prefix}%`)
+      .order('invoice_number', { ascending: false })
+      .limit(1);
+
+    let nextNum = 1;
+    if (lastInvoice && lastInvoice.length > 0) {
+      const lastNum = parseInt(lastInvoice[0].invoice_number?.replace(prefix, '') || '0');
+      nextNum = lastNum + 1;
+    }
+    const invoiceNumber = `${prefix}${String(nextNum).padStart(9, '0')}`;
+
+    setInvoiceForm({
+      invoice_date: formatDateTR(new Date()),
+      invoice_number: invoiceNumber,
+    });
+
+    // İrsaliye kalemlerini çek
+    const { data: items } = await supabase
+      .from('transaction_items')
+      .select('*')
+      .eq('transaction_id', note.id);
+
+    if (items && items.length > 0) {
+      setInvoiceItems(items.map(item => ({
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        unit_price: item.unit_price,
+        amount: item.amount,
+        vat_rate: item.vat_rate || 20,
+        vat_amount: item.vat_amount || 0,
+      })));
+    } else {
+      setInvoiceItems([]);
+    }
+
+    setShowConvertModal(true);
+  };
+
+  // Kalem güncelle
+  const updateInvoiceItem = (index: number, field: keyof InvoiceItem, value: any) => {
+    const updated = [...invoiceItems];
+    updated[index] = { ...updated[index], [field]: value };
+    if (field === 'quantity' || field === 'unit_price') {
+      updated[index].amount = (updated[index].quantity || 0) * (updated[index].unit_price || 0);
+      updated[index].vat_amount = updated[index].amount * (updated[index].vat_rate || 0) / 100;
+    }
+    setInvoiceItems(updated);
+  };
+
+  // Kalem sil
+  const removeInvoiceItem = (index: number) => {
+    setInvoiceItems(invoiceItems.filter((_, i) => i !== index));
+  };
+
+  // Yeni kalem ekle
+  const addInvoiceItem = () => {
+    setInvoiceItems([...invoiceItems, {
+      description: '',
+      quantity: 1,
+      unit: 'adet',
+      unit_price: 0,
+      amount: 0,
+      vat_rate: 20,
+      vat_amount: 0,
+    }]);
+  };
+
+  // Faturaya dönüştür (modal'dan)
+  const handleConvert = async () => {
+    if (!selectedNote) return;
+    setConverting(selectedNote.id);
     try {
-      // İrsaliye kalemlerini çek
-      const { data: items } = await supabase
-        .from('transaction_items')
-        .select('*')
-        .eq('transaction_id', note.id);
+      const invoiceType = selectedNote.transaction_type === 'sale_delivery_note' ? 'sale_invoice' :
+                          selectedNote.transaction_type === 'purchase_delivery_note' ? 'purchase_invoice' : 'invoice';
 
-      // Fatura türünü belirle
-      const invoiceType = note.transaction_type === 'sale_delivery_note' ? 'sale_invoice' : 
-                          note.transaction_type === 'purchase_delivery_note' ? 'purchase_invoice' : 'invoice';
-      
-      // Yeni fatura numarası oluştur
-      const prefix = invoiceType === 'sale_invoice' ? 'SF' : 'AF';
-      const { data: lastInvoice } = await supabase
-        .from('transactions')
-        .select('invoice_number')
-        .like('invoice_number', `${prefix}%`)
-        .order('invoice_number', { ascending: false })
-        .limit(1);
-      
-      let nextNum = 1;
-      if (lastInvoice && lastInvoice.length > 0) {
-        const lastNum = parseInt(lastInvoice[0].invoice_number?.replace(prefix, '') || '0');
-        nextNum = lastNum + 1;
-      }
-      const invoiceNumber = `${prefix}${String(nextNum).padStart(9, '0')}`;
+      const totalAmount = invoiceItems.reduce((sum, item) => sum + item.amount, 0);
 
-      // Fatura oluştur
       const { data: newInvoice, error } = await supabase
         .from('transactions')
         .insert({
-          transaction_date: new Date().toISOString().split('T')[0],
+          transaction_date: invoiceForm.invoice_date,
           transaction_type: invoiceType,
-          firm_id: note.firm_id,
-          cari_id: note.cari_id,
-          project_id: note.project_id,
-          amount: note.amount,
-          invoice_number: invoiceNumber,
-          description: note.description ? `İrsaliye ${note.delivery_note_number || ''} - ${note.description}` : `İrsaliye ${note.delivery_note_number || ''} faturası`,
+          firm_id: selectedNote.firm_id,
+          cari_id: selectedNote.cari_id,
+          project_id: selectedNote.project_id,
+          amount: totalAmount,
+          invoice_number: invoiceForm.invoice_number,
+          description: selectedNote.description ? `İrsaliye ${selectedNote.delivery_note_number || ''} - ${selectedNote.description}` : `İrsaliye ${selectedNote.delivery_note_number || ''} faturası`,
           currency: 'TRY',
           exchange_rate: 1,
         })
@@ -95,11 +172,10 @@ export default function DeliveryNoteToInvoice() {
 
       if (error) throw error;
 
-      // Kalemleri kopyala
-      if (items && items.length > 0) {
-        const itemsToInsert = items.map(item => ({
+      // Kalemleri kaydet
+      if (invoiceItems.length > 0) {
+        const itemsToInsert = invoiceItems.map((item, idx) => ({
           transaction_id: newInvoice.id,
-          product_id: item.product_id,
           description: item.description,
           quantity: item.quantity,
           unit: item.unit,
@@ -107,13 +183,14 @@ export default function DeliveryNoteToInvoice() {
           amount: item.amount,
           vat_rate: item.vat_rate,
           vat_amount: item.vat_amount,
-          discount_rate: item.discount_rate,
-          discount_amount: item.discount_amount,
+          sort_order: idx,
         }));
         await supabase.from('transaction_items').insert(itemsToInsert);
       }
 
-      setMessage({ type: 'success', text: `İrsaliye faturaya dönüştürüldü! Fatura No: ${invoiceNumber}` });
+      setMessage({ type: 'success', text: `İrsaliye faturaya dönüştürüldü! Fatura No: ${invoiceForm.invoice_number}` });
+      setShowConvertModal(false);
+      setSelectedNote(null);
       fetchDeliveryNotes();
     } catch (err: any) {
       setMessage({ type: 'error', text: 'Dönüştürme hatası: ' + (err.message || 'Bilinmeyen hata') });
@@ -208,7 +285,7 @@ export default function DeliveryNoteToInvoice() {
                   <td className="py-3 px-4 text-right font-mono">{formatCurrency(note.amount)}</td>
                   <td className="py-3 px-4 text-center">
                     <button
-                      onClick={() => convertToInvoice(note)}
+                      onClick={() => openConvertModal(note)}
                       disabled={converting === note.id}
                       className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm disabled:opacity-50"
                     >
@@ -225,6 +302,128 @@ export default function DeliveryNoteToInvoice() {
           <p className="text-center py-8 text-slate-500">İrsaliye bulunamadı.</p>
         )}
       </div>
+
+      {/* Faturaya Dönüştürme Modalı */}
+      {showConvertModal && selectedNote && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={() => { setShowConvertModal(false); setSelectedNote(null); }}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <h3 className="text-lg font-bold text-slate-800">İrsaliyeyi Faturaya Dönüştür</h3>
+              <button onClick={() => { setShowConvertModal(false); setSelectedNote(null); }} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4 space-y-4">
+              {/* İrsaliye Bilgileri */}
+              <div className="bg-slate-50 rounded-lg p-3">
+                <div className="grid grid-cols-4 gap-3 text-sm">
+                  <div><span className="text-slate-500">İrsaliye No:</span> <span className="font-mono font-bold">{selectedNote.delivery_note_number || '-'}</span></div>
+                  <div><span className="text-slate-500">Tarih:</span> <span className="font-medium">{formatDateTR(selectedNote.transaction_date)}</span></div>
+                  <div><span className="text-slate-500">Cari:</span> <span className="font-medium">{selectedNote.cari?.name || '-'}</span></div>
+                  <div><span className="text-slate-500">Tür:</span> <span className="font-medium">{getTypeLabel(selectedNote.transaction_type)}</span></div>
+                </div>
+              </div>
+
+              {/* Fatura Bilgileri */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Fatura Tarihi</label>
+                  <DateInput
+                    value={invoiceForm.invoice_date}
+                    onChange={(val) => setInvoiceForm({ ...invoiceForm, invoice_date: val })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Fatura No</label>
+                  <input
+                    type="text"
+                    value={invoiceForm.invoice_number}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, invoice_number: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Kalemler */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-slate-700">Fatura Kalemleri</h4>
+                  <button onClick={addInvoiceItem} className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200">
+                    <Plus size={12} /> Kalem Ekle
+                  </button>
+                </div>
+                {invoiceItems.length > 0 ? (
+                  <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
+                    <thead>
+                      <tr className="bg-slate-100">
+                        <th className="py-2 px-2 text-left">Açıklama</th>
+                        <th className="py-2 px-2 text-right w-20">Miktar</th>
+                        <th className="py-2 px-2 text-left w-16">Birim</th>
+                        <th className="py-2 px-2 text-right w-24">Birim Fiyat</th>
+                        <th className="py-2 px-2 text-right w-16">KDV %</th>
+                        <th className="py-2 px-2 text-right w-24">Tutar</th>
+                        <th className="py-2 px-2 w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoiceItems.map((item, idx) => (
+                        <tr key={idx} className="border-t border-slate-200">
+                          <td className="py-1.5 px-1">
+                            <input type="text" value={item.description} onChange={(e) => updateInvoiceItem(idx, 'description', e.target.value)}
+                              className="w-full px-2 py-1 border border-slate-200 rounded text-xs" />
+                          </td>
+                          <td className="py-1.5 px-1">
+                            <input type="number" value={item.quantity} onChange={(e) => updateInvoiceItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                              className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                          </td>
+                          <td className="py-1.5 px-1">
+                            <input type="text" value={item.unit} onChange={(e) => updateInvoiceItem(idx, 'unit', e.target.value)}
+                              className="w-full px-2 py-1 border border-slate-200 rounded text-xs" />
+                          </td>
+                          <td className="py-1.5 px-1">
+                            <input type="number" value={item.unit_price} onChange={(e) => updateInvoiceItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
+                              className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                          </td>
+                          <td className="py-1.5 px-1">
+                            <input type="number" value={item.vat_rate} onChange={(e) => updateInvoiceItem(idx, 'vat_rate', parseFloat(e.target.value) || 0)}
+                              className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-bold">{formatCurrency(item.amount)}</td>
+                          <td className="py-1.5 px-1">
+                            {invoiceItems.length > 1 && (
+                              <button onClick={() => removeInvoiceItem(idx)} className="text-red-500 hover:text-red-700">
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-slate-100 font-bold">
+                        <td colSpan={5} className="py-2 px-2 text-right">Toplam:</td>
+                        <td className="py-2 px-2 text-right">{formatCurrency(invoiceItems.reduce((s, i) => s + i.amount, 0))}</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                ) : (
+                  <p className="text-sm text-slate-400 py-4 text-center">İrsaliyede kalem bulunamadı</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 p-4 border-t border-slate-200">
+              <button onClick={() => { setShowConvertModal(false); setSelectedNote(null); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm">
+                İptal
+              </button>
+              <button onClick={handleConvert} disabled={converting === selectedNote.id} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm disabled:opacity-50">
+                {converting === selectedNote.id ? 'Dönüştürülüyor...' : 'Faturaya Dönüştür'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
