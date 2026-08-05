@@ -87,6 +87,7 @@ export default function TransactionEntry() {
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [pendingHighlightIndex, setPendingHighlightIndex] = useState(0);
   const [openProductDropdown, setOpenProductDropdown] = useState<number | null>(null);
+  const [productHighlightIndex, setProductHighlightIndex] = useState(0);
   const [hasPendingOrders, setHasPendingOrders] = useState(false);
   const [discountCount, setDiscountCount] = useState(1);
   
@@ -1601,6 +1602,7 @@ export default function TransactionEntry() {
                                     handleProductSelect(index, e.target.value);
                                     if (e.target.value.length > 0) {
                                       setOpenProductDropdown(index);
+                                      setProductHighlightIndex(0);
                                     } else {
                                       setOpenProductDropdown(null);
                                     }
@@ -1608,6 +1610,33 @@ export default function TransactionEntry() {
                                   onFocus={() => {
                                     if (item.description.length > 0) {
                                       setOpenProductDropdown(index);
+                                      setProductHighlightIndex(0);
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (openProductDropdown !== index) return;
+                                    const filtered = products.filter(p =>
+                                      p.name.toLowerCase().includes(item.description.toLowerCase()) ||
+                                      p.code?.toLowerCase().includes(item.description.toLowerCase()) ||
+                                      p.barcode?.toLowerCase().includes(item.description.toLowerCase())
+                                    ).slice(0, 5);
+                                    if (filtered.length === 0) return;
+                                    if (e.key === 'ArrowDown') {
+                                      e.preventDefault();
+                                      setProductHighlightIndex(prev => Math.min(prev + 1, filtered.length - 1));
+                                    } else if (e.key === 'ArrowUp') {
+                                      e.preventDefault();
+                                      setProductHighlightIndex(prev => Math.max(prev - 1, 0));
+                                    } else if (e.key === 'Tab' || e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const selected = filtered[productHighlightIndex];
+                                      if (selected) {
+                                        updateItem(index, 'description', selected.name);
+                                        handleProductSelect(index, selected.name);
+                                        setOpenProductDropdown(null);
+                                      }
+                                    } else if (e.key === 'Escape') {
+                                      setOpenProductDropdown(null);
                                     }
                                   }}
                                   placeholder="Ürün ara veya yaz..."
@@ -1628,16 +1657,17 @@ export default function TransactionEntry() {
                                     const width = rect ? rect.width : 400;
                                     return (
                                       <div style={{ position: 'fixed', top, left, width, zIndex: 999999, maxHeight: '200px', overflowY: 'auto' }} className="bg-white border border-slate-200 rounded-lg shadow-2xl">
-                                        {filtered.map(product => (
+                                        {filtered.map((product, pIdx) => (
                                           <div
                                             key={product.id}
-                                            className="px-3 py-1.5 cursor-pointer hover:bg-blue-50 text-sm flex items-center gap-2"
+                                            className={`px-3 py-1.5 cursor-pointer text-sm flex items-center gap-2 ${pIdx === productHighlightIndex ? 'bg-blue-100 text-blue-700' : 'hover:bg-slate-50'}`}
                                             onMouseDown={(e) => {
                                               e.preventDefault();
                                               updateItem(index, 'description', product.name);
                                               handleProductSelect(index, product.name);
                                               setOpenProductDropdown(null);
                                             }}
+                                            onMouseEnter={() => setProductHighlightIndex(pIdx)}
                                           >
                                             <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-mono font-bold">{product.code}</span>
                                             <span className="font-medium">{product.name}</span>
