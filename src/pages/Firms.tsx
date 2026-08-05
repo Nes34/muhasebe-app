@@ -111,35 +111,39 @@ export default function Firms() {
     ]);
 
     // Toplam gelir/gider hesapla (Dashboard ile birebir aynı formül)
-    let totalIncome = 0;
-    let totalExpense = 0;
+    // Cari hesap mantığı (firma bazlı):
+    // Satış faturası → Borç
+    // Alış faturası → Alacak
+    // Kasa/banka gelen → Alacak
+    // Kasa/banka giden → Borç
+    let totalDebt = 0;
+    let totalCredit = 0;
 
     (txRes.data || []).forEach((t: any) => {
       if (transferTypes.includes(t.transaction_type)) return;
       if (t.is_exception) return;
-      if (['income', 'invoice', 'sale_invoice'].includes(t.transaction_type)) totalIncome += t.amount;
-      else totalExpense += t.amount;
+      if (['sale_invoice', 'invoice'].includes(t.transaction_type)) totalDebt += t.amount;
+      else totalCredit += t.amount;
     });
 
     (cashTxRes.data || []).forEach((t: any) => {
-      if (t.transaction_type === 'in') totalIncome += t.amount;
-      else totalExpense += t.amount;
+      if (t.transaction_type === 'in') totalCredit += t.amount;
+      else totalDebt += t.amount;
     });
 
     (bankTxRes.data || []).forEach((t: any) => {
-      if (t.transaction_type === 'in') totalIncome += t.amount;
-      else totalExpense += t.amount;
+      if (t.transaction_type === 'in') totalCredit += t.amount;
+      else totalDebt += t.amount;
     });
 
-    // Açılış bakiyeleri — Dashboard ile aynı mantık
-    // Firma seçiliyse sadece bağlı kasalardan/bankalardan, değilse tümünden
+    // Açılış bakiyeleri
     (cash || []).forEach((c: any) => {
-      if (c.opening_balance > 0) totalIncome += c.opening_balance;
-      else if (c.opening_balance < 0) totalExpense += Math.abs(c.opening_balance);
+      if (c.opening_balance > 0) totalCredit += c.opening_balance;
+      else if (c.opening_balance < 0) totalDebt += Math.abs(c.opening_balance);
     });
     (bank || []).forEach((b: any) => {
-      if (b.opening_balance > 0) totalIncome += b.opening_balance;
-      else if (b.opening_balance < 0) totalExpense += Math.abs(b.opening_balance);
+      if (b.opening_balance > 0) totalCredit += b.opening_balance;
+      else if (b.opening_balance < 0) totalDebt += Math.abs(b.opening_balance);
     });
 
     // Firma özetlerini hesapla (her firma için)
@@ -184,7 +188,11 @@ export default function Firms() {
       const pendingGivenChecks = checks.filter(c => c.check_type === 'given' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
       const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
 
-      const profitLoss = income - expense;
+      // Çekleri kâr/zarara dahil et (banka hareketi olarak değil, çek olarak)
+      const receivedChecks = checks.filter(c => c.check_type === 'received' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
+      const givenChecks = checks.filter(c => c.check_type === 'given' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
+
+      const profitLoss = income - expense + receivedChecks - givenChecks;
 
       return { firm, income, expense, checksGiven: pendingGivenChecks, checksPaid, profitLoss };
     });
@@ -436,11 +444,11 @@ export default function Firms() {
                   <thead className="bg-slate-50">
                     <tr>
                       <ResizableTh columnId="firma-firma" className="text-left py-3 px-4">Firma</ResizableTh>
-                      <ResizableTh columnId="firma-gelir" className="text-right py-3 px-4">Gelir</ResizableTh>
-                      <ResizableTh columnId="firma-gider" className="text-right py-3 px-4">Gider</ResizableTh>
+                      <ResizableTh columnId="firma-gelir" className="text-right py-3 px-4">Borç</ResizableTh>
+                      <ResizableTh columnId="firma-gider" className="text-right py-3 px-4">Alacak</ResizableTh>
                       <ResizableTh columnId="firma-verilen-cek" className="text-right py-3 px-4">Verilen Çek</ResizableTh>
                       <ResizableTh columnId="firma-odencek" className="text-right py-3 px-4">Ödenen Çek</ResizableTh>
-                      <ResizableTh columnId="firma-kar" className="text-right py-3 px-4">Kar/Zarar</ResizableTh>
+                      <ResizableTh columnId="firma-kar" className="text-right py-3 px-4">Net Bakiye</ResizableTh>
                     </tr>
                   </thead>
                   <tbody>

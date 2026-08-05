@@ -116,7 +116,8 @@ export default function AccountStatement() {
       source: 'transaction',
       date: t.transaction_date,
       label: getLabel(t.transaction_type),
-      isIncome: t.transaction_type === 'income' || t.transaction_type === 'invoice' || t.transaction_type === 'sale_invoice',
+      // Cari hesap mantığı: alış/gider = alacak, satış faturası = borç
+      isIncome: t.transaction_type === 'purchase_invoice' || t.transaction_type === 'expense',
     }));
 
     checkRes.data?.forEach(c => allTransactions.push({
@@ -155,10 +156,11 @@ export default function AccountStatement() {
     let totalDebt = 0, totalCredit = 0;
     transactions.forEach(t => {
       const amount = Math.abs(t.amount);
-      if (t.isIncome) totalCredit += amount;
-      else totalDebt += amount;
+      if (t.isIncome) totalCredit += amount; // Alacak (tahsilat)
+      else totalDebt += amount; // Borç (fatura)
     });
-    return { totalDebt, totalCredit, balance: totalCredit - totalDebt };
+    // Bakiye = borç - alacak (pozitif = borçlu, negatif = alacaklı)
+    return { totalDebt, totalCredit, balance: totalDebt - totalCredit };
   };
 
   const getLabel = (type: string) => ({

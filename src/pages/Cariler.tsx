@@ -106,56 +106,49 @@ export default function Cariler() {
       // Hariç tutulacak tipler (para hareketi değil)
       const excludedTypes = ['delivery_note', 'sale_delivery_note', 'purchase_delivery_note', 'transfer', 'stock_transfer', 'cash_transfer', 'bank_transfer'];
 
-      const totalIncome = cariTransactions
-        .filter(t => ['income', 'invoice', 'sale_invoice'].includes(t.transaction_type))
+      // Resmi Muhasebe Cari Hesap Formülü:
+      // Toplam Borç = Satış Faturaları + Tedarikçiye Yapılan Ödemeler
+      // Toplam Alacak = Alış Faturaları + Müşteriden Yapılan Tahsilatlar
+      // Net Bakiye = Toplam Borç - Toplam Alacak
+
+      // Satış Faturaları → Borç
+      const satisFaturalari = cariTransactions
+        .filter(t => ['sale_invoice', 'invoice'].includes(t.transaction_type))
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const totalExpense = cariTransactions
-        .filter(t => !['income', 'invoice', 'sale_invoice'].includes(t.transaction_type) && !excludedTypes.includes(t.transaction_type))
+      // Alış Faturaları → Alacak
+      const alisFaturalari = cariTransactions
+        .filter(t => ['purchase_invoice', 'expense'].includes(t.transaction_type) && !excludedTypes.includes(t.transaction_type))
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const issuedInvoices = cariTransactions
-        .filter(t => t.transaction_type === 'invoice')
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      const pendingInvoices = cariTransactions
-        .filter(t => t.transaction_type === 'expense' && !t.invoice_number)
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      const receivedChecks = cariChecks
+      // Müşteriden Yapılan Tahsilatlar → Alacak (tüm alınan çekler + nakit/banka gelen)
+      const alinanCekler = cariChecks
         .filter(ch => ch.check_type === 'received' && ch.status !== 'cancelled')
         .reduce((sum, ch) => sum + ch.amount, 0);
+      const kasaGiris = cariCashTx.filter(t => t.transaction_type === 'in').reduce((sum, t) => sum + t.amount, 0);
+      const bankaGiris = cariBankTx.filter(t => t.transaction_type === 'in').reduce((sum, t) => sum + t.amount, 0);
+      const tahsilat = alinanCekler + kasaGiris + bankaGiris;
 
-      const issuedChecks = cariChecks
+      // Tedarikçiye Yapılan Ödemeler → Borç (tüm verilen çekler + nakit/banka giden)
+      const verilenCekler = cariChecks
         .filter(ch => ch.check_type === 'given' && ch.status !== 'cancelled')
         .reduce((sum, ch) => sum + ch.amount, 0);
+      const kasaCikis = cariCashTx.filter(t => t.transaction_type === 'out').reduce((sum, t) => sum + t.amount, 0);
+      const bankaCikis = cariBankTx.filter(t => t.transaction_type === 'out').reduce((sum, t) => sum + t.amount, 0);
+      const odeme = verilenCekler + kasaCikis + bankaCikis;
 
-      // Kasa hareketleri: giren para = alacak, çıkan para = borç
-      const cashIn = cariCashTx.filter(t => t.transaction_type === 'in').reduce((sum, t) => sum + t.amount, 0);
-      const cashOut = cariCashTx.filter(t => t.transaction_type === 'out').reduce((sum, t) => sum + t.amount, 0);
-
-      // Banka hareketleri: giren para = alacak, çıkan para = borç
-      const bankIn = cariBankTx.filter(t => t.transaction_type === 'in').reduce((sum, t) => sum + t.amount, 0);
-      const bankOut = cariBankTx.filter(t => t.transaction_type === 'out').reduce((sum, t) => sum + t.amount, 0);
-
-      // Borç = gider + verilen çekler + kasa çıkışı + banka çıkışı
-      const debt = totalExpense + issuedChecks + cashOut + bankOut;
-      // Alacak = gelir + alınan çekler + kasa girişi + banka girişi
-      const credit = totalIncome + receivedChecks + cashIn + bankIn;
-      // Bakiye = alacak - borç
-      const balance = credit - debt;
+      // Toplam Borç = Satış Faturaları + Tedarikçiye Yapılan Ödemeler
+      const debt = satisFaturalari + odeme;
+      // Toplam Alacak = Alış Faturaları + Müşteriden Yapılan Tahsilatlar
+      const credit = alisFaturalari + tahsilat;
+      // Net Bakiye = Toplam Borç - Toplam Alacak (pozitif = müşteri borçlu, negatif = biz borçlu)
+      const balance = debt - credit;
 
       return {
         ...c,
         balance,
-        totalIncome,
-        totalExpense,
         debt,
         credit,
-        issuedInvoices,
-        pendingInvoices,
-        receivedChecks,
-        issuedChecks,
       };
     });
 

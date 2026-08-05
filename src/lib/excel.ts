@@ -118,7 +118,8 @@ export function exportAccountStatementToExcel(transactions: any[], cariName: str
     txs.forEach((t, i) => {
       const amount = Math.abs(t.amount);
       const isIncome = t.isIncome;
-      projeBakiye += isIncome ? amount : -amount;
+      // Cari hesap mantığı: borç = +amount, alacak = -amount
+      projeBakiye += !isIncome ? amount : -amount;
 
       excelData.push({
         'Sıra': i + 1,

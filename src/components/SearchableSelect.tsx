@@ -121,7 +121,7 @@ export default function SearchableSelect({
       {filtered.length > 0 && (
         <div
           ref={containerRef}
-          style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 99999 }}
+          style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 2147483647 }}
           className="bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-auto"
         >
           {filtered.slice(0, 20).map((option, index) => (

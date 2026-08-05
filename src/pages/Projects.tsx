@@ -121,12 +121,16 @@ export default function Projects() {
       const pendingGivenChecks = checks.filter(c => c.check_type === 'given' && c.status === 'pending').reduce((s, c) => s + c.amount, 0);
       const checksPaid = checks.filter(c => c.check_type === 'given' && c.status === 'collected').reduce((s, c) => s + c.amount, 0);
 
+      // Çekleri kâr/zarara dahil et (banka hareketi olarak değil, çek olarak)
+      const receivedChecks = checks.filter(c => c.check_type === 'received' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
+      const givenChecks = checks.filter(c => c.check_type === 'given' && c.status !== 'cancelled').reduce((s, c) => s + c.amount, 0);
+
       // Dashboard ile tutarlı: gelire kasa/banka giriş, gidere kasa/banka çıkış ekle
       const totalInc = income + cashIn + bankIn;
       const totalExp = expense + cashOut + bankOut;
 
-      // Kâr/Zarar = gelir - gider
-      const profitLoss = totalInc - totalExp;
+      // Kâr/Zarar = gelir - gider + alınan çekler - verilen çekler
+      const profitLoss = totalInc - totalExp + receivedChecks - givenChecks;
       const budget = project.budget || 0;
       const completionRate = budget > 0 ? Math.min((expense / budget) * 100, 100) : 0;
 
