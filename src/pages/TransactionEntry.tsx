@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { supabase } from '../lib/supabase';
 import { formatInvoiceNumberOnSave } from '../lib/invoice';
 import { checkDuplicateInvoice } from '../lib/validation';
@@ -102,6 +102,14 @@ export default function TransactionEntry() {
   // İrsaliyeden fatura oluşturma
   const [lastDeliveryNote, setLastDeliveryNote] = useState<any>(null);
   
+  // Satış irsaliyeleri (çoklu seçim)
+  const [saleDeliveryNotes, setSaleDeliveryNotes] = useState<any[]>([]);
+  const [selectedDNIds, setSelectedDNIds] = useState<string[]>([]);
+  const [showDNModal, setShowDNModal] = useState(false);
+  const [expandedDNId, setExpandedDNId] = useState<string | null>(null);
+  const [dnItems, setDnItems] = useState<any[]>([]);
+  const [loadingDNItems, setLoadingDNItems] = useState(false);
+  
   // Yeni işlem tipi ekleme modal
   const [showAddTypeModal, setShowAddTypeModal] = useState(false);
   const [newTypeName, setNewTypeName] = useState('');
@@ -204,6 +212,8 @@ export default function TransactionEntry() {
       const uniqueDescriptions = [...new Set(descriptionsRes.data.map(d => d.description).filter(Boolean))];
       setPreviousDescriptions(uniqueDescriptions);
     }
+
+    // Satış irsaliyeleri artıkfirm/proje/cari bazlı çekiliyor (aşağıdaki useEffect'te)
 
     // Şablonları localStorage'dan yükle
     const savedTemplates = localStorage.getItem('transaction_templates');
@@ -1006,6 +1016,84 @@ export default function TransactionEntry() {
   const isCheckType = transactionType === 'check';
   const isAnyInvoice = isInvoiceType;
 
+  // Firma/proje/cari değişince irsaliyeleri filtrele (alış/satış faturasında)
+  useEffect(() => {
+    if (!isInvoiceType || !firmId) {
+      setSaleDeliveryNotes([]);
+      return;
+    }
+    const fetchFilteredDN = async () => {
+      const dnType = transactionType === 'sale_invoice' ? 'sale_delivery_note' : 'purchase_delivery_note';
+      let query = supabase
+        .from('transactions')
+        .select('id, delivery_note_number, transaction_date, amount, description, firm_id, project_id, cari_id')
+        .eq('transaction_type', dnType)
+        .eq('firm_id', firmId);
+      if (projectId) query = query.eq('project_id', projectId);
+      if (cariId) query = query.eq('cari_id', cariId);
+      const { data } = await query.order('transaction_date', { ascending: false });
+      setSaleDeliveryNotes(data || []);
+    };
+    fetchFilteredDN();
+  }, [transactionType, firmId, projectId, cariId, isInvoiceType]);
+
+  // İrsaliye kalemlerini çek (modal içinde önizleme için)
+  const fetchDNItems = async (dnId: string) => {
+    setLoadingDNItems(true);
+    setExpandedDNId(expandedDNId === dnId ? null : dnId);
+    if (expandedDNId === dnId) { setLoadingDNItems(false); return; }
+    const { data } = await supabase.from('transaction_items').select('*').eq('transaction_id', dnId);
+    setDnItems(data || []);
+    setLoadingDNItems(false);
+  };
+
+  // İrsaliye seçimini toggle et
+  const toggleDNSelection = (dn: any) => {
+    const isSelected = selectedDNIds.includes(dn.id);
+    let newIds: string[];
+    if (isSelected) {
+      newIds = selectedDNIds.filter(id => id !== dn.id);
+    } else {
+      newIds = [...selectedDNIds, dn.id];
+    }
+    setSelectedDNIds(newIds);
+    const selectedNotes = saleDeliveryNotes.filter(dn => newIds.includes(dn.id));
+    const dnNumbers = selectedNotes.map(d => d.delivery_note_number).filter(Boolean).join(', ');
+    setDeliveryNoteNumber(dnNumbers);
+  };
+
+  // Seçilen irsaliyelerin kalemlerini faturaya aktar
+  const applySelectedDNs = async () => {
+    const selectedNotes = saleDeliveryNotes.filter(dn => selectedDNIds.includes(dn.id));
+    const allItems: any[] = [];
+    for (const dn of selectedNotes) {
+      const { data: items } = await supabase.from('transaction_items').select('*').eq('transaction_id', dn.id);
+      if (items) allItems.push(...items);
+    }
+    if (allItems.length > 0) {
+      const mappedItems = allItems.map((item, idx) => ({
+        _key: Date.now() + idx,
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        unit_price: item.unit_price,
+        amount: item.amount,
+        vat_rate: item.vat_rate || 20,
+        vat_amount: item.vat_amount || 0,
+        discount_rate: item.discount_rate || 0,
+        discount_amount: item.discount_amount || 0,
+      }));
+      setItems(prev => [...prev, ...mappedItems]);
+    }
+    setShowDNModal(false);
+  };
+
+  // İrsaliye seçimini temizle
+  const clearDNSelection = () => {
+    setSelectedDNIds([]);
+    setDeliveryNoteNumber('');
+  };
+
   // Veritabanına gönderilen gerçek transaction_type
   const getDbTransactionType = () => {
     return transactionType;
@@ -1014,7 +1102,7 @@ export default function TransactionEntry() {
   const showFirm = true;
   const showExpenseCategory = isExpenseType;
   const showInvoiceNumber = isAnyInvoice || isIncomeType || isExpenseType;
-  const showDeliveryNoteNumber = isDeliveryNoteType;
+  const showDeliveryNoteNumber = isDeliveryNoteType || isInvoiceType;
   const showItems = isAnyInvoice || isDeliveryNoteType;
   const hidePriceColumns = isDeliveryNoteType;
 
@@ -1297,21 +1385,40 @@ export default function TransactionEntry() {
             {showDeliveryNoteNumber && (
               <ResizableCell cellId="giris-irsaliye-no">
                 <label className="block text-sm font-medium text-slate-700 mb-1">İrsaliye No</label>
-                <input
-                  type="text"
-                  value={deliveryNoteNumber}
-                  onChange={(e) => {
-                    const clean = e.target.value.replace(/[^a-zA-Z0-9/]/g, '').toUpperCase();
-                    setDeliveryNoteNumber(clean);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      setDeliveryNoteNumber(formatInvoiceNumberOnSave(deliveryNoteNumber));
-                    }
-                  }}
-                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                />
+                {(transactionType === 'sale_invoice' || transactionType === 'purchase_invoice') ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={deliveryNoteNumber}
+                      readOnly
+                      placeholder={selectedDNIds.length > 0 ? `${selectedDNIds.length} irsaliye seçildi` : "İrsaliye seçin..."}
+                      className="flex-1 px-4 py-2 text-sm border border-slate-300 rounded bg-slate-50 cursor-default"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDNModal(true)}
+                      className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors whitespace-nowrap"
+                    >
+                      {selectedDNIds.length > 0 ? `${selectedDNIds.length} Seçili` : 'İrsaliye Seç'}
+                    </button>
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={deliveryNoteNumber}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/[^a-zA-Z0-9/]/g, '').toUpperCase();
+                      setDeliveryNoteNumber(clean);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        setDeliveryNoteNumber(formatInvoiceNumberOnSave(deliveryNoteNumber));
+                      }
+                    }}
+                    className="w-full px-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                )}
               </ResizableCell>
             )}
 
@@ -2101,6 +2208,127 @@ export default function TransactionEntry() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* İrsaliye Seçim Modalı */}
+      {showDNModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" onClick={() => setShowDNModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              <h3 className="text-lg font-bold text-slate-800">
+                {transactionType === 'sale_invoice' ? 'Satış İrsaliyeleri' : 'Alış İrsaliyeleri'} — Filtrelenmiş
+                {firmId && <span className="ml-2 text-sm font-normal text-slate-500">(Firma: {firms.find(f => f.id === firmId)?.name})</span>}
+              </h3>
+              <button onClick={() => setShowDNModal(false)} className="text-slate-400 hover:text-slate-600 text-xl">&times;</button>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {saleDeliveryNotes.length === 0 ? (
+                <p className="text-center text-slate-400 py-10">
+                  {firmId ? 'Bu firmaya ait irsaliye bulunamadı.' : 'Lütfen önce firma seçin.'}
+                </p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-600">
+                      <th className="py-2 px-2 text-left w-10"></th>
+                      <th className="py-2 px-2 text-left">İrsaliye No</th>
+                      <th className="py-2 px-2 text-left">Tarih</th>
+                      <th className="py-2 px-2 text-left">Cari</th>
+                      <th className="py-2 px-2 text-right">Tutar</th>
+                      <th className="py-2 px-2 text-left">Açıklama</th>
+                      <th className="py-2 px-2 text-center">İçerik</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {saleDeliveryNotes.map((dn) => {
+                      const isSelected = selectedDNIds.includes(dn.id);
+                      const isExpanded = expandedDNId === dn.id;
+                      const cariName = cariler.find(c => c.id === dn.cari_id)?.name || '-';
+                      return (
+                        <Fragment key={dn.id}>
+                          <tr className={`border-b border-slate-100 transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-slate-50'}`}>
+                            <td className="py-2 px-2">
+                              <input type="checkbox" checked={isSelected} onChange={() => toggleDNSelection(dn)} className="rounded text-blue-600" />
+                            </td>
+                            <td className="py-2 px-2 font-mono font-bold text-slate-800">{dn.delivery_note_number || 'Numarasız'}</td>
+                            <td className="py-2 px-2 text-slate-600">{formatDateTR(dn.transaction_date)}</td>
+                            <td className="py-2 px-2 text-slate-600">{cariName}</td>
+                            <td className="py-2 px-2 text-right font-medium text-blue-700">{formatCurrency(dn.amount)}</td>
+                            <td className="py-2 px-2 text-slate-500 max-w-[200px] truncate">{dn.description || '-'}</td>
+                            <td className="py-2 px-2 text-center">
+                              <button onClick={() => fetchDNItems(dn.id)} className="text-xs px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded transition-colors">
+                                {isExpanded ? 'Kapat' : 'Görüntüle'}
+                              </button>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={7} className="bg-slate-50 p-3">
+                                {loadingDNItems ? (
+                                  <p className="text-center text-slate-400 py-3">Yükleniyor...</p>
+                                ) : dnItems.length === 0 ? (
+                                  <p className="text-center text-slate-400 py-3">Kalem bulunamadı</p>
+                                ) : (
+                                  <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
+                                    <thead>
+                                      <tr className="bg-slate-100">
+                                        <th className="py-1.5 px-2 text-left">Açıklama</th>
+                                        <th className="py-1.5 px-2 text-right">Miktar</th>
+                                        <th className="py-1.5 px-2 text-left">Birim</th>
+                                        <th className="py-1.5 px-2 text-right">Birim Fiyat</th>
+                                        <th className="py-1.5 px-2 text-right">KDV</th>
+                                        <th className="py-1.5 px-2 text-right">Tutar</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {dnItems.map((item, idx) => (
+                                        <tr key={idx} className="border-t border-slate-200">
+                                          <td className="py-1.5 px-2 font-medium">{item.description}</td>
+                                          <td className="py-1.5 px-2 text-right">{item.quantity}</td>
+                                          <td className="py-1.5 px-2">{item.unit}</td>
+                                          <td className="py-1.5 px-2 text-right">{formatCurrency(item.unit_price)}</td>
+                                          <td className="py-1.5 px-2 text-right">%{item.vat_rate || 0}</td>
+                                          <td className="py-1.5 px-2 text-right font-bold">{formatCurrency(item.amount)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                    <tfoot>
+                                      <tr className="bg-slate-100 font-bold">
+                                        <td colSpan={5} className="py-1.5 px-2 text-right">Toplam:</td>
+                                        <td className="py-1.5 px-2 text-right">{formatCurrency(dnItems.reduce((s, i) => s + (i.amount || 0), 0))}</td>
+                                      </tr>
+                                    </tfoot>
+                                  </table>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="flex justify-between items-center p-4 border-t border-slate-200 bg-slate-50 rounded-b-xl">
+              <div className="flex gap-2">
+                {selectedDNIds.length > 0 && (
+                  <button onClick={clearDNSelection} className="px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    Seçimi Temizle
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setShowDNModal(false)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors text-sm">
+                  Kapat
+                </button>
+                <button onClick={applySelectedDNs} disabled={selectedDNIds.length === 0} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                  {selectedDNIds.length > 0 ? `${selectedDNIds.length} İrsaliyeyi Faturaya Aktar` : 'İrsaliye Seçin'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
