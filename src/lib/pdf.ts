@@ -115,20 +115,27 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
   setFont(doc, 'normal', 7);
   doc.text(`Vergi No: ${seller?.tax_number || '-'}`, colLeft, solY + 10);
   doc.text(`Vergi Dairesi: ${seller?.tax_office || '-'}`, colLeft, solY + 15);
+  if (seller?.address) {
+    doc.text(`Adres: ${seller.address}`, colLeft, solY + 20);
+  }
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.15);
-  doc.line(colLeft, solY + 18, colCenter - 4, solY + 18);
+  doc.line(colLeft, seller?.address ? solY + 23 : solY + 18, colCenter - 4, seller?.address ? solY + 23 : solY + 18);
 
+  const aliciY = seller?.address ? solY + 27 : solY + 22;
   doc.setTextColor(100, 116, 139);
   setFont(doc, 'bold', 7);
-  doc.text('ALICI', colLeft, solY + 22);
+  doc.text('ALICI', colLeft, aliciY);
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 8);
-  doc.text(buyer?.name || '-', colLeft, solY + 27);
+  doc.text(buyer?.name || '-', colLeft, aliciY + 5);
   setFont(doc, 'normal', 7);
-  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, colLeft, solY + 32);
-  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, colLeft, solY + 37);
+  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, colLeft, aliciY + 10);
+  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, colLeft, aliciY + 15);
+  if (buyer?.address) {
+    doc.text(`Adres: ${buyer.address}`, colLeft, aliciY + 20);
+  }
 
   // ── ORTA: FATURA + GİB AMBLEMİ (y=46'da) ───────────────────
   const ortaX = (colCenter + colRight - 4) / 2;
@@ -493,20 +500,27 @@ export function generateDeliveryNotePDF(transaction: Transaction, companyName = 
   setFont(doc, 'normal', 7);
   doc.text(`Vergi No: ${seller?.tax_number || '-'}`, colLeft, solY + 10);
   doc.text(`Vergi Dairesi: ${seller?.tax_office || '-'}`, colLeft, solY + 15);
+  if (seller?.address) {
+    doc.text(`Adres: ${seller.address}`, colLeft, solY + 20);
+  }
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.15);
-  doc.line(colLeft, solY + 18, colCenter - 4, solY + 18);
+  doc.line(colLeft, seller?.address ? solY + 23 : solY + 18, colCenter - 4, seller?.address ? solY + 23 : solY + 18);
 
+  const aliciY = seller?.address ? solY + 27 : solY + 22;
   doc.setTextColor(100, 116, 139);
   setFont(doc, 'bold', 7);
-  doc.text('ALICI', colLeft, solY + 22);
+  doc.text('ALICI', colLeft, aliciY);
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 8);
-  doc.text(buyer?.name || '-', colLeft, solY + 27);
+  doc.text(buyer?.name || '-', colLeft, aliciY + 5);
   setFont(doc, 'normal', 7);
-  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, colLeft, solY + 32);
-  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, colLeft, solY + 37);
+  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, colLeft, aliciY + 10);
+  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, colLeft, aliciY + 15);
+  if (buyer?.address) {
+    doc.text(`Adres: ${buyer.address}`, colLeft, aliciY + 20);
+  }
 
   // ── ORTA: İRSALİYE + GİB AMBLEMİ ────────────────────────────
   const ortaX = (colCenter + colRight - 4) / 2;
