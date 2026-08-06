@@ -35,8 +35,18 @@ interface EditItem {
   unit_price: number;
   vat_rate: number;
   vat_amount: number;
+  withholding_rate: number;
+  withholding_amount: number;
+  withholding_code?: string;
+  withholding_description?: string;
+  stopaj_rate: number;
+  stopaj_amount: number;
   discount_rate: number;
   discount_amount: number;
+  discount_rate_2: number;
+  discount_amount_2: number;
+  discount_rate_3: number;
+  discount_amount_3: number;
   amount: number;
 }
 
@@ -268,7 +278,12 @@ export default function TransactionTracking() {
         id: item.id, product_id: item.product_id || '', description: item.description || '',
         unit: item.unit || 'adet', quantity: item.quantity || 0, unit_price: item.unit_price || 0,
         vat_rate: item.vat_rate || 20, vat_amount: item.vat_amount || 0,
+        withholding_rate: item.withholding_rate || 0, withholding_amount: item.withholding_amount || 0,
+        withholding_code: item.withholding_code || '', withholding_description: item.withholding_description || '',
+        stopaj_rate: item.stopaj_rate || 0, stopaj_amount: item.stopaj_amount || 0,
         discount_rate: item.discount_rate || 0, discount_amount: item.discount_amount || 0,
+        discount_rate_2: item.discount_rate_2 || 0, discount_amount_2: item.discount_amount_2 || 0,
+        discount_rate_3: item.discount_rate_3 || 0, discount_amount_3: item.discount_amount_3 || 0,
         amount: item.amount || 0,
       })));
     }
@@ -308,7 +323,12 @@ export default function TransactionTracking() {
         id: item.id, product_id: item.product_id || '', description: item.description || '',
         unit: item.unit || 'adet', quantity: item.quantity || 0, unit_price: item.unit_price || 0,
         vat_rate: item.vat_rate || 20, vat_amount: item.vat_amount || 0,
+        withholding_rate: item.withholding_rate || 0, withholding_amount: item.withholding_amount || 0,
+        withholding_code: item.withholding_code || '', withholding_description: item.withholding_description || '',
+        stopaj_rate: item.stopaj_rate || 0, stopaj_amount: item.stopaj_amount || 0,
         discount_rate: item.discount_rate || 0, discount_amount: item.discount_amount || 0,
+        discount_rate_2: item.discount_rate_2 || 0, discount_amount_2: item.discount_amount_2 || 0,
+        discount_rate_3: item.discount_rate_3 || 0, discount_amount_3: item.discount_amount_3 || 0,
         amount: item.amount || 0,
       })));
     } else {
@@ -371,8 +391,18 @@ export default function TransactionTracking() {
             unit_price: item.unit_price,
             vat_rate: item.vat_rate,
             vat_amount: item.vat_amount,
+            withholding_rate: item.withholding_rate,
+            withholding_amount: item.withholding_amount,
+            withholding_code: item.withholding_code || null,
+            withholding_description: item.withholding_description || null,
+            stopaj_rate: item.stopaj_rate,
+            stopaj_amount: item.stopaj_amount,
             discount_rate: item.discount_rate,
             discount_amount: item.discount_amount,
+            discount_rate_2: item.discount_rate_2,
+            discount_amount_2: item.discount_amount_2,
+            discount_rate_3: item.discount_rate_3,
+            discount_amount_3: item.discount_amount_3,
             amount: item.amount,
             sort_order: idx,
           }));
@@ -396,8 +426,14 @@ export default function TransactionTracking() {
   // Stok kalemi ekle
   const addEditItem = () => {
     setEditItems([...editItems, {
-      product_id: '', description: '', unit: 'adet', quantity: 0, unit_price: 0,
-      vat_rate: 20, vat_amount: 0, discount_rate: 0, discount_amount: 0, amount: 0,
+      product_id: '', description: '', unit: 'adet', quantity: 1, unit_price: 0,
+      vat_rate: 20, vat_amount: 0, withholding_rate: 0, withholding_amount: 0,
+      withholding_code: '', withholding_description: '',
+      stopaj_rate: 0, stopaj_amount: 0,
+      discount_rate: 0, discount_amount: 0,
+      discount_rate_2: 0, discount_amount_2: 0,
+      discount_rate_3: 0, discount_amount_3: 0,
+      amount: 0,
     }]);
   };
 
@@ -412,15 +448,27 @@ export default function TransactionTracking() {
     (updated[index] as any)[field] = value;
 
     // Tutar hesaplama
-    if (['quantity', 'unit_price', 'discount_rate', 'vat_rate'].includes(field)) {
+    if (['quantity', 'unit_price', 'discount_rate', 'discount_rate_2', 'discount_rate_3', 'vat_rate', 'stopaj_rate', 'withholding_rate'].includes(field)) {
       const item = updated[index];
-      const net = (item.quantity || 0) * (item.unit_price || 0);
-      const discount = net * ((item.discount_rate || 0) / 100);
-      const afterDiscount = net - discount;
-      const vat = afterDiscount * ((item.vat_rate || 0) / 100);
-      item.discount_amount = discount;
-      item.vat_amount = vat;
-      item.amount = afterDiscount + vat;
+      const gross = (item.quantity || 0) * (item.unit_price || 0);
+      const dr1 = item.discount_rate || 0;
+      const disc1 = gross * (dr1 / 100);
+      const afterDisc1 = gross - disc1;
+      const dr2 = item.discount_rate_2 || 0;
+      const disc2 = afterDisc1 * (dr2 / 100);
+      const afterDisc2 = afterDisc1 - disc2;
+      const dr3 = item.discount_rate_3 || 0;
+      const disc3 = afterDisc2 * (dr3 / 100);
+      const netAmount = afterDisc2 - disc3;
+      const vatAmount = netAmount * ((item.vat_rate || 0) / 100);
+
+      item.discount_amount = disc1;
+      item.discount_amount_2 = disc2;
+      item.discount_amount_3 = disc3;
+      item.vat_amount = vatAmount;
+      item.stopaj_amount = netAmount * ((item.stopaj_rate || 0) / 100);
+      item.withholding_amount = netAmount * ((item.withholding_rate || 0) / 100);
+      item.amount = netAmount + vatAmount;
     }
 
     setEditItems(updated);
@@ -697,38 +745,89 @@ export default function TransactionTracking() {
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-semibold text-slate-700">Stok Kalemleri</h3>
                       <button onClick={addEditItem} className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">
-                        <Plus size={12} /> Ekle
+                        <Plus size={12} /> Kalem Ekle <span className="text-blue-200 ml-1">(Alt+E)</span>
                       </button>
                     </div>
-                    {editItems.length > 0 && (
-                      <div className="space-y-2">
-                        {editItems.map((item, idx) => (
-                          <div key={idx} className="flex items-center gap-2 bg-slate-50 rounded-lg p-2">
-                            <input type="text" value={item.description} placeholder="Açıklama"
-                              onChange={(e) => updateEditItem(idx, 'description', e.target.value)}
-                              className="flex-1 px-2 py-1 border border-slate-300 rounded text-xs" />
-                            <input type="text" value={item.unit} placeholder="Birim"
-                              onChange={(e) => updateEditItem(idx, 'unit', e.target.value)}
-                              className="w-16 px-2 py-1 border border-slate-300 rounded text-xs" />
-                            <input type="number" value={item.quantity} placeholder="Miktar"
-                              onChange={(e) => updateEditItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                              className="w-20 px-2 py-1 border border-slate-300 rounded text-xs" />
-                            <input type="number" value={item.unit_price} placeholder="Birim Fiyat"
-                              onChange={(e) => updateEditItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
-                              className="w-24 px-2 py-1 border border-slate-300 rounded text-xs" />
-                            <input type="number" value={item.vat_rate} placeholder="KDV %"
-                              onChange={(e) => updateEditItem(idx, 'vat_rate', parseFloat(e.target.value) || 0)}
-                              className="w-16 px-2 py-1 border border-slate-300 rounded text-xs" />
-                            <span className="text-xs font-medium text-slate-600 w-24 text-right">{formatCurrency(item.amount)}</span>
-                            <button onClick={() => removeEditItem(idx)} className="p-1 text-red-500 hover:bg-red-50 rounded">
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        ))}
-                        <div className="text-right text-sm font-bold text-slate-800 pt-2 border-t border-slate-200">
-                          Toplam: {formatCurrency(editItems.reduce((sum, item) => sum + (item.amount || 0), 0))}
-                        </div>
+                    {editItems.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
+                          <thead>
+                            <tr className="bg-slate-100">
+                              <th className="py-2 px-2 text-left min-w-[200px]">Açıklama</th>
+                              <th className="py-2 px-2 text-left w-[80px]">Birim</th>
+                              <th className="py-2 px-2 text-right w-[80px]">Miktar</th>
+                              <th className="py-2 px-2 text-right w-[100px]">Birim Fiyat</th>
+                              <th className="py-2 px-2 text-right w-[80px]">KDV %</th>
+                              <th className="py-2 px-2 text-right w-[80px]">KDV Tutarı</th>
+                              <th className="py-2 px-2 text-right w-[80px]">İskonto %</th>
+                              <th className="py-2 px-2 text-right w-[80px]">Stopaj %</th>
+                              <th className="py-2 px-2 text-right w-[80px]">Tavkifat %</th>
+                              <th className="py-2 px-2 text-right w-[100px]">Tutar</th>
+                              <th className="py-2 px-2 w-8"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {editItems.map((item, idx) => (
+                              <tr key={idx} className="border-t border-slate-200">
+                                <td className="py-1.5 px-1">
+                                  <input type="text" value={item.description} onChange={(e) => updateEditItem(idx, 'description', e.target.value)}
+                                    className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs" placeholder="Ürün adı" />
+                                </td>
+                                <td className="py-1.5 px-1">
+                                  <input type="text" value={item.unit} onChange={(e) => updateEditItem(idx, 'unit', e.target.value)}
+                                    className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs" />
+                                </td>
+                                <td className="py-1.5 px-1">
+                                  <input type="number" value={item.quantity} onChange={(e) => updateEditItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                                    className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
+                                </td>
+                                <td className="py-1.5 px-1">
+                                  <input type="number" value={item.unit_price} onChange={(e) => updateEditItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
+                                    className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
+                                </td>
+                                <td className="py-1.5 px-1">
+                                  <select value={item.vat_rate} onChange={(e) => updateEditItem(idx, 'vat_rate', parseFloat(e.target.value) || 0)}
+                                    className="w-full px-1 py-1.5 border border-slate-200 rounded text-xs">
+                                    <option value={0}>%0</option>
+                                    <option value={1}>%1</option>
+                                    <option value={10}>%10</option>
+                                    <option value={20}>%20</option>
+                                  </select>
+                                </td>
+                                <td className="py-1.5 px-2 text-right font-mono text-slate-600">{formatCurrency(item.vat_amount)}</td>
+                                <td className="py-1.5 px-1">
+                                  <input type="number" value={item.discount_rate} onChange={(e) => updateEditItem(idx, 'discount_rate', parseFloat(e.target.value) || 0)}
+                                    className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
+                                </td>
+                                <td className="py-1.5 px-1">
+                                  <input type="number" value={item.stopaj_rate} onChange={(e) => updateEditItem(idx, 'stopaj_rate', parseFloat(e.target.value) || 0)}
+                                    className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
+                                </td>
+                                <td className="py-1.5 px-1">
+                                  <input type="number" value={item.withholding_rate} onChange={(e) => updateEditItem(idx, 'withholding_rate', parseFloat(e.target.value) || 0)}
+                                    className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
+                                </td>
+                                <td className="py-1.5 px-2 text-right font-bold">{formatCurrency(item.amount)}</td>
+                                <td className="py-1.5 px-1">
+                                  <button onClick={() => removeEditItem(idx)} className="text-red-500 hover:text-red-700">
+                                    <Trash2 size={12} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-slate-100 font-bold">
+                              <td colSpan={7} className="py-2 px-2 text-right">Toplam KDV:</td>
+                              <td className="py-2 px-2 text-right" colSpan={3}>{formatCurrency(editItems.reduce((s, i) => s + (i.vat_amount || 0), 0))}</td>
+                              <td className="py-2 px-2 text-right">{formatCurrency(editItems.reduce((s, i) => s + (i.amount || 0), 0))}</td>
+                              <td></td>
+                            </tr>
+                          </tfoot>
+                        </table>
                       </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 py-3 text-center">Henüz kalem eklenmedi. "Kalem Ekle" butonuna tıklayın.</p>
                     )}
                   </div>
                 )}
