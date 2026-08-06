@@ -601,11 +601,28 @@ export default function TransactionTracking() {
                           <td className="py-3 px-4 text-center">
                             <div className="flex items-center justify-center gap-1">
                               {isInvoiceType(t.type) && (
-                                <button onClick={() => {
+                                <button onClick={async () => {
+                                  const raw = t._raw;
+                                  if (!raw) return;
+
+                                  // Firm, cari ve items verilerini çek
+                                  const [firmRes, cariRes, itemsRes] = await Promise.all([
+                                    raw.firm_id ? supabase.from('firms').select('id, name, tax_number, tax_office, address').eq('id', raw.firm_id).single() : null,
+                                    raw.cari_id ? supabase.from('cariler').select('id, name, tax_number, tax_office, address').eq('id', raw.cari_id).single() : null,
+                                    supabase.from('transaction_items').select('*, product:products(name)').eq('transaction_id', raw.id),
+                                  ]);
+
+                                  const enriched = {
+                                    ...raw,
+                                    firm: firmRes?.data || null,
+                                    cari: cariRes?.data || null,
+                                    items: itemsRes?.data || [],
+                                  };
+
                                   if (isDeliveryNote(t.type)) {
-                                    generateDeliveryNotePDF(t._raw, t.firm || '', carilerMap.get(t._raw.cari_id) || null);
+                                    generateDeliveryNotePDF(enriched, t.firm || '', cariRes?.data || null);
                                   } else {
-                                    generateInvoicePDF(t._raw, t.firm || '', carilerMap.get(t._raw.cari_id) || null);
+                                    generateInvoicePDF(enriched, t.firm || '', cariRes?.data || null);
                                   }
                                 }} className="p-1 text-green-600 hover:bg-green-50 rounded" title="PDF İndir">
                                   <FileText size={14} />
