@@ -237,9 +237,11 @@ CARİ HESAP EKSTRESİ:
 - Tüm alanlar değiştirilebilir
 
 FATURA VE İRSALİYE NUMARASI:
-- Format: Satış Faturası SF000000001, Alış Faturası AF000000001
+- Format: {FIRMA_KODU}{YIL}{9_HANELI_NUMARA} (örn: AAB2026000000001)
+- Firma kodu: 3 harf (elle girilir, firmadan alınmaz)
+- Yıl: 4 haneli, Numara: 9 haneli
 - Enter ile formatla, küçük harf → büyük harf, özel karakter engelleme
-- Her alanda uygulanır (İşlem Girişi, İşlem Takibi, Cari Hesap Ekstresi)
+- Her alanda uygulanır (İşlem Girişi, İşlem Takibi, Cari Hesap Ekstresi, İrsaliyeden Fatura Oluştur)
 
 İRSALİYE PDF:
 - Fatura ile aynı düzen (3 sütunlu üst kısım, renkli başlık yok)

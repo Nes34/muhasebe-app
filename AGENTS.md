@@ -179,17 +179,18 @@ data-highlight={index}
 ## 📄 Fatura Numarası Mantığı
 
 ### Format:
-- Satış Faturası: `SF` + 9 haneli numara (örn: `SF000000001`)
-- Alış Faturası: `AF` + 9 haneli numara (örn: `AF000000001`)
-- Gelir: `GEL` + yıl + `/` + sıra (örn: `GEL2026/1`)
-- Gider: `GID` + yıl + `/` + sıra (örn: `GID2026/1`)
+- Genel: `{FIRMA_KODU}{YIL}{9_HANELI_NUMARA}` (örn: `AAB2026000000001`)
+- Firma kodu: 3 harf (elle girilir, firmadan alınmaz)
+- Yıl: 4 haneli (2026)
+- Numara: 9 haneli (000000001'den başlar)
 
 ### Kurallar:
-1. **Otomatik numara:** Yeni fatura oluşturulurken son numara +1 yapılır
+1. **Manuel giriş:** Kullanıcı firma kodunu, yılı ve numarayı kendisi girer
 2. **Enter ile formatla:** Fatura no input'unda Enter'a basınca `formatInvoiceNumberOnSave()` çalışır
 3. **Küçük harf → Büyük harf:** Kullanıcı küçük harf girse bile otomatik büyük harfe çevrilir
 4. **Özel karakter engelleme:** Sadece harf, rakam ve `/` kabul edilir
-5. **Her alanda uygulanır:** İşlem Girişi, İşlem Takibi düzenleme modalı, Cari Hesap Ekstresi düzenleme
+5. **Her alanda uygulanır:** İşlem Girişi, İşlem Takibi düzenleme modalı, Cari Hesap Ekstresi düzenleme, İrsaliyeden Fatura Oluştur
+6. **İrsaliyeden Fatura Oluştur:** Bu ekranda da aynı format geçerli, elle girilir
 
 ### Fonksiyonlar:
 - `handleInvoiceNumberChange(value)` → onChange'de çağrılır, temizleme yapar
