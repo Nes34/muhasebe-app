@@ -27,6 +27,7 @@ interface DeliveryNote {
 }
 
 interface InvoiceItem {
+  product_id?: string;
   description: string;
   quantity: number;
   unit: string;
@@ -128,6 +129,7 @@ export default function DeliveryNoteToInvoice() {
 
     if (items && items.length > 0) {
       setInvoiceItems(items.map(item => ({
+        product_id: item.product_id || undefined,
         description: item.description,
         quantity: item.quantity,
         unit: item.unit,
@@ -268,6 +270,7 @@ export default function DeliveryNoteToInvoice() {
       if (invoiceItems.length > 0) {
         const itemsToInsert = invoiceItems.map((item, idx) => ({
           transaction_id: newInvoice.id,
+          product_id: item.product_id || null,
           description: item.description,
           quantity: item.quantity,
           unit: item.unit,
@@ -289,7 +292,8 @@ export default function DeliveryNoteToInvoice() {
           discount_amount_3: item.discount_amount_3,
           sort_order: idx,
         }));
-        await supabase.from('transaction_items').insert(itemsToInsert);
+        const { error: itemsError } = await supabase.from('transaction_items').insert(itemsToInsert);
+        if (itemsError) throw itemsError;
       }
 
       setMessage({ type: 'success', text: `İrsaliye faturaya dönüştürüldü! Fatura No: ${invoiceForm.invoice_number}` });
