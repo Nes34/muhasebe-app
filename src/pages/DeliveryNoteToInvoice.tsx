@@ -254,6 +254,7 @@ export default function DeliveryNoteToInvoice() {
           project_id: selectedNote.project_id,
           amount: totalAmount,
           invoice_number: invoiceForm.invoice_number,
+          delivery_note_number: selectedNote.delivery_note_number || null,
           description: selectedNote.description ? `İrsaliye ${selectedNote.delivery_note_number || ''} - ${selectedNote.description}` : `İrsaliye ${selectedNote.delivery_note_number || ''} faturası`,
           currency: 'TRY',
           exchange_rate: 1,
