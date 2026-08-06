@@ -4,6 +4,8 @@ import { formatCurrency, formatDateTR } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import DateInput from '../components/DateInput';
 import { formatInvoiceNumberOnSave } from '../lib/invoice';
+import WithholdingTaxModal from '../components/WithholdingTaxModal';
+import type { WithholdingTaxCode } from '../lib/withholdingTaxCodes';
 import { Truck, ArrowRight, Search, CheckCircle, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 
@@ -33,6 +35,8 @@ interface InvoiceItem {
   vat_amount: number;
   withholding_rate: number;
   withholding_amount: number;
+  withholding_code?: string;
+  withholding_description?: string;
   stopaj_rate: number;
   stopaj_amount: number;
   discount_rate: number;
@@ -58,6 +62,9 @@ export default function DeliveryNoteToInvoice() {
   });
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
   const [discountCount, setDiscountCount] = useState(1);
+  const [showWithholdingModal, setShowWithholdingModal] = useState(false);
+  const [activeWithholdingIndex, setActiveWithholdingIndex] = useState(0);
+  const [activeWithholdingFilterRate, setActiveWithholdingFilterRate] = useState<number | undefined>(undefined);
 
   useEffect(() => { fetchDeliveryNotes(); }, [selectedFirm]);
 
@@ -120,6 +127,8 @@ export default function DeliveryNoteToInvoice() {
         vat_amount: item.vat_amount || 0,
         withholding_rate: item.withholding_rate || 0,
         withholding_amount: item.withholding_amount || 0,
+        withholding_code: item.withholding_code || '',
+        withholding_description: item.withholding_description || '',
         stopaj_rate: item.stopaj_rate || 0,
         stopaj_amount: item.stopaj_amount || 0,
         discount_rate: item.discount_rate || 0,
@@ -192,6 +201,8 @@ export default function DeliveryNoteToInvoice() {
       vat_amount: 0,
       withholding_rate: 0,
       withholding_amount: 0,
+      withholding_code: '',
+      withholding_description: '',
       stopaj_rate: 0,
       stopaj_amount: 0,
       discount_rate: 0,
@@ -243,6 +254,18 @@ export default function DeliveryNoteToInvoice() {
           amount: item.amount,
           vat_rate: item.vat_rate,
           vat_amount: item.vat_amount,
+          withholding_rate: item.withholding_rate,
+          withholding_amount: item.withholding_amount,
+          withholding_code: item.withholding_code || null,
+          withholding_description: item.withholding_description || null,
+          stopaj_rate: item.stopaj_rate,
+          stopaj_amount: item.stopaj_amount,
+          discount_rate: item.discount_rate,
+          discount_amount: item.discount_amount,
+          discount_rate_2: item.discount_rate_2,
+          discount_amount_2: item.discount_amount_2,
+          discount_rate_3: item.discount_rate_3,
+          discount_amount_3: item.discount_amount_3,
           sort_order: idx,
         }));
         await supabase.from('transaction_items').insert(itemsToInsert);
@@ -429,7 +452,7 @@ export default function DeliveryNoteToInvoice() {
                     <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
                       <thead>
                         <tr className="bg-slate-100">
-                          <th className="py-2 px-2 text-left min-w-[150px]">Açıklama</th>
+                          <th className="py-2 px-2 text-left min-w-[450px]">Açıklama</th>
                           <th className="py-2 px-2 text-right w-[100px]">Miktar</th>
                           <th className="py-2 px-2 text-left w-[100px]">Birim</th>
                           <th className="py-2 px-2 text-right w-[100px]">Birim Fiyat</th>
@@ -479,53 +502,77 @@ export default function DeliveryNoteToInvoice() {
                           <tr key={idx} className="border-t border-slate-200">
                             <td className="py-1.5 px-1">
                               <input type="text" value={item.description} onChange={(e) => updateInvoiceItem(idx, 'description', e.target.value)}
-                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs" />
+                                className="w-[100px] px-2 py-1.5 border border-slate-200 rounded text-xs" />
                             </td>
                             <td className="py-1.5 px-1">
                               <input type="number" value={item.quantity} onChange={(e) => updateInvoiceItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
+                                className="w-[100px] px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
                             </td>
                             <td className="py-1.5 px-1">
                               <input type="text" value={item.unit} onChange={(e) => updateInvoiceItem(idx, 'unit', e.target.value)}
-                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs" />
+                                className="w-[100px] px-2 py-1.5 border border-slate-200 rounded text-xs" />
                             </td>
                             <td className="py-1.5 px-1">
                               <input type="number" value={item.unit_price} onChange={(e) => updateInvoiceItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
+                                className="w-[100px] px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
                             </td>
                             <td className="py-1.5 px-1">
                               <select value={item.vat_rate} onChange={(e) => updateInvoiceItem(idx, 'vat_rate', parseFloat(e.target.value) || 0)}
-                                className="w-full px-1 py-1.5 border border-slate-200 rounded text-xs">
+                                className="w-[100px] px-1 py-1.5 border border-slate-200 rounded text-xs">
                                 <option value={0}>%0</option>
                                 <option value={1}>%1</option>
                                 <option value={10}>%10</option>
                                 <option value={20}>%20</option>
                               </select>
                             </td>
-                            <td className="py-1.5 px-2 text-right font-mono text-slate-600">{formatCurrency(item.vat_amount)}</td>
+                            <td className="py-1.5 px-2 text-right font-mono text-slate-600 w-[100px]">{formatCurrency(item.vat_amount)}</td>
                             <td className="py-1.5 px-1">
                               <input type="number" value={item.discount_rate} onChange={(e) => updateInvoiceItem(idx, 'discount_rate', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
+                                className="w-[100px] px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
                             </td>
                             {discountCount >= 2 && (
                               <td className="py-1.5 px-1">
                                 <input type="number" value={item.discount_rate_2 || 0} onChange={(e) => updateInvoiceItem(idx, 'discount_rate_2', parseFloat(e.target.value) || 0)}
-                                  className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
+                                  className="w-[100px] px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
                               </td>
                             )}
                             {discountCount >= 3 && (
                               <td className="py-1.5 px-1">
                                 <input type="number" value={item.discount_rate_3 || 0} onChange={(e) => updateInvoiceItem(idx, 'discount_rate_3', parseFloat(e.target.value) || 0)}
-                                  className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
+                                  className="w-[100px] px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
                               </td>
                             )}
                             <td className="py-1.5 px-1">
                               <input type="number" value={item.stopaj_rate} onChange={(e) => updateInvoiceItem(idx, 'stopaj_rate', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
+                                className="w-[100px] px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
                             </td>
                             <td className="py-1.5 px-1">
-                              <input type="number" value={item.withholding_rate} onChange={(e) => updateInvoiceItem(idx, 'withholding_rate', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
+                              <div className="flex flex-col gap-1">
+                                <div className="flex gap-1">
+                                  <input type="number" value={item.withholding_rate} onChange={(e) => updateInvoiceItem(idx, 'withholding_rate', parseFloat(e.target.value) || 0)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'F10' && e.altKey) {
+                                        e.preventDefault();
+                                        setActiveWithholdingIndex(idx);
+                                        setActiveWithholdingFilterRate(undefined);
+                                        setShowWithholdingModal(true);
+                                      }
+                                    }}
+                                    className="w-[100px] px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
+                                  <button type="button" onClick={() => {
+                                    setActiveWithholdingIndex(idx);
+                                    setActiveWithholdingFilterRate(item.withholding_rate || undefined);
+                                    setShowWithholdingModal(true);
+                                  }} className="px-1.5 py-1 bg-slate-100 text-slate-600 rounded hover:bg-slate-200 text-xs" title="Tevkifat kodu seç (Alt+F10)">
+                                    ...
+                                  </button>
+                                </div>
+                                {item.withholding_code && (
+                                  <span className="text-[10px] text-blue-600 truncate" title={item.withholding_description}>
+                                    {item.withholding_code} - {item.withholding_description}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="py-1.5 px-2 text-right font-bold">{formatCurrency(item.amount)}</td>
                             <td className="py-1.5 px-1">
@@ -567,6 +614,22 @@ export default function DeliveryNoteToInvoice() {
           </div>
         </div>
       )}
+
+      {/* Tevkifat Kodu Seçim Modal */}
+      <WithholdingTaxModal
+        isOpen={showWithholdingModal}
+        onClose={() => setShowWithholdingModal(false)}
+        onSelect={(code: WithholdingTaxCode) => {
+          const updated = [...invoiceItems];
+          updated[activeWithholdingIndex].withholding_rate = code.rate;
+          updated[activeWithholdingIndex].withholding_code = code.code;
+          updated[activeWithholdingIndex].withholding_description = code.description;
+          updated[activeWithholdingIndex].withholding_amount = updated[activeWithholdingIndex].amount * (code.rate / 100);
+          setInvoiceItems(updated);
+          setShowWithholdingModal(false);
+        }}
+        filterRate={activeWithholdingFilterRate}
+      />
     </div>
   );
 }
