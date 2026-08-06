@@ -105,37 +105,44 @@ export function generateInvoicePDF(transaction: Transaction, companyName = 'Muha
 
   // ── SOL: SATICI + ALICI (yukarıda, solY=25) ──────────────────
   const solY = 25;
+  const solMaxW = colCenter - colLeft - 4;
 
   doc.setTextColor(100, 116, 139);
   setFont(doc, 'bold', 7);
   doc.text('SATICI', colLeft, solY);
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 8);
-  doc.text(seller?.name || companyName || '-', colLeft, solY + 5);
-  setFont(doc, 'normal', 7);
-  doc.text(`Vergi No: ${seller?.tax_number || '-'}`, colLeft, solY + 10);
-  doc.text(`Vergi Dairesi: ${seller?.tax_office || '-'}`, colLeft, solY + 15);
+  let sellerY = fitText(doc, seller?.name || companyName || '-', solMaxW, colLeft, solY + 5, 4);
   if (seller?.address) {
-    doc.text(`Adres: ${seller.address}`, colLeft, solY + 20);
+    setFont(doc, 'normal', 6);
+    doc.setTextColor(100, 116, 139);
+    sellerY = fitText(doc, `Adres: ${seller.address}`, solMaxW, colLeft, sellerY + 1, 3.5);
   }
+  setFont(doc, 'normal', 6);
+  doc.setTextColor(51, 65, 85);
+  doc.text(`Vergi No: ${seller?.tax_number || '-'}`, colLeft, sellerY + 2);
+  doc.text(`Vergi Dairesi: ${seller?.tax_office || '-'}`, colLeft, sellerY + 6);
+  const sellerEndY = sellerY + 10;
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.15);
-  doc.line(colLeft, seller?.address ? solY + 23 : solY + 18, colCenter - 4, seller?.address ? solY + 23 : solY + 18);
+  doc.line(colLeft, sellerEndY, colCenter - 4, sellerEndY);
 
-  const aliciY = seller?.address ? solY + 27 : solY + 22;
   doc.setTextColor(100, 116, 139);
   setFont(doc, 'bold', 7);
-  doc.text('ALICI', colLeft, aliciY);
+  doc.text('ALICI', colLeft, sellerEndY + 4);
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 8);
-  doc.text(buyer?.name || '-', colLeft, aliciY + 5);
-  setFont(doc, 'normal', 7);
-  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, colLeft, aliciY + 10);
-  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, colLeft, aliciY + 15);
+  let buyerY = fitText(doc, buyer?.name || '-', solMaxW, colLeft, sellerEndY + 9, 4);
   if (buyer?.address) {
-    doc.text(`Adres: ${buyer.address}`, colLeft, aliciY + 20);
+    setFont(doc, 'normal', 6);
+    doc.setTextColor(100, 116, 139);
+    buyerY = fitText(doc, `Adres: ${buyer.address}`, solMaxW, colLeft, buyerY + 1, 3.5);
   }
+  setFont(doc, 'normal', 6);
+  doc.setTextColor(51, 65, 85);
+  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, colLeft, buyerY + 2);
+  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, colLeft, buyerY + 6);
 
   // ── ORTA: FATURA + GİB AMBLEMİ (y=46'da) ───────────────────
   const ortaX = (colCenter + colRight - 4) / 2;
@@ -490,37 +497,44 @@ export function generateDeliveryNotePDF(transaction: Transaction, companyName = 
 
   // ── SOL: SATICI + ALICI ──────────────────────────────────────
   const solY = 25;
+  const solMaxW = colCenter - colLeft - 4;
 
   doc.setTextColor(100, 116, 139);
   setFont(doc, 'bold', 7);
   doc.text('SATICI', colLeft, solY);
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 8);
-  doc.text(seller?.name || companyName || '-', colLeft, solY + 5);
-  setFont(doc, 'normal', 7);
-  doc.text(`Vergi No: ${seller?.tax_number || '-'}`, colLeft, solY + 10);
-  doc.text(`Vergi Dairesi: ${seller?.tax_office || '-'}`, colLeft, solY + 15);
+  let sellerY = fitText(doc, seller?.name || companyName || '-', solMaxW, colLeft, solY + 5, 4);
   if (seller?.address) {
-    doc.text(`Adres: ${seller.address}`, colLeft, solY + 20);
+    setFont(doc, 'normal', 6);
+    doc.setTextColor(100, 116, 139);
+    sellerY = fitText(doc, `Adres: ${seller.address}`, solMaxW, colLeft, sellerY + 1, 3.5);
   }
+  setFont(doc, 'normal', 6);
+  doc.setTextColor(51, 65, 85);
+  doc.text(`Vergi No: ${seller?.tax_number || '-'}`, colLeft, sellerY + 2);
+  doc.text(`Vergi Dairesi: ${seller?.tax_office || '-'}`, colLeft, sellerY + 6);
+  const sellerEndY = sellerY + 10;
 
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.15);
-  doc.line(colLeft, seller?.address ? solY + 23 : solY + 18, colCenter - 4, seller?.address ? solY + 23 : solY + 18);
+  doc.line(colLeft, sellerEndY, colCenter - 4, sellerEndY);
 
-  const aliciY = seller?.address ? solY + 27 : solY + 22;
   doc.setTextColor(100, 116, 139);
   setFont(doc, 'bold', 7);
-  doc.text('ALICI', colLeft, aliciY);
+  doc.text('ALICI', colLeft, sellerEndY + 4);
   doc.setTextColor(30, 41, 59);
   setFont(doc, 'bold', 8);
-  doc.text(buyer?.name || '-', colLeft, aliciY + 5);
-  setFont(doc, 'normal', 7);
-  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, colLeft, aliciY + 10);
-  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, colLeft, aliciY + 15);
+  let buyerY = fitText(doc, buyer?.name || '-', solMaxW, colLeft, sellerEndY + 9, 4);
   if (buyer?.address) {
-    doc.text(`Adres: ${buyer.address}`, colLeft, aliciY + 20);
+    setFont(doc, 'normal', 6);
+    doc.setTextColor(100, 116, 139);
+    buyerY = fitText(doc, `Adres: ${buyer.address}`, solMaxW, colLeft, buyerY + 1, 3.5);
   }
+  setFont(doc, 'normal', 6);
+  doc.setTextColor(51, 65, 85);
+  doc.text(`Vergi No: ${buyer?.tax_number || '-'}`, colLeft, buyerY + 2);
+  doc.text(`Vergi Dairesi: ${buyer?.tax_office || '-'}`, colLeft, buyerY + 6);
 
   // ── ORTA: İRSALİYE + GİB AMBLEMİ ────────────────────────────
   const ortaX = (colCenter + colRight - 4) / 2;
