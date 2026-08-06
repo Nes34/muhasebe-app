@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { formatCurrency, formatDateTR } from '../lib/utils';
 import { useFirm } from '../hooks/useFirm';
 import DateInput from '../components/DateInput';
+import { formatInvoiceNumberOnSave } from '../lib/invoice';
 import { Truck, ArrowRight, Search, CheckCircle, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 
@@ -338,7 +339,19 @@ export default function DeliveryNoteToInvoice() {
                   <input
                     type="text"
                     value={invoiceForm.invoice_number}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, invoice_number: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^a-zA-Z0-9/]/g, '');
+                      setInvoiceForm({ ...invoiceForm, invoice_number: val.toUpperCase() });
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        setInvoiceForm({ ...invoiceForm, invoice_number: formatInvoiceNumberOnSave(invoiceForm.invoice_number) });
+                      }
+                    }}
+                    onBlur={() => {
+                      setInvoiceForm({ ...invoiceForm, invoice_number: formatInvoiceNumberOnSave(invoiceForm.invoice_number) });
+                    }}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
                   />
                 </div>
