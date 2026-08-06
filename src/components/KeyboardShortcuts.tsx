@@ -48,12 +48,13 @@ export function KeyboardShortcuts() {
         navigate('/islem-girisi');
       }
 
-      // Alt+S: Kaydet
+      // Alt+S: Kaydet / Dönüştür
       if (e.altKey && e.key === 's') {
         e.preventDefault();
         const saveButtons = Array.from(document.querySelectorAll('button'));
         for (const btn of saveButtons) {
-          if ((btn.textContent?.includes('Kaydet') || btn.textContent?.includes('ALT+S')) && btn.offsetParent !== null) {
+          const text = btn.textContent || '';
+          if ((text.includes('Kaydet') || text.includes('Dönüştür') || text.includes('ALT+S')) && btn.offsetParent !== null) {
             btn.click();
             return;
           }
