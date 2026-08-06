@@ -720,8 +720,14 @@ export default function TransactionTracking() {
                   </div>
                 </div>
 
-                {/* Tutar (kalem yoksa) */}
-                {editItems.length === 0 && (
+                {/* Toplam */}
+                {editItems.length > 0 ? (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Toplam (Kalem Tutarından)</label>
+                    <input type="text" value={formatCurrency(editItems.reduce((sum, item) => sum + (item.amount || 0), 0))} readOnly
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 font-bold text-slate-800" />
+                  </div>
+                ) : (
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Tutar</label>
                     <input type="number" value={editFormData.amount}
