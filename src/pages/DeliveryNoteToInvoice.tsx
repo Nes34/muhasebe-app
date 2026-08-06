@@ -6,6 +6,7 @@ import DateInput from '../components/DateInput';
 import { formatInvoiceNumberOnSave } from '../lib/invoice';
 import WithholdingTaxModal from '../components/WithholdingTaxModal';
 import type { WithholdingTaxCode } from '../lib/withholdingTaxCodes';
+import type { Product } from '../types';
 import { Truck, ArrowRight, Search, CheckCircle, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import ResizableTh from '../components/tables/ResizableTh';
 
@@ -65,8 +66,17 @@ export default function DeliveryNoteToInvoice() {
   const [showWithholdingModal, setShowWithholdingModal] = useState(false);
   const [activeWithholdingIndex, setActiveWithholdingIndex] = useState(0);
   const [activeWithholdingFilterRate, setActiveWithholdingFilterRate] = useState<number | undefined>(undefined);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [openProductDropdown, setOpenProductDropdown] = useState<number | null>(null);
+  const [productHighlightIndex, setProductHighlightIndex] = useState(0);
 
-  useEffect(() => { fetchDeliveryNotes(); }, [selectedFirm]);
+  useEffect(() => { fetchDeliveryNotes(); fetchProducts(); }, [selectedFirm]);
+
+  const fetchProducts = async () => {
+    let query = supabase.from('products').select('*').eq('is_active', true).order('name');
+    const { data } = await query;
+    if (data) setProducts(data);
+  };
 
   const fetchDeliveryNotes = async () => {
     setLoading(true);
@@ -501,8 +511,92 @@ export default function DeliveryNoteToInvoice() {
                         {invoiceItems.map((item, idx) => (
                           <tr key={idx} className="border-t border-slate-200">
                             <td className="py-1.5 px-1">
-                              <input type="text" value={item.description} onChange={(e) => updateInvoiceItem(idx, 'description', e.target.value)}
-                                className="w-[100px] px-2 py-1.5 border border-slate-200 rounded text-xs" />
+                              <div className="relative">
+                                <Search size={12} className="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                  type="text"
+                                  data-product-input={idx}
+                                  value={item.description}
+                                  onChange={(e) => {
+                                    updateInvoiceItem(idx, 'description', e.target.value);
+                                    if (e.target.value.length > 0) {
+                                      setOpenProductDropdown(idx);
+                                      setProductHighlightIndex(0);
+                                    } else {
+                                      setOpenProductDropdown(null);
+                                    }
+                                  }}
+                                  onFocus={() => {
+                                    if (item.description.length > 0) {
+                                      setOpenProductDropdown(idx);
+                                      setProductHighlightIndex(0);
+                                    }
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (openProductDropdown !== idx) return;
+                                    const filtered = products.filter(p =>
+                                      p.name.toLowerCase().includes(item.description.toLowerCase()) ||
+                                      p.code?.toLowerCase().includes(item.description.toLowerCase())
+                                    ).slice(0, 5);
+                                    if (filtered.length === 0) return;
+                                    if (e.key === 'ArrowDown') {
+                                      e.preventDefault();
+                                      setProductHighlightIndex(prev => Math.min(prev + 1, filtered.length - 1));
+                                    } else if (e.key === 'ArrowUp') {
+                                      e.preventDefault();
+                                      setProductHighlightIndex(prev => Math.max(prev - 1, 0));
+                                    } else if (e.key === 'Tab' || e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const selected = filtered[productHighlightIndex];
+                                      if (selected) {
+                                        updateInvoiceItem(idx, 'description', selected.name);
+                                        updateInvoiceItem(idx, 'unit', selected.unit || 'adet');
+                                        updateInvoiceItem(idx, 'unit_price', selected.unit_price || 0);
+                                        const qty = item.quantity || 1;
+                                        const amt = qty * (selected.unit_price || 0);
+                                        updateInvoiceItem(idx, 'amount', amt);
+                                        setOpenProductDropdown(null);
+                                      }
+                                    } else if (e.key === 'Escape') {
+                                      setOpenProductDropdown(null);
+                                    }
+                                  }}
+                                  onBlur={() => setTimeout(() => setOpenProductDropdown(null), 200)}
+                                  placeholder="Stok ara..."
+                                  className="w-[450px] pl-6 pr-2 py-1.5 border border-slate-200 rounded text-xs"
+                                />
+                                {openProductDropdown === idx && (() => {
+                                  const filtered = products.filter(p =>
+                                    p.name.toLowerCase().includes(item.description.toLowerCase()) ||
+                                    p.code?.toLowerCase().includes(item.description.toLowerCase())
+                                  ).slice(0, 5);
+                                  if (filtered.length === 0) return null;
+                                  return (
+                                    <div className="absolute left-0 top-full mt-1 w-[450px] bg-white border border-slate-200 rounded-lg shadow-lg z-[300] max-h-48 overflow-auto">
+                                      {filtered.map((product, pIdx) => (
+                                        <button
+                                          key={product.id}
+                                          type="button"
+                                          onClick={() => {
+                                            updateInvoiceItem(idx, 'description', product.name);
+                                            updateInvoiceItem(idx, 'unit', product.unit || 'adet');
+                                            updateInvoiceItem(idx, 'unit_price', product.unit_price || 0);
+                                            const qty = item.quantity || 1;
+                                            const amt = qty * (product.unit_price || 0);
+                                            updateInvoiceItem(idx, 'amount', amt);
+                                            setOpenProductDropdown(null);
+                                          }}
+                                          className={`w-full px-3 py-2 text-left text-xs hover:bg-blue-50 flex justify-between items-center ${pIdx === productHighlightIndex ? 'bg-blue-100' : ''}`}
+                                          onMouseEnter={() => setProductHighlightIndex(pIdx)}
+                                        >
+                                          <span className="font-medium text-slate-800">{product.name}</span>
+                                          <span className="text-slate-400 text-[10px]">{product.code} | {product.unit} | {formatCurrency(product.unit_price)}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
                             </td>
                             <td className="py-1.5 px-1">
                               <input type="number" value={item.quantity} onChange={(e) => updateInvoiceItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
