@@ -377,6 +377,22 @@ export default function TransactionTracking() {
 
       // Stok kalemlerini güncelle
       if (isInvoiceType(editFormData.transaction_type)) {
+        // Eski kalemleri çek (stok geri almak için)
+        const { data: oldItems } = await supabase.from('transaction_items').select('product_id, quantity').eq('transaction_id', editFormData.id);
+
+        // Eski stok değişimlerini geri al (alış faturası ise azalt, satış faturası ise artır)
+        if (oldItems && oldItems.length > 0) {
+          for (const oldItem of oldItems) {
+            if (oldItem.product_id && oldItem.quantity > 0) {
+              const reverseChange = editFormData.transaction_type === 'purchase_invoice' ? -oldItem.quantity : oldItem.quantity;
+              const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', oldItem.product_id).single();
+              if (product) {
+                await supabase.from('products').update({ stock_quantity: Math.max(0, product.stock_quantity + reverseChange) }).eq('id', oldItem.product_id);
+              }
+            }
+          }
+        }
+
         // Eski kalemleri sil
         await supabase.from('transaction_items').delete().eq('transaction_id', editFormData.id);
 
@@ -407,6 +423,17 @@ export default function TransactionTracking() {
             sort_order: idx,
           }));
           await supabase.from('transaction_items').insert(itemsToInsert);
+
+          // Yeni stok değişimlerini uygula (alış faturası ise artır, satış faturası ise azalt)
+          for (const item of editItems) {
+            if (item.product_id && item.quantity > 0) {
+              const stockChange = editFormData.transaction_type === 'purchase_invoice' ? item.quantity : -item.quantity;
+              const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+              if (product) {
+                await supabase.from('products').update({ stock_quantity: Math.max(0, product.stock_quantity + stockChange) }).eq('id', item.product_id);
+              }
+            }
+          }
         }
       }
 

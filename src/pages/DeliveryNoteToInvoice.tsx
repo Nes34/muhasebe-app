@@ -294,6 +294,19 @@ export default function DeliveryNoteToInvoice() {
         }));
         const { error: itemsError } = await supabase.from('transaction_items').insert(itemsToInsert);
         if (itemsError) throw itemsError;
+
+        // Stok güncelle (alış faturası ise artır, satış faturası ise azalt)
+        if (invoiceType === 'purchase_invoice' || invoiceType === 'sale_invoice') {
+          for (const item of invoiceItems) {
+            if (item.product_id && item.quantity > 0) {
+              const stockChange = invoiceType === 'purchase_invoice' ? item.quantity : -item.quantity;
+              const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single();
+              if (product) {
+                await supabase.from('products').update({ stock_quantity: Math.max(0, product.stock_quantity + stockChange) }).eq('id', item.product_id);
+              }
+            }
+          }
+        }
       }
 
       setMessage({ type: 'success', text: `İrsaliye faturaya dönüştürüldü! Fatura No: ${invoiceForm.invoice_number}` });
