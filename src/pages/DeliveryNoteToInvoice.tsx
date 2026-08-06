@@ -37,6 +37,10 @@ interface InvoiceItem {
   stopaj_amount: number;
   discount_rate: number;
   discount_amount: number;
+  discount_rate_2: number;
+  discount_amount_2: number;
+  discount_rate_3: number;
+  discount_amount_3: number;
 }
 
 export default function DeliveryNoteToInvoice() {
@@ -53,6 +57,7 @@ export default function DeliveryNoteToInvoice() {
     invoice_number: '',
   });
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
+  const [discountCount, setDiscountCount] = useState(1);
 
   useEffect(() => { fetchDeliveryNotes(); }, [selectedFirm]);
 
@@ -119,6 +124,10 @@ export default function DeliveryNoteToInvoice() {
         stopaj_amount: item.stopaj_amount || 0,
         discount_rate: item.discount_rate || 0,
         discount_amount: item.discount_amount || 0,
+        discount_rate_2: item.discount_rate_2 || 0,
+        discount_amount_2: item.discount_amount_2 || 0,
+        discount_rate_3: item.discount_rate_3 || 0,
+        discount_amount_3: item.discount_amount_3 || 0,
       })));
     } else {
       setInvoiceItems([]);
@@ -132,14 +141,24 @@ export default function DeliveryNoteToInvoice() {
     const updated = [...invoiceItems];
     updated[index] = { ...updated[index], [field]: value };
     
-    if (field === 'quantity' || field === 'unit_price' || field === 'discount_rate') {
+    if (field === 'quantity' || field === 'unit_price' || field === 'discount_rate' || field === 'discount_rate_2' || field === 'discount_rate_3') {
       const qty = field === 'quantity' ? value : updated[index].quantity;
       const price = field === 'unit_price' ? value : updated[index].unit_price;
-      const discRate = field === 'discount_rate' ? value : updated[index].discount_rate;
+      const dr1 = field === 'discount_rate' ? value : (updated[index].discount_rate || 0);
+      const dr2 = field === 'discount_rate_2' ? value : (updated[index].discount_rate_2 || 0);
+      const dr3 = field === 'discount_rate_3' ? value : (updated[index].discount_rate_3 || 0);
       
       const gross = (qty || 0) * (price || 0);
-      updated[index].discount_amount = gross * ((discRate || 0) / 100);
-      updated[index].amount = gross - updated[index].discount_amount;
+      const disc1 = gross * (dr1 / 100);
+      const afterDisc1 = gross - disc1;
+      const disc2 = afterDisc1 * (dr2 / 100);
+      const afterDisc2 = afterDisc1 - disc2;
+      const disc3 = afterDisc2 * (dr3 / 100);
+      
+      updated[index].discount_amount = disc1;
+      updated[index].discount_amount_2 = disc2;
+      updated[index].discount_amount_3 = disc3;
+      updated[index].amount = afterDisc2 - disc3;
       updated[index].vat_amount = updated[index].amount * ((updated[index].vat_rate || 0) / 100);
       updated[index].stopaj_amount = updated[index].amount * ((updated[index].stopaj_rate || 0) / 100);
       updated[index].withholding_amount = updated[index].amount * ((updated[index].withholding_rate || 0) / 100);
@@ -177,6 +196,10 @@ export default function DeliveryNoteToInvoice() {
       stopaj_amount: 0,
       discount_rate: 0,
       discount_amount: 0,
+      discount_rate_2: 0,
+      discount_amount_2: 0,
+      discount_rate_3: 0,
+      discount_amount_3: 0,
     }]);
   };
 
@@ -411,7 +434,39 @@ export default function DeliveryNoteToInvoice() {
                           <th className="py-2 px-2 text-left w-14">Birim</th>
                           <th className="py-2 px-2 text-right w-20">Birim Fiyat</th>
                           <th className="py-2 px-2 text-right w-14">KDV %</th>
-                          <th className="py-2 px-2 text-right w-14">İskonto %</th>
+                          <th className="py-2 px-2 text-right w-14">
+                            <div className="flex items-center justify-end gap-1">
+                              <span>İskonto %</span>
+                              {discountCount < 3 && (
+                                <button type="button" onClick={() => setDiscountCount(discountCount + 1)}
+                                  className="w-4 h-4 flex items-center justify-center bg-blue-100 text-blue-600 rounded hover:bg-blue-200 text-xs font-bold">+</button>
+                              )}
+                            </div>
+                          </th>
+                          {discountCount >= 2 && (
+                            <th className="py-2 px-2 text-right w-14">
+                              <div className="flex items-center justify-end gap-1">
+                                <span>İsk.2 %</span>
+                                {discountCount < 3 && (
+                                  <button type="button" onClick={() => setDiscountCount(discountCount + 1)}
+                                    className="w-4 h-4 flex items-center justify-center bg-blue-100 text-blue-600 rounded hover:bg-blue-200 text-xs font-bold">+</button>
+                                )}
+                                {discountCount === 2 && (
+                                  <button type="button" onClick={() => setDiscountCount(1)}
+                                    className="w-4 h-4 flex items-center justify-center bg-red-100 text-red-600 rounded hover:bg-red-200 text-xs font-bold">-</button>
+                                )}
+                              </div>
+                            </th>
+                          )}
+                          {discountCount >= 3 && (
+                            <th className="py-2 px-2 text-right w-14">
+                              <div className="flex items-center justify-end gap-1">
+                                <span>İsk.3 %</span>
+                                <button type="button" onClick={() => setDiscountCount(2)}
+                                  className="w-4 h-4 flex items-center justify-center bg-red-100 text-red-600 rounded hover:bg-red-200 text-xs font-bold">-</button>
+                              </div>
+                            </th>
+                          )}
                           <th className="py-2 px-2 text-right w-14">Stopaj %</th>
                           <th className="py-2 px-2 text-right w-14">Tavkifat %</th>
                           <th className="py-2 px-2 text-right w-20">Tutar</th>
@@ -450,6 +505,18 @@ export default function DeliveryNoteToInvoice() {
                               <input type="number" value={item.discount_rate} onChange={(e) => updateInvoiceItem(idx, 'discount_rate', parseFloat(e.target.value) || 0)}
                                 className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
                             </td>
+                            {discountCount >= 2 && (
+                              <td className="py-1.5 px-1">
+                                <input type="number" value={item.discount_rate_2 || 0} onChange={(e) => updateInvoiceItem(idx, 'discount_rate_2', parseFloat(e.target.value) || 0)}
+                                  className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                              </td>
+                            )}
+                            {discountCount >= 3 && (
+                              <td className="py-1.5 px-1">
+                                <input type="number" value={item.discount_rate_3 || 0} onChange={(e) => updateInvoiceItem(idx, 'discount_rate_3', parseFloat(e.target.value) || 0)}
+                                  className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                              </td>
+                            )}
                             <td className="py-1.5 px-1">
                               <input type="number" value={item.stopaj_rate} onChange={(e) => updateInvoiceItem(idx, 'stopaj_rate', parseFloat(e.target.value) || 0)}
                                 className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
@@ -471,7 +538,7 @@ export default function DeliveryNoteToInvoice() {
                       </tbody>
                       <tfoot>
                         <tr className="bg-slate-100 font-bold">
-                          <td colSpan={8} className="py-2 px-2 text-right">Toplam:</td>
+                          <td colSpan={5 + discountCount + 3} className="py-2 px-2 text-right">Toplam:</td>
                           <td className="py-2 px-2 text-right">{formatCurrency(invoiceItems.reduce((s, i) => s + i.amount, 0))}</td>
                           <td></td>
                         </tr>
