@@ -31,6 +31,12 @@ interface InvoiceItem {
   amount: number;
   vat_rate: number;
   vat_amount: number;
+  withholding_rate: number;
+  withholding_amount: number;
+  stopaj_rate: number;
+  stopaj_amount: number;
+  discount_rate: number;
+  discount_amount: number;
 }
 
 export default function DeliveryNoteToInvoice() {
@@ -107,6 +113,12 @@ export default function DeliveryNoteToInvoice() {
         amount: item.amount,
         vat_rate: item.vat_rate || 20,
         vat_amount: item.vat_amount || 0,
+        withholding_rate: item.withholding_rate || 0,
+        withholding_amount: item.withholding_amount || 0,
+        stopaj_rate: item.stopaj_rate || 0,
+        stopaj_amount: item.stopaj_amount || 0,
+        discount_rate: item.discount_rate || 0,
+        discount_amount: item.discount_amount || 0,
       })));
     } else {
       setInvoiceItems([]);
@@ -119,9 +131,27 @@ export default function DeliveryNoteToInvoice() {
   const updateInvoiceItem = (index: number, field: keyof InvoiceItem, value: any) => {
     const updated = [...invoiceItems];
     updated[index] = { ...updated[index], [field]: value };
-    if (field === 'quantity' || field === 'unit_price') {
-      updated[index].amount = (updated[index].quantity || 0) * (updated[index].unit_price || 0);
-      updated[index].vat_amount = updated[index].amount * (updated[index].vat_rate || 0) / 100;
+    
+    if (field === 'quantity' || field === 'unit_price' || field === 'discount_rate') {
+      const qty = field === 'quantity' ? value : updated[index].quantity;
+      const price = field === 'unit_price' ? value : updated[index].unit_price;
+      const discRate = field === 'discount_rate' ? value : updated[index].discount_rate;
+      
+      const gross = (qty || 0) * (price || 0);
+      updated[index].discount_amount = gross * ((discRate || 0) / 100);
+      updated[index].amount = gross - updated[index].discount_amount;
+      updated[index].vat_amount = updated[index].amount * ((updated[index].vat_rate || 0) / 100);
+      updated[index].stopaj_amount = updated[index].amount * ((updated[index].stopaj_rate || 0) / 100);
+      updated[index].withholding_amount = updated[index].amount * ((updated[index].withholding_rate || 0) / 100);
+    }
+    if (field === 'vat_rate') {
+      updated[index].vat_amount = updated[index].amount * ((Number(value) || 0) / 100);
+    }
+    if (field === 'stopaj_rate') {
+      updated[index].stopaj_amount = updated[index].amount * ((Number(value) || 0) / 100);
+    }
+    if (field === 'withholding_rate') {
+      updated[index].withholding_amount = updated[index].amount * ((Number(value) || 0) / 100);
     }
     setInvoiceItems(updated);
   };
@@ -141,6 +171,12 @@ export default function DeliveryNoteToInvoice() {
       amount: 0,
       vat_rate: 20,
       vat_amount: 0,
+      withholding_rate: 0,
+      withholding_amount: 0,
+      stopaj_rate: 0,
+      stopaj_amount: 0,
+      discount_rate: 0,
+      discount_amount: 0,
     }]);
   };
 
@@ -366,60 +402,82 @@ export default function DeliveryNoteToInvoice() {
                   </button>
                 </div>
                 {invoiceItems.length > 0 ? (
-                  <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
-                    <thead>
-                      <tr className="bg-slate-100">
-                        <th className="py-2 px-2 text-left">Açıklama</th>
-                        <th className="py-2 px-2 text-right w-20">Miktar</th>
-                        <th className="py-2 px-2 text-left w-16">Birim</th>
-                        <th className="py-2 px-2 text-right w-24">Birim Fiyat</th>
-                        <th className="py-2 px-2 text-right w-16">KDV %</th>
-                        <th className="py-2 px-2 text-right w-24">Tutar</th>
-                        <th className="py-2 px-2 w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invoiceItems.map((item, idx) => (
-                        <tr key={idx} className="border-t border-slate-200">
-                          <td className="py-1.5 px-1">
-                            <input type="text" value={item.description} onChange={(e) => updateInvoiceItem(idx, 'description', e.target.value)}
-                              className="w-full px-2 py-1 border border-slate-200 rounded text-xs" />
-                          </td>
-                          <td className="py-1.5 px-1">
-                            <input type="number" value={item.quantity} onChange={(e) => updateInvoiceItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                              className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
-                          </td>
-                          <td className="py-1.5 px-1">
-                            <input type="text" value={item.unit} onChange={(e) => updateInvoiceItem(idx, 'unit', e.target.value)}
-                              className="w-full px-2 py-1 border border-slate-200 rounded text-xs" />
-                          </td>
-                          <td className="py-1.5 px-1">
-                            <input type="number" value={item.unit_price} onChange={(e) => updateInvoiceItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
-                              className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
-                          </td>
-                          <td className="py-1.5 px-1">
-                            <input type="number" value={item.vat_rate} onChange={(e) => updateInvoiceItem(idx, 'vat_rate', parseFloat(e.target.value) || 0)}
-                              className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
-                          </td>
-                          <td className="py-1.5 px-2 text-right font-bold">{formatCurrency(item.amount)}</td>
-                          <td className="py-1.5 px-1">
-                            {invoiceItems.length > 1 && (
-                              <button onClick={() => removeInvoiceItem(idx)} className="text-red-500 hover:text-red-700">
-                                <Trash2 size={12} />
-                              </button>
-                            )}
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
+                      <thead>
+                        <tr className="bg-slate-100">
+                          <th className="py-2 px-2 text-left">Açıklama</th>
+                          <th className="py-2 px-2 text-right w-16">Miktar</th>
+                          <th className="py-2 px-2 text-left w-14">Birim</th>
+                          <th className="py-2 px-2 text-right w-20">Birim Fiyat</th>
+                          <th className="py-2 px-2 text-right w-14">KDV %</th>
+                          <th className="py-2 px-2 text-right w-14">İskonto %</th>
+                          <th className="py-2 px-2 text-right w-14">Stopaj %</th>
+                          <th className="py-2 px-2 text-right w-14">Tavkifat %</th>
+                          <th className="py-2 px-2 text-right w-20">Tutar</th>
+                          <th className="py-2 px-2 w-8"></th>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-slate-100 font-bold">
-                        <td colSpan={5} className="py-2 px-2 text-right">Toplam:</td>
-                        <td className="py-2 px-2 text-right">{formatCurrency(invoiceItems.reduce((s, i) => s + i.amount, 0))}</td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {invoiceItems.map((item, idx) => (
+                          <tr key={idx} className="border-t border-slate-200">
+                            <td className="py-1.5 px-1">
+                              <input type="text" value={item.description} onChange={(e) => updateInvoiceItem(idx, 'description', e.target.value)}
+                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs" />
+                            </td>
+                            <td className="py-1.5 px-1">
+                              <input type="number" value={item.quantity} onChange={(e) => updateInvoiceItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                            </td>
+                            <td className="py-1.5 px-1">
+                              <input type="text" value={item.unit} onChange={(e) => updateInvoiceItem(idx, 'unit', e.target.value)}
+                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs" />
+                            </td>
+                            <td className="py-1.5 px-1">
+                              <input type="number" value={item.unit_price} onChange={(e) => updateInvoiceItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
+                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                            </td>
+                            <td className="py-1.5 px-1">
+                              <select value={item.vat_rate} onChange={(e) => updateInvoiceItem(idx, 'vat_rate', parseFloat(e.target.value) || 0)}
+                                className="w-full px-1 py-1 border border-slate-200 rounded text-xs">
+                                <option value={0}>%0</option>
+                                <option value={1}>%1</option>
+                                <option value={10}>%10</option>
+                                <option value={20}>%20</option>
+                              </select>
+                            </td>
+                            <td className="py-1.5 px-1">
+                              <input type="number" value={item.discount_rate} onChange={(e) => updateInvoiceItem(idx, 'discount_rate', parseFloat(e.target.value) || 0)}
+                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                            </td>
+                            <td className="py-1.5 px-1">
+                              <input type="number" value={item.stopaj_rate} onChange={(e) => updateInvoiceItem(idx, 'stopaj_rate', parseFloat(e.target.value) || 0)}
+                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                            </td>
+                            <td className="py-1.5 px-1">
+                              <input type="number" value={item.withholding_rate} onChange={(e) => updateInvoiceItem(idx, 'withholding_rate', parseFloat(e.target.value) || 0)}
+                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                            </td>
+                            <td className="py-1.5 px-2 text-right font-bold">{formatCurrency(item.amount)}</td>
+                            <td className="py-1.5 px-1">
+                              {invoiceItems.length > 1 && (
+                                <button onClick={() => removeInvoiceItem(idx)} className="text-red-500 hover:text-red-700">
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-100 font-bold">
+                          <td colSpan={8} className="py-2 px-2 text-right">Toplam:</td>
+                          <td className="py-2 px-2 text-right">{formatCurrency(invoiceItems.reduce((s, i) => s + i.amount, 0))}</td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 ) : (
                   <p className="text-sm text-slate-400 py-4 text-center">İrsaliyede kalem bulunamadı</p>
                 )}
