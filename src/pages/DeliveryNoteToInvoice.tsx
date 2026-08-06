@@ -429,12 +429,13 @@ export default function DeliveryNoteToInvoice() {
                     <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
                       <thead>
                         <tr className="bg-slate-100">
-                          <th className="py-2 px-2 text-left">Açıklama</th>
-                          <th className="py-2 px-2 text-right w-16">Miktar</th>
-                          <th className="py-2 px-2 text-left w-14">Birim</th>
-                          <th className="py-2 px-2 text-right w-20">Birim Fiyat</th>
-                          <th className="py-2 px-2 text-right w-14">KDV %</th>
-                          <th className="py-2 px-2 text-right w-14">
+                          <th className="py-2 px-2 text-left min-w-[150px]">Açıklama</th>
+                          <th className="py-2 px-2 text-right w-20">Miktar</th>
+                          <th className="py-2 px-2 text-left w-16">Birim</th>
+                          <th className="py-2 px-2 text-right w-24">Birim Fiyat</th>
+                          <th className="py-2 px-2 text-right w-20">KDV %</th>
+                          <th className="py-2 px-2 text-right w-24">KDV Tutarı</th>
+                          <th className="py-2 px-2 text-right w-20">
                             <div className="flex items-center justify-end gap-1">
                               <span>İskonto %</span>
                               {discountCount < 3 && (
@@ -444,7 +445,7 @@ export default function DeliveryNoteToInvoice() {
                             </div>
                           </th>
                           {discountCount >= 2 && (
-                            <th className="py-2 px-2 text-right w-14">
+                            <th className="py-2 px-2 text-right w-20">
                               <div className="flex items-center justify-end gap-1">
                                 <span>İsk.2 %</span>
                                 {discountCount < 3 && (
@@ -459,7 +460,7 @@ export default function DeliveryNoteToInvoice() {
                             </th>
                           )}
                           {discountCount >= 3 && (
-                            <th className="py-2 px-2 text-right w-14">
+                            <th className="py-2 px-2 text-right w-20">
                               <div className="flex items-center justify-end gap-1">
                                 <span>İsk.3 %</span>
                                 <button type="button" onClick={() => setDiscountCount(2)}
@@ -467,9 +468,9 @@ export default function DeliveryNoteToInvoice() {
                               </div>
                             </th>
                           )}
-                          <th className="py-2 px-2 text-right w-14">Stopaj %</th>
-                          <th className="py-2 px-2 text-right w-14">Tavkifat %</th>
-                          <th className="py-2 px-2 text-right w-20">Tutar</th>
+                          <th className="py-2 px-2 text-right w-20">Stopaj %</th>
+                          <th className="py-2 px-2 text-right w-20">Tavkifat %</th>
+                          <th className="py-2 px-2 text-right w-24">Tutar</th>
                           <th className="py-2 px-2 w-8"></th>
                         </tr>
                       </thead>
@@ -478,52 +479,53 @@ export default function DeliveryNoteToInvoice() {
                           <tr key={idx} className="border-t border-slate-200">
                             <td className="py-1.5 px-1">
                               <input type="text" value={item.description} onChange={(e) => updateInvoiceItem(idx, 'description', e.target.value)}
-                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs" />
+                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs" />
                             </td>
                             <td className="py-1.5 px-1">
                               <input type="number" value={item.quantity} onChange={(e) => updateInvoiceItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
                             </td>
                             <td className="py-1.5 px-1">
                               <input type="text" value={item.unit} onChange={(e) => updateInvoiceItem(idx, 'unit', e.target.value)}
-                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs" />
+                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs" />
                             </td>
                             <td className="py-1.5 px-1">
                               <input type="number" value={item.unit_price} onChange={(e) => updateInvoiceItem(idx, 'unit_price', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
                             </td>
                             <td className="py-1.5 px-1">
                               <select value={item.vat_rate} onChange={(e) => updateInvoiceItem(idx, 'vat_rate', parseFloat(e.target.value) || 0)}
-                                className="w-full px-1 py-1 border border-slate-200 rounded text-xs">
+                                className="w-full px-1 py-1.5 border border-slate-200 rounded text-xs">
                                 <option value={0}>%0</option>
                                 <option value={1}>%1</option>
                                 <option value={10}>%10</option>
                                 <option value={20}>%20</option>
                               </select>
                             </td>
+                            <td className="py-1.5 px-2 text-right font-mono text-slate-600">{formatCurrency(item.vat_amount)}</td>
                             <td className="py-1.5 px-1">
                               <input type="number" value={item.discount_rate} onChange={(e) => updateInvoiceItem(idx, 'discount_rate', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
                             </td>
                             {discountCount >= 2 && (
                               <td className="py-1.5 px-1">
                                 <input type="number" value={item.discount_rate_2 || 0} onChange={(e) => updateInvoiceItem(idx, 'discount_rate_2', parseFloat(e.target.value) || 0)}
-                                  className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                                  className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
                               </td>
                             )}
                             {discountCount >= 3 && (
                               <td className="py-1.5 px-1">
                                 <input type="number" value={item.discount_rate_3 || 0} onChange={(e) => updateInvoiceItem(idx, 'discount_rate_3', parseFloat(e.target.value) || 0)}
-                                  className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                                  className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
                               </td>
                             )}
                             <td className="py-1.5 px-1">
                               <input type="number" value={item.stopaj_rate} onChange={(e) => updateInvoiceItem(idx, 'stopaj_rate', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
                             </td>
                             <td className="py-1.5 px-1">
                               <input type="number" value={item.withholding_rate} onChange={(e) => updateInvoiceItem(idx, 'withholding_rate', parseFloat(e.target.value) || 0)}
-                                className="w-full px-2 py-1 border border-slate-200 rounded text-xs text-right" />
+                                className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right" />
                             </td>
                             <td className="py-1.5 px-2 text-right font-bold">{formatCurrency(item.amount)}</td>
                             <td className="py-1.5 px-1">
@@ -538,7 +540,10 @@ export default function DeliveryNoteToInvoice() {
                       </tbody>
                       <tfoot>
                         <tr className="bg-slate-100 font-bold">
-                          <td colSpan={5 + discountCount + 3} className="py-2 px-2 text-right">Toplam:</td>
+                          <td colSpan={5} className="py-2 px-2 text-right">Toplam:</td>
+                          <td className="py-2 px-2 text-right">{formatCurrency(invoiceItems.reduce((s, i) => s + i.vat_amount, 0))}</td>
+                          <td colSpan={discountCount} className="py-2 px-2 text-right"></td>
+                          <td colSpan={2} className="py-2 px-2 text-right"></td>
                           <td className="py-2 px-2 text-right">{formatCurrency(invoiceItems.reduce((s, i) => s + i.amount, 0))}</td>
                           <td></td>
                         </tr>
