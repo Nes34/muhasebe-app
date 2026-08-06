@@ -191,6 +191,11 @@ export default function DeliveryNoteToInvoice() {
     if (field === 'withholding_rate') {
       updated[index].withholding_amount = updated[index].amount * ((Number(value) || 0) / 100);
     }
+    if (field === 'amount') {
+      updated[index].vat_amount = (Number(value) || 0) * ((updated[index].vat_rate || 0) / 100);
+      updated[index].stopaj_amount = (Number(value) || 0) * ((updated[index].stopaj_rate || 0) / 100);
+      updated[index].withholding_amount = (Number(value) || 0) * ((updated[index].withholding_rate || 0) / 100);
+    }
     setInvoiceItems(updated);
   };
 
@@ -545,16 +550,36 @@ export default function DeliveryNoteToInvoice() {
                                     } else if (e.key === 'ArrowUp') {
                                       e.preventDefault();
                                       setProductHighlightIndex(prev => Math.max(prev - 1, 0));
-                                    } else if (e.key === 'Tab' || e.key === 'Enter') {
+                                    } else                                     if (e.key === 'Tab' || e.key === 'Enter') {
                                       e.preventDefault();
                                       const selected = filtered[productHighlightIndex];
                                       if (selected) {
-                                        updateInvoiceItem(idx, 'description', selected.name);
-                                        updateInvoiceItem(idx, 'unit', selected.unit || 'adet');
-                                        updateInvoiceItem(idx, 'unit_price', selected.unit_price || 0);
                                         const qty = item.quantity || 1;
-                                        const amt = qty * (selected.unit_price || 0);
-                                        updateInvoiceItem(idx, 'amount', amt);
+                                        const gross = qty * (selected.unit_price || 0);
+                                        const dr1 = item.discount_rate || 0;
+                                        const disc1 = gross * (dr1 / 100);
+                                        const afterDisc1 = gross - disc1;
+                                        const dr2 = item.discount_rate_2 || 0;
+                                        const disc2 = afterDisc1 * (dr2 / 100);
+                                        const afterDisc2 = afterDisc1 - disc2;
+                                        const dr3 = item.discount_rate_3 || 0;
+                                        const disc3 = afterDisc2 * (dr3 / 100);
+                                        const netAmount = afterDisc2 - disc3;
+                                        const updated = [...invoiceItems];
+                                        updated[idx] = {
+                                          ...updated[idx],
+                                          description: selected.name,
+                                          unit: selected.unit || 'adet',
+                                          unit_price: selected.unit_price || 0,
+                                          discount_amount: disc1,
+                                          discount_amount_2: disc2,
+                                          discount_amount_3: disc3,
+                                          amount: netAmount,
+                                          vat_amount: netAmount * ((updated[idx].vat_rate || 0) / 100),
+                                          stopaj_amount: netAmount * ((updated[idx].stopaj_rate || 0) / 100),
+                                          withholding_amount: netAmount * ((updated[idx].withholding_rate || 0) / 100),
+                                        };
+                                        setInvoiceItems(updated);
                                         setOpenProductDropdown(null);
                                       }
                                     } else if (e.key === 'Escape') {
@@ -578,12 +603,32 @@ export default function DeliveryNoteToInvoice() {
                                           key={product.id}
                                           type="button"
                                           onClick={() => {
-                                            updateInvoiceItem(idx, 'description', product.name);
-                                            updateInvoiceItem(idx, 'unit', product.unit || 'adet');
-                                            updateInvoiceItem(idx, 'unit_price', product.unit_price || 0);
                                             const qty = item.quantity || 1;
-                                            const amt = qty * (product.unit_price || 0);
-                                            updateInvoiceItem(idx, 'amount', amt);
+                                            const gross = qty * (product.unit_price || 0);
+                                            const dr1 = item.discount_rate || 0;
+                                            const disc1 = gross * (dr1 / 100);
+                                            const afterDisc1 = gross - disc1;
+                                            const dr2 = item.discount_rate_2 || 0;
+                                            const disc2 = afterDisc1 * (dr2 / 100);
+                                            const afterDisc2 = afterDisc1 - disc2;
+                                            const dr3 = item.discount_rate_3 || 0;
+                                            const disc3 = afterDisc2 * (dr3 / 100);
+                                            const netAmount = afterDisc2 - disc3;
+                                            const updated = [...invoiceItems];
+                                            updated[idx] = {
+                                              ...updated[idx],
+                                              description: product.name,
+                                              unit: product.unit || 'adet',
+                                              unit_price: product.unit_price || 0,
+                                              discount_amount: disc1,
+                                              discount_amount_2: disc2,
+                                              discount_amount_3: disc3,
+                                              amount: netAmount,
+                                              vat_amount: netAmount * ((updated[idx].vat_rate || 0) / 100),
+                                              stopaj_amount: netAmount * ((updated[idx].stopaj_rate || 0) / 100),
+                                              withholding_amount: netAmount * ((updated[idx].withholding_rate || 0) / 100),
+                                            };
+                                            setInvoiceItems(updated);
                                             setOpenProductDropdown(null);
                                           }}
                                           className={`w-full px-3 py-2 text-left text-xs hover:bg-blue-50 flex justify-between items-center ${pIdx === productHighlightIndex ? 'bg-blue-100' : ''}`}
