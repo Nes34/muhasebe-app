@@ -120,7 +120,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <Search size={18} className="text-slate-400" />
           <input
             type="text"
-            placeholder="Ara..."
+            placeholder="Ara... (Alt+A)"
             className="bg-transparent border-none outline-none w-40 lg:w-64 text-sm"
           />
         </div>

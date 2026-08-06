@@ -421,7 +421,7 @@ export default function DeliveryNoteToInvoice() {
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold text-slate-700">Fatura Kalemleri</h4>
                   <button onClick={addInvoiceItem} className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200">
-                    <Plus size={12} /> Kalem Ekle
+                    <Plus size={12} /> Kalem Ekle <span className="text-[10px] text-slate-400 ml-1">(Alt+E)</span>
                   </button>
                 </div>
                 {invoiceItems.length > 0 ? (
@@ -430,11 +430,11 @@ export default function DeliveryNoteToInvoice() {
                       <thead>
                         <tr className="bg-slate-100">
                           <th className="py-2 px-2 text-left min-w-[150px]">Açıklama</th>
-                          <th className="py-2 px-2 text-right w-20">Miktar</th>
-                          <th className="py-2 px-2 text-left w-16">Birim</th>
-                          <th className="py-2 px-2 text-right w-24">Birim Fiyat</th>
-                          <th className="py-2 px-2 text-right w-20">KDV %</th>
-                          <th className="py-2 px-2 text-right w-24">KDV Tutarı</th>
+                          <th className="py-2 px-2 text-right w-[100px]">Miktar</th>
+                          <th className="py-2 px-2 text-left w-[100px]">Birim</th>
+                          <th className="py-2 px-2 text-right w-[100px]">Birim Fiyat</th>
+                          <th className="py-2 px-2 text-right w-[100px]">KDV %</th>
+                          <th className="py-2 px-2 text-right w-[100px]">KDV Tutarı</th>
                           <th className="py-2 px-2 text-right w-20">
                             <div className="flex items-center justify-end gap-1">
                               <span>İskonto %</span>
@@ -561,7 +561,7 @@ export default function DeliveryNoteToInvoice() {
                 İptal
               </button>
               <button onClick={handleConvert} disabled={converting === selectedNote.id} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm disabled:opacity-50">
-                {converting === selectedNote.id ? 'Dönüştürülüyor...' : 'Faturaya Dönüştür'}
+                {converting === selectedNote.id ? 'Dönüştürülüyor...' : 'Faturaya Dönüştür'} <span className="text-xs text-green-200 ml-1">(Alt+S)</span>
               </button>
             </div>
           </div>

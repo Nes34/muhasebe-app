@@ -404,7 +404,7 @@ export default function CheckManagement() {
               </div>
               <div className="flex items-end">
                 <button type="button" onClick={addCheckItem} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-                  <Plus size={16} /> Kalem Ekle
+                  <Plus size={16} /> Kalem Ekle <span className="text-[10px] text-blue-200 ml-1">(Alt+E)</span>
                 </button>
               </div>
             </div>
@@ -495,12 +495,12 @@ export default function CheckManagement() {
             {/* Alt Butonlar */}
             <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-200">
               <button type="button" onClick={addCheckItem} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-                <Plus size={16} /> Kalem Ekle
+                <Plus size={16} /> Kalem Ekle <span className="text-[10px] text-blue-200 ml-1">(Alt+E)</span>
               </button>
               <div className="flex gap-2">
                 <button type="button" onClick={() => { setShowForm(false); setEditingCheck(null); setCheckItems([]); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm">İptal</button>
                 <button onClick={handleSubmitMultiple} disabled={checkItems.length === 0} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm disabled:opacity-50">
-                  {checkItems.length} Çek Kaydet
+                  {checkItems.length} Çek Kaydet <span className="text-xs text-green-200 ml-1">(Alt+S)</span>
                 </button>
               </div>
             </div>

@@ -426,7 +426,7 @@ export default function AccountStatement() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm font-medium text-slate-700">Kalemler</p>
-                      <button onClick={addEditItem} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200">+ Kalem Ekle</button>
+                      <button onClick={addEditItem} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200">+ Kalem Ekle <span className="text-[10px] text-slate-400 ml-1">(Alt+E)</span></button>
                     </div>
                     {editItems.length > 0 ? (
                       <table className="w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
@@ -557,7 +557,7 @@ export default function AccountStatement() {
                 <>
                   <button onClick={() => { setEditMode(false); setEditForm({}); setEditItems(txItems.map(i => ({ ...i }))); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm">İptal</button>
                   <button onClick={handleSaveEdit} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm flex items-center gap-2 disabled:opacity-50">
-                    {saving ? 'Kaydediliyor...' : 'Kaydet'}
+                    {saving ? 'Kaydediliyor...' : 'Kaydet'} <span className="text-xs text-blue-200 ml-1">(Alt+S)</span>
                   </button>
                 </>
               ) : (

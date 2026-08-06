@@ -252,6 +252,13 @@ DROPDOWN KURALLARI:
 - Yön tuşlarıyla gezinirken otomatik kaydırma (scrollIntoView)
 - Tüm öğeler gösterilir (20 sınırı yok)
 
+KLAVYE KISAYOLLARI:
+- Alt+A: Arama kutusuna odaklanır
+- Alt+E: Modal açıksa Kalem Ekle, değilse İşlem Girişi sayfasına gider
+- Alt+S: Kaydet butonuna basar
+- ?: Kısayol listesini gösterir
+- Escape: Popup'ı kapatır
+
 SORULARA CEVAP VERİRKEN:
 - Ürün/hizmet türünü belirle
 - Uygun tevkifat oranını ve kodunu söyle

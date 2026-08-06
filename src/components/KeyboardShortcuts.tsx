@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Keyboard, X } from 'lucide-react';
 
 const shortcuts = [
-  { keys: ['Alt', 'A'], description: 'Arama', action: 'search' },
-  { keys: ['Alt', 'E'], description: 'Yeni İşlem', action: 'newTransaction' },
+  { keys: ['Alt', 'A'], description: 'Arama kutusuna odaklan', action: 'search' },
+  { keys: ['Alt', 'E'], description: 'Yeni İşlem / Kalem Ekle (modal açıksa)', action: 'newTransaction' },
+  { keys: ['Alt', 'S'], description: 'Kaydet (İşlem Girişi)', action: 'save' },
   { keys: ['?'], description: 'Kısayolları Göster', action: 'showHelp' },
   { keys: ['Escape'], description: 'Popup Kapat', action: 'close' },
 ];
@@ -31,10 +32,32 @@ export function KeyboardShortcuts() {
         }
       }
 
-      // Alt+E: Yeni İşlem
+      // Alt+E: Kalem Ekle (modal açıksa) veya Yeni İşlem
       if (e.altKey && e.key === 'e') {
+        // Önce modal içindeki kalem ekle butonunu ara
+        const addButtons = Array.from(document.querySelectorAll('button'));
+        for (const btn of addButtons) {
+          if (btn.textContent?.includes('Kalem Ekle') && btn.offsetParent !== null) {
+            e.preventDefault();
+            btn.click();
+            return;
+          }
+        }
+        // Modal yoksa İşlem Girişi'ne git
         e.preventDefault();
         navigate('/islem-girisi');
+      }
+
+      // Alt+S: Kaydet
+      if (e.altKey && e.key === 's') {
+        e.preventDefault();
+        const saveButtons = Array.from(document.querySelectorAll('button'));
+        for (const btn of saveButtons) {
+          if ((btn.textContent?.includes('Kaydet') || btn.textContent?.includes('ALT+S')) && btn.offsetParent !== null) {
+            btn.click();
+            return;
+          }
+        }
       }
 
       // ?: Kısayolları göster

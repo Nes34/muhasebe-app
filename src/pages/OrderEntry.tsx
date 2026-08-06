@@ -460,7 +460,7 @@ export default function OrderEntry() {
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-medium text-slate-800 flex items-center gap-2"><Package size={16} /> Sipariş Kalemleri</h3>
                   <button type="button" onClick={addItem} className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                    <Plus size={14} /> Kalem Ekle
+                    <Plus size={14} /> Kalem Ekle <span className="text-[10px] text-blue-200 ml-1">(Alt+E)</span>
                   </button>
                 </div>
 

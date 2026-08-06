@@ -1290,7 +1290,7 @@ export default function TransactionEntry() {
             className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
           >
             <Plus size={16} />
-            Şablon Kaydet
+            Şablon Kaydet <span className="text-xs text-orange-200 ml-1">(Alt+S)</span>
           </button>
           <button
             type="button"
@@ -2086,7 +2086,7 @@ export default function TransactionEntry() {
             className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
             <Save size={18} />
-            {loading ? 'Kaydediliyor...' : 'Kaydet'}
+            {loading ? 'Kaydediliyor...' : 'Kaydet'} <span className="text-xs text-blue-200 ml-1">(Alt+S)</span>
           </button>
         </div>
       </form>

@@ -247,3 +247,30 @@ Net Bakiye = Toplam Borç - Toplam Alacak
 ### Hariç Tutulan Tipler:
 - `delivery_note`, `sale_delivery_note`, `purchase_delivery_note` → Para hareketi değil
 - `transfer`, `stock_transfer`, `cash_transfer`, `bank_transfer` → Hesaplar arası transfer
+
+## ⌨️ Klavye Kısayolları
+
+### Tüm Sayfalarda Geçerli Kısayollar:
+| Kısayol | Açıklama | Çalışma Mantığı |
+|---------|----------|-----------------|
+| `Alt+A` | Arama | Arama kutusuna odaklanır |
+| `Alt+E` | Yeni İşlem / Kalem Ekle | Modal açıksa "Kalem Ekle" butonuna basar, değilse İşlem Girişi sayfasına gider |
+| `Alt+S` | Kaydet | "Kaydet" veya "ALT+S" yazan butona basar |
+| `?` | Kısayolları Göster | Sağ alt köşedeki klavye butonu ile aynı, kısayol listesini açar/kapatır |
+| `Escape` | Popup Kapat | Açık popup'ı kapatır |
+
+### Kısayol Çalışma Mantığı:
+1. **Input/textarea içindeyken çalışmaz** → Klavye yazarken kısayol tetiklenmez
+2. **Alt+E mantığı:**
+   - Önce sayfada görünür "Kalem Ekle" butonu aranır
+   - Bulunursa → O butona tıklanır (modal içinde kalem eklenir)
+   - Bulunmazsa → `/islem-girisi` sayfasına gidilir
+3. **Alt+S mantığı:**
+   - Sayfada "Kaydet" veya "ALT+S" yazan buton aranır
+   - Bulunursa → O butona tıklanır
+4. **? tuşu:** Shift+Sans işareti ile çalışır
+
+### Kısayol Paneli:
+- Sağ alt köşedeki klavye ikonuna tıkla veya `?` tuşuna bas
+- Tüm kısayollar burada listelenir
+- `Escape` ile kapatılır
