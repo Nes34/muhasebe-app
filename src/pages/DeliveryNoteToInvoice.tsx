@@ -173,23 +173,28 @@ export default function DeliveryNoteToInvoice() {
       const disc2 = afterDisc1 * (dr2 / 100);
       const afterDisc2 = afterDisc1 - disc2;
       const disc3 = afterDisc2 * (dr3 / 100);
+      const netAmount = afterDisc2 - disc3;
       
       updated[index].discount_amount = disc1;
       updated[index].discount_amount_2 = disc2;
       updated[index].discount_amount_3 = disc3;
-      updated[index].amount = afterDisc2 - disc3;
-      updated[index].vat_amount = updated[index].amount * ((updated[index].vat_rate || 0) / 100);
-      updated[index].stopaj_amount = updated[index].amount * ((updated[index].stopaj_rate || 0) / 100);
-      updated[index].withholding_amount = updated[index].amount * ((updated[index].withholding_rate || 0) / 100);
+      updated[index].vat_amount = netAmount * ((updated[index].vat_rate || 0) / 100);
+      updated[index].stopaj_amount = netAmount * ((updated[index].stopaj_rate || 0) / 100);
+      updated[index].withholding_amount = netAmount * ((updated[index].withholding_rate || 0) / 100);
+      updated[index].amount = netAmount + updated[index].vat_amount;
     }
     if (field === 'vat_rate') {
-      updated[index].vat_amount = updated[index].amount * ((Number(value) || 0) / 100);
+      const netAmount = updated[index].amount - updated[index].vat_amount;
+      updated[index].vat_amount = netAmount * ((Number(value) || 0) / 100);
+      updated[index].amount = netAmount + updated[index].vat_amount;
     }
     if (field === 'stopaj_rate') {
-      updated[index].stopaj_amount = updated[index].amount * ((Number(value) || 0) / 100);
+      const netAmount = updated[index].amount - updated[index].vat_amount;
+      updated[index].stopaj_amount = netAmount * ((Number(value) || 0) / 100);
     }
     if (field === 'withholding_rate') {
-      updated[index].withholding_amount = updated[index].amount * ((Number(value) || 0) / 100);
+      const netAmount = updated[index].amount - updated[index].vat_amount;
+      updated[index].withholding_amount = netAmount * ((Number(value) || 0) / 100);
     }
     if (field === 'amount') {
       updated[index].vat_amount = (Number(value) || 0) * ((updated[index].vat_rate || 0) / 100);
@@ -565,6 +570,7 @@ export default function DeliveryNoteToInvoice() {
                                         const dr3 = item.discount_rate_3 || 0;
                                         const disc3 = afterDisc2 * (dr3 / 100);
                                         const netAmount = afterDisc2 - disc3;
+                                        const vatAmount = netAmount * ((item.vat_rate || 0) / 100);
                                         const updated = [...invoiceItems];
                                         updated[idx] = {
                                           ...updated[idx],
@@ -574,10 +580,10 @@ export default function DeliveryNoteToInvoice() {
                                           discount_amount: disc1,
                                           discount_amount_2: disc2,
                                           discount_amount_3: disc3,
-                                          amount: netAmount,
-                                          vat_amount: netAmount * ((updated[idx].vat_rate || 0) / 100),
-                                          stopaj_amount: netAmount * ((updated[idx].stopaj_rate || 0) / 100),
-                                          withholding_amount: netAmount * ((updated[idx].withholding_rate || 0) / 100),
+                                          vat_amount: vatAmount,
+                                          stopaj_amount: netAmount * ((item.stopaj_rate || 0) / 100),
+                                          withholding_amount: netAmount * ((item.withholding_rate || 0) / 100),
+                                          amount: netAmount + vatAmount,
                                         };
                                         setInvoiceItems(updated);
                                         setOpenProductDropdown(null);
@@ -614,6 +620,7 @@ export default function DeliveryNoteToInvoice() {
                                             const dr3 = item.discount_rate_3 || 0;
                                             const disc3 = afterDisc2 * (dr3 / 100);
                                             const netAmount = afterDisc2 - disc3;
+                                            const vatAmount = netAmount * ((item.vat_rate || 0) / 100);
                                             const updated = [...invoiceItems];
                                             updated[idx] = {
                                               ...updated[idx],
@@ -623,10 +630,10 @@ export default function DeliveryNoteToInvoice() {
                                               discount_amount: disc1,
                                               discount_amount_2: disc2,
                                               discount_amount_3: disc3,
-                                              amount: netAmount,
-                                              vat_amount: netAmount * ((updated[idx].vat_rate || 0) / 100),
-                                              stopaj_amount: netAmount * ((updated[idx].stopaj_rate || 0) / 100),
-                                              withholding_amount: netAmount * ((updated[idx].withholding_rate || 0) / 100),
+                                              vat_amount: vatAmount,
+                                              stopaj_amount: netAmount * ((item.stopaj_rate || 0) / 100),
+                                              withholding_amount: netAmount * ((item.withholding_rate || 0) / 100),
+                                              amount: netAmount + vatAmount,
                                             };
                                             setInvoiceItems(updated);
                                             setOpenProductDropdown(null);
